@@ -287,12 +287,9 @@ export default function ValuateCard() {
 
       {/* Input Form */}
       {!result && !isLoading && (
-        <>
-          <PasteUrlInput onCardExtracted={handleValuate} />
-          <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
-            <CardInputForm onSubmit={handleValuate} isLoading={isLoading} />
-          </div>
-        </>
+        <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
+          <CardInputForm onSubmit={handleValuate} isLoading={isLoading} />
+        </div>
       )}
     </div>
   );
