@@ -144,41 +144,49 @@ export default function LiveAttributeTicker() {
     allAttrs.reduce((s, a) => s + a.weight, 0)
   );
 
-  // Raw comp for BGS 8.5 Jordan Fleer rookie approx $3,200
-  const rawComp = 3200;
-  const gradeMultiplier = 0.65; // BGS 8.5
+  // Jordan 1986 Fleer BGS 8.5 — real recent eBay/PWCC sold comps ~$9,500
+  const rawComp = 9500;
+  const gradeMultiplier = 0.65; // BGS 8.5 multiplier
   const registryPremium = 0;
-  const adjustedComp = rawComp * gradeMultiplier * (1 + registryPremium);
-  // New model: comp is anchor, attributes apply ±24% modifier
-  const attributeModifier = (overallScore - 50) / 50; // -1.0 to +1.0
-  const aiValue = Math.round(adjustedComp * (1 + (attributeModifier * 0.40)));
+  const adjustedComp = rawComp * gradeMultiplier * (1 + registryPremium); // ~$6,175
+  const attributeModifier = (overallScore - 50) / 50;
+  const aiValue = Math.round(adjustedComp * (1 + (attributeModifier * 0.30)));
+  const pctVsComp = (((aiValue - rawComp) / rawComp) * 100).toFixed(1);
 
   return (
     <div className="space-y-4">
       {/* Card Header */}
       <div className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                Live Demo
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground">42 attributes scored</span>
-            </div>
-            <h3 className="text-lg font-bold text-foreground">Michael Jordan</h3>
-            <p className="text-xs text-muted-foreground">1986 Fleer Rookie #57 · BGS 8.5 NM-MT</p>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Live Demo</span>
+          <span className="text-[10px] font-mono text-muted-foreground">44 attributes scored</span>
+        </div>
+        <h3 className="text-lg font-bold text-foreground">Michael Jordan</h3>
+        <p className="text-xs text-muted-foreground mb-4">1986 Fleer Rookie #57 · BGS 8.5 NM-MT</p>
+
+        {/* Value Row: Last Sale → Grade Adj → AI Value */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-secondary/60 rounded-xl p-2.5">
+            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Last Sale (Comp)</p>
+            <p className="text-base font-mono font-bold text-foreground">${rawComp.toLocaleString()}</p>
+            <p className="text-[9px] font-mono text-muted-foreground">today's market</p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-mono text-muted-foreground uppercase">AI Inv. Value</p>
-            <p className="text-2xl font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
-            <p className="text-[10px] font-mono text-muted-foreground">
-              Comp: ${rawComp.toLocaleString()} · ×0.65 grade
+          <div className="bg-secondary/80 rounded-xl p-2.5 border border-border/50">
+            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Grade ×0.65</p>
+            <p className="text-base font-mono font-bold text-foreground">${adjustedComp.toLocaleString()}</p>
+            <p className="text-[9px] font-mono text-muted-foreground">BGS 8.5 adj.</p>
+          </div>
+          <div className="bg-primary/10 border border-primary/30 rounded-xl p-2.5">
+            <p className="text-[9px] font-mono uppercase tracking-wider text-primary mb-1">AI Inv. Value</p>
+            <p className="text-base font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
+            <p className={cn("text-[9px] font-mono font-semibold", parseFloat(pctVsComp) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              {parseFloat(pctVsComp) >= 0 ? '+' : ''}{pctVsComp}% vs comp
             </p>
           </div>
         </div>
 
         {/* Score bar */}
-        <div className="mt-3 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-primary rounded-full"
@@ -187,9 +195,7 @@ export default function LiveAttributeTicker() {
               transition={{ duration: 1.2, ease: 'easeOut' }}
             />
           </div>
-          <span className="text-sm font-mono font-bold text-primary shrink-0">
-            {overallScore}/100
-          </span>
+          <span className="text-sm font-mono font-bold text-primary shrink-0">{overallScore}/100</span>
         </div>
         <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
           <span>Overall Investment Score</span>
