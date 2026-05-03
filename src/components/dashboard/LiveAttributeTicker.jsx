@@ -67,12 +67,13 @@ export default function LiveAttributeTicker() {
     validAttrs.reduce((s, a) => s + a.weight, 0)
   );
 
-  const rawComp = 13500;
+  // Use 90-day market average (~50 sales), not the most recent spike sale
+  const rawComp = 10500;
   const gradeMultiplier = 0.65;
   const attributeAdjustment = ((overallScore - 50) / 50) * 0.30;
   const aiValue = Math.round((rawComp * gradeMultiplier) * (1 + attributeAdjustment));
   const adjustedComp = Math.round(rawComp * gradeMultiplier);
-  const pctVsComp = (((aiValue - rawComp) / rawComp) * 100).toFixed(1);
+  const pctVsComp = (((aiValue - adjustedComp) / adjustedComp) * 100).toFixed(1);
   const signal = getSignal(overallScore);
 
   return (
