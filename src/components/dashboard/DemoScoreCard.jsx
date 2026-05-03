@@ -58,9 +58,10 @@ const ALL_FACTORS = [
   { label: "Downside Protection",       score: 9,  weight: 3  },
 ];
 
-const COMP    = 10500;
-const GRADE   = 0.65;
-const BASE    = COMP * GRADE; // 6825
+const FLIPPERS_COMP = 10500;  // Last sold (current comp)
+const HOLDERS_COMP  = 9850;   // 90-day avg baseline
+const GRADE         = 0.65;
+const BASE          = FLIPPERS_COMP * GRADE; // 6825
 
 // Compute raw impact per factor: (score/10 - 0.5) * weight * scale_factor
 // Factors above 5 = positive contribution, below 5 = negative, 0 = neutral drag
@@ -82,7 +83,8 @@ export default function DemoScoreCard() {
   const rollupAdj  = rest.reduce((s, f) => s + f.impact, 0);
   const totalAdj   = top5Adj + rollupAdj;
   const aiValue    = Math.round(BASE * (1 + totalAdj));
-  const vsCompPct  = ((aiValue - COMP) / COMP * 100).toFixed(1);
+  const vsFlippersPct = ((aiValue - FLIPPERS_COMP) / FLIPPERS_COMP * 100).toFixed(1);
+  const vsHoldersPct  = ((aiValue - HOLDERS_COMP) / HOLDERS_COMP * 100).toFixed(1);
 
   const fmt = (v) => (v >= 0 ? `+${(v * 100).toFixed(1)}%` : `${(v * 100).toFixed(1)}%`);
 
@@ -105,12 +107,18 @@ export default function DemoScoreCard() {
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">AI Investment Value</p>
           <p className="text-3xl font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            vs last comp{' '}
-            <span className={cn("font-semibold", parseFloat(vsCompPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
-              {parseFloat(vsCompPct) >= 0 ? '+' : ''}{vsCompPct}%
-            </span>
-          </p>
+          <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+            <div>vs flippers{' '}
+              <span className={cn("font-semibold", parseFloat(vsFlippersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                {parseFloat(vsFlippersPct) >= 0 ? '+' : ''}{vsFlippersPct}%
+              </span>
+            </div>
+            <div>vs holders{' '}
+              <span className={cn("font-semibold", parseFloat(vsHoldersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                {parseFloat(vsHoldersPct) >= 0 ? '+' : ''}{vsHoldersPct}%
+              </span>
+            </div>
+          </div>
           <div className="mt-2">
             <ScoreGauge score={91} label="Score" size="sm" />
           </div>
@@ -121,10 +129,16 @@ export default function DemoScoreCard() {
       <div className="border-t border-border/30 pt-4 space-y-1.5">
         <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">AI Value Formula</p>
 
-        {/* Step 1: comp */}
-        <div className="flex justify-between text-xs items-center">
-          <span className="text-muted-foreground">Comp (last sale)</span>
-          <span className="font-mono font-semibold text-foreground">${COMP.toLocaleString()}</span>
+        {/* Step 1: comps */}
+        <div className="space-y-1 mb-2">
+          <div className="flex justify-between text-xs items-center">
+            <span className="text-muted-foreground">Flippers Comp (last sold)</span>
+            <span className="font-mono font-semibold text-foreground">${FLIPPERS_COMP.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-xs items-center">
+            <span className="text-muted-foreground">Holders Comp (90-day avg)</span>
+            <span className="font-mono font-semibold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</span>
+          </div>
         </div>
 
         {/* Step 2: grade */}
@@ -172,6 +186,7 @@ export default function DemoScoreCard() {
 
         <div className="h-px bg-border/40 my-1" />
         {[
+          { label: "Spread (flip ↔ hold)", value: `$${(FLIPPERS_COMP - HOLDERS_COMP).toLocaleString()}`, cls: "text-muted-foreground" },
           { label: "Market Heat",  value: "91/100",     cls: "text-emerald-400" },
           { label: "Signal",       value: "STRONG BUY", cls: "text-emerald-400 font-bold" },
         ].map(row => (
