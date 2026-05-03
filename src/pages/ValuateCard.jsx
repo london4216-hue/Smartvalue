@@ -4,6 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import CardInputForm from '@/components/valuation/CardInputForm';
 import ValuationResult from '@/components/valuation/ValuationResult';
+import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 
 function buildPrompt(cardData) {
@@ -286,9 +287,15 @@ export default function ValuateCard() {
 
       {/* Input Form */}
       {!result && !isLoading && (
-        <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
-          <CardInputForm onSubmit={handleValuate} isLoading={isLoading} />
-        </div>
+        <>
+          <PasteUrlInput onCardExtracted={(cardData) => {
+            setCardInput(cardData);
+            // Populate form with extracted data
+          }} />
+          <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
+            <CardInputForm onSubmit={handleValuate} isLoading={isLoading} initialData={cardInput} />
+          </div>
+        </>
       )}
     </div>
   );
