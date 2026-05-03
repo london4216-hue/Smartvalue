@@ -6,6 +6,7 @@ import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
 import KeySignals from './KeySignals';
 import ContextualSignals from './ContextualSignals';
+import InvestmentThesis from './InvestmentThesis';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -37,6 +38,14 @@ export default function ValuationResult({ result, onSave, onReset }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Investment Thesis — Last Sale vs AI Value */}
+      <InvestmentThesis
+        compValue={compValue}
+        aiValue={aiValue}
+        flipVsHold={result.flip_vs_hold}
+        cheapestAvailable={cheapestAvailable}
+      />
+
       {/* Key Signals — GOTCHA attributes up top */}
        {result.key_signals && result.key_signals.length > 0 && (
          <KeySignals signals={result.key_signals} flipVsHold={result.flip_vs_hold} />
