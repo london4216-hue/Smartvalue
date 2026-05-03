@@ -183,34 +183,50 @@ export default function ValuationResult({ result, onSave, onReset }) {
              </div>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center">
-              Value Model
-            </p>
-            {[
-              { label: "Comp Anchor (70%)", pct: 70, color: "bg-muted-foreground/40", textColor: "text-muted-foreground" },
-              { label: `Grade ×${gradeInfo?.multiplier || 1}`, pct: gradeInfo ? Math.min((gradeInfo.multiplier / 2.8) * 100, 100) : 0, color: "bg-blue-400", textColor: "text-blue-400" },
-              { label: "AI Modifier (±30%)", pct: 30, color: "bg-primary", textColor: "text-primary" },
-            ].map(item => (
-              <div key={item.label}>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                    <div className={cn("h-full rounded-full transition-all", item.color)} style={{ width: `${item.pct}%` }} />
-                  </div>
-                  <span className={cn("text-[10px] font-mono w-24 text-right", item.textColor)}>{item.label}</span>
-                </div>
-              </div>
-            ))}
-            {gradeInfo && (
-              <div className="bg-secondary/30 rounded-lg p-2 mt-2">
-                <p className="text-[10px] font-mono text-muted-foreground text-center">
-                  Registry premium: {gradeInfo.registry_premium > 0 ? `+${(gradeInfo.registry_premium * 100).toFixed(0)}%` : 'none'}
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
+                How We Calculate AI Value
+              </p>
+              <div className="bg-secondary/30 rounded-lg p-3 space-y-2 text-xs text-muted-foreground/80">
+                <p>
+                  <span className="text-foreground font-semibold">Step 1:</span> Start with what it last sold for (comp)
+                </p>
+                <p>
+                  <span className="text-foreground font-semibold">Step 2:</span> Multiply by grade quality (e.g., PSA 10 = ×2.2)
+                </p>
+                <p>
+                  <span className="text-foreground font-semibold">Step 3:</span> Adjust up/down based on rarity, player demand, autographs, patches (±30%)
                 </p>
               </div>
-            )}
-            <p className="text-[9px] text-muted-foreground/70 text-center mt-2">
-              70% = last sale anchor. Grade multiplier & AI signals adjust ±30%.
-            </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Grade Impact
+              </p>
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-2">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-foreground">{result.grade || 'No Grade'}</span>
+                  <span className="text-blue-400 font-semibold">×{gradeInfo?.multiplier || 1}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground/70">
+                  {gradeInfo?.label || 'Raw card — no grading company premium'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                AI Signals Adjustment
+              </p>
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-2">
+                <p className="text-[10px] text-muted-foreground/80">
+                  Looking at: serial number, autograph type, patch quality, player momentum, rarity
+                </p>
+                <p className="text-[10px] text-primary font-semibold mt-1">Can adjust value up to +30% or down to -30%</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
