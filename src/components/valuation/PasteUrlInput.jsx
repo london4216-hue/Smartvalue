@@ -62,15 +62,15 @@ Be strict: only extract information that is explicitly stated or clearly visible
 
       if (result.player_name) {
         onCardExtracted(result);
-        setUrl('');
       } else {
         setError('Could not extract card details from this URL. Try a more specific listing page.');
       }
     } catch (err) {
       setError('Failed to extract card details. Please try another URL.');
+    } finally {
+      setUrl('');
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
