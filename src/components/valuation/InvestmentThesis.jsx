@@ -4,39 +4,39 @@ import { cn } from '@/lib/utils';
 
 const ACTION_CONFIG = {
   strong_buy: {
-    label: '🔥 BUY IT NOW',
+    label: '🔥 STRONG BUY',
     color: 'text-emerald-500',
     bg: 'bg-emerald-500/10 border-emerald-500/30',
     icon: ShoppingCart,
-    thesis: 'This card is significantly underpriced relative to its investment potential. Current market price offers excellent entry point with strong upside.'
+    thesis: 'AI value is 20%+ above last sale. This card is underpriced based on 44 data-point analysis of scarcity, condition, player momentum, and market trends.'
   },
   buy: {
     label: '✓ BUY IT',
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10 border-emerald-400/20',
     icon: ShoppingCart,
-    thesis: 'Good opportunity to buy. The AI value exceeds the current price with room for appreciation.'
+    thesis: 'AI value is 8-20% above last sale. Attributes justify meaningful upside vs. last comp — good entry relative to fundamentals.'
   },
   hold: {
-    label: '⏳ WAIT FOR IT',
+    label: '⏳ HOLD / FAIR VALUE',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10 border-amber-500/30',
     icon: Clock,
-    thesis: 'Current price is fair relative to fundamentals. Wait for a better entry point or hold if you already own it.'
+    thesis: 'AI value is within 2% of last sale. Price appears fair. No clear edge yet — wait for better opportunity or hold if you own it.'
   },
   sell: {
-    label: '💰 SELL AT THIS PRICE',
+    label: '📉 SELL',
     color: 'text-orange-400',
     bg: 'bg-orange-500/10 border-orange-500/20',
     icon: DollarSign,
-    thesis: 'Market price exceeds AI valuation. Good time to sell and lock in gains or redeploy capital.'
+    thesis: 'AI value is 10-25% below last sale. Attributes suggest overvaluation vs. current market trends. Consider selling or passing.'
   },
   strong_sell: {
     label: '⚠️ STRONG SELL',
     color: 'text-red-500',
     bg: 'bg-red-500/10 border-red-500/20',
     icon: DollarSign,
-    thesis: 'Card is significantly overvalued. Strong sell signal — avoid at current price.'
+    thesis: 'AI value is 25%+ below last sale. Significant overvaluation signal based on pop trends, supply scarcity, and player momentum. Avoid or exit.'
   }
 };
 
@@ -44,11 +44,34 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
   const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
   const marginOfSafety = compValue > 0 ? ((aiValue - compValue) / aiValue * 100).toFixed(1) : null;
 
-  // Override recommendation if AI value equals or is less than comp — that's a hold/sell signal
+  // Enforce: AI value must ALWAYS differ from comp
+  // If they're equal or within rounding error, force a recommendation
   let recommendation = flipVsHold;
   if (compValue > 0) {
-    if (aiValue <= compValue) {
-      recommendation = aiValue < (compValue * 0.85) ? 'sell' : 'hold';
+    const percentDiff = parseFloat(valueDiff);
+    
+    // AI value must be meaningfully different (at least ±2%)
+    if (Math.abs(percentDiff) < 2) {
+      // If essentially equal, this is a data/logic error — default to hold
+      recommendation = 'hold';
+    } else if (percentDiff > 0) {
+      // AI value > comp: strong upside indicates buy/strong_buy
+      if (percentDiff >= 20) {
+        recommendation = 'strong_buy';
+      } else if (percentDiff >= 8) {
+        recommendation = 'buy';
+      } else {
+        recommendation = 'hold';
+      }
+    } else {
+      // AI value < comp: downside indicates sell/strong_sell
+      if (percentDiff <= -25) {
+        recommendation = 'strong_sell';
+      } else if (percentDiff <= -10) {
+        recommendation = 'sell';
+      } else {
+        recommendation = 'hold';
+      }
     }
   }
 
