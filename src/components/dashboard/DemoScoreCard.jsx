@@ -82,6 +82,14 @@ function computeFactors() {
 export default function DemoScoreCard() {
   const sorted  = computeFactors();
   const top5    = sorted.slice(0, 5);
+  const rest    = sorted.slice(5);
+
+  const top5Adj    = top5.reduce((s, f) => s + f.impact, 0);
+  const rollupAdj  = rest.reduce((s, f) => s + f.impact, 0);
+  const totalAdj   = top5Adj + rollupAdj;
+  const gradeMultiplier = 0.65;
+  const baseValue = FLIPPERS_COMP * gradeMultiplier;
+  const aiValue = Math.round(baseValue * (1 + totalAdj));
 
   const spread = FLIPPERS_COMP - HOLDERS_COMP;
   const vsHoldersPct = ((FLIPPERS_COMP - HOLDERS_COMP) / HOLDERS_COMP * 100).toFixed(1);
@@ -139,6 +147,32 @@ export default function DemoScoreCard() {
             <p className="text-2xl font-mono font-bold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</p>
             <p className="text-[10px] text-muted-foreground mt-2">90-day baseline</p>
           </div>
+        </div>
+      </div>
+
+      {/* AI Value calculation */}
+      <div className="border-t border-border/30 pt-4 space-y-1.5 bg-primary/5 rounded-lg p-3 -mx-5 px-5">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-2">AI Value Calculation</p>
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-muted-foreground">$10,500 (Comp)</span>
+          <span className="font-mono font-semibold text-foreground">$10,500</span>
+        </div>
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-muted-foreground">× 0.65 (Grade)</span>
+          <span className="font-mono font-semibold text-foreground">${baseValue.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-muted-foreground">+ {(top5Adj * 100).toFixed(0)}% (Top 5 Drivers)</span>
+          <span className="font-mono font-semibold text-emerald-400">+{(top5Adj * 100).toFixed(0)}%</span>
+        </div>
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-muted-foreground">+ {(rollupAdj * 100).toFixed(0)}% (Supporting Factors)</span>
+          <span className="font-mono font-semibold text-emerald-400">+{(rollupAdj * 100).toFixed(0)}%</span>
+        </div>
+        <div className="h-px bg-border/40 my-1" />
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-foreground font-semibold">= ${aiValue.toLocaleString()} (AI Value)</span>
+          <span className="font-mono font-bold text-primary">${aiValue.toLocaleString()}</span>
         </div>
       </div>
 
