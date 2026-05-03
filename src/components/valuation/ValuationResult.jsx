@@ -110,7 +110,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             {[
               { label: "Comp Anchor (70%)", pct: 70, color: "bg-muted-foreground/40", textColor: "text-muted-foreground" },
               { label: `Grade ×${gradeInfo?.multiplier || 1}`, pct: gradeInfo ? Math.min((gradeInfo.multiplier / 2.8) * 100, 100) : 0, color: "bg-blue-400", textColor: "text-blue-400" },
-              { label: "AI Modifier (±24%)", pct: 30, color: "bg-primary", textColor: "text-primary" },
+              { label: "AI Modifier (±30%)", pct: 30, color: "bg-primary", textColor: "text-primary" },
             ].map(item => (
               <div key={item.label}>
                 <div className="flex items-center gap-2 mb-1">

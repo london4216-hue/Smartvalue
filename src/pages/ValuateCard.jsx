@@ -56,15 +56,17 @@ The final ai_investment_value is calculated as:
   Step 1: Apply grade multiplier → adjusted_comp = comp × ${gradeInfo ? gradeInfo.multiplier : 1.0}
   Step 2: Add registry premium → registry_adjusted = adjusted_comp × (1 + ${gradeInfo ? gradeInfo.registry_premium : 0})
   Step 3: Calculate AI attribute modifier → attribute_modifier = (overall_attribute_score - 50) / 50 (ranges from -1.0 to +1.0)
-  Step 4: Apply modifier to comp → final = registry_adjusted × (1 + (attribute_modifier × 0.40))
+  Step 4: Apply modifier to comp → final = registry_adjusted × (1 + (attribute_modifier × 0.30))
   
   This means:
-  - The comp + grade adjustment anchors 100% of the base value
-  - Strong attributes (score 80+) can push value up to +24% above grade-adjusted comp
-  - Weak attributes (score 20-) can discount value up to -24% below grade-adjusted comp
-  - The AI NEVER fabricates a value wildly disconnected from what the market is actually paying
+  - The comp + grade adjustment is the VALUE REALITY. It is always the anchor.
+  - If attributes average near 50 (ordinary card, ordinary outlook), ai_investment_value ≈ grade-adjusted comp. No inflation.
+  - Strong attributes (score 75+) can push value up to +15% above grade-adjusted comp
+  - Weak attributes (score 25-) can discount value up to -15% below grade-adjusted comp
+  - NEVER return a value more than 30% above or below the grade-adjusted comp. The comp IS the market.
+  - A card with average attributes should come back at almost exactly the comp. That is correct and intentional.
 
-IMPORTANT: If no comp is provided, use your best knowledge of real recent eBay/PWCC sold prices for this exact card + grade as the comp baseline. Do NOT make up a comp — research it carefully.
+IMPORTANT: If no comp is provided, use your best knowledge of real recent eBay/PWCC sold prices for this exact card + grade as the comp baseline. Research carefully — the comp is the foundation of everything.
 
 Score each of these ${allAttrs.length} attributes from 0-100 based on your knowledge:
 
@@ -76,7 +78,12 @@ Also provide:
 - "ai_investment_value": Estimated fair investment value in USD using the 4-step model above. MUST be grounded in real market prices.
 - "analysis_summary": 3-4 sentence investment thesis. State the comp used, grade multiplier applied, and whether attributes are pushing value above or below market comp.
 
-CRITICAL: The comp is king. A PSA 10 Luka Prizm that last sold for $400 should NOT come back at $4,000 just because attributes are high. Attributes can adjust ±24% max. Be conservative and accurate. Real investors trust data, not hype.`;
+CRITICAL RULES:
+1. The comp is the market's verdict. Respect it. An average card with average attributes should return ai_investment_value ≈ comp. That is NOT a bug — it is the correct answer.
+2. Only exceptional fundamentals (rare pop, MVP trajectory, major market trade, viral cultural moment) justify pushing above comp.
+3. Only serious red flags (injury, declining performance, oversaturated supply) justify going below comp.
+4. Max deviation from grade-adjusted comp is ±30%. Never exceed this.
+5. If you're unsure, stay close to the comp. Accuracy over hype.`;
 }
 
 function buildResponseSchema() {
