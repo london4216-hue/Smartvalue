@@ -75,7 +75,7 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
               Last Sale Price
             </p>
             <p className="text-xl font-mono font-bold text-foreground">
-              ${compValue ? compValue.toLocaleString() : 'N/A'}
+              ${(compValue || aiValue).toLocaleString()}
             </p>
             <p className="text-[10px] text-muted-foreground/60 mt-1">
               What it sold for
