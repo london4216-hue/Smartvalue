@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, TrendingUp, BarChart2, Layers, Zap } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
@@ -10,38 +10,7 @@ import LiveAttributeTicker from '@/components/dashboard/LiveAttributeTicker';
 import TopTrending from '@/components/dashboard/TopTrending';
 import DemoScoreCard from '@/components/dashboard/DemoScoreCard';
 
-// ── How it works pills ────────────────────────────────────────────────────────
-const HOW_IT_WORKS = [
-  { icon: Layers,     label: "42 Attributes",      sub: "Card DNA, scarcity, auto, patch, pop" },
-  { icon: TrendingUp, label: "Market Momentum",     sub: "Real eBay data, auction velocity, heat" },
-  { icon: BarChart2,  label: "Player Thesis",       sub: "Legacy, trajectory, cultural reach" },
-  { icon: Zap,        label: "AI Investment Score", sub: "0–100 with flip vs hold signal" },
-];
 
-function HowItWorks() {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-      {HOW_IT_WORKS.map((item, i) => {
-        const Icon = item.icon;
-        return (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.05 }}
-            className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-2"
-          >
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Icon className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-sm font-semibold text-foreground">{item.label}</p>
-            <p className="text-xs text-muted-foreground leading-snug">{item.sub}</p>
-          </motion.div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ── Portfolio summary stats ───────────────────────────────────────────────────
 function ValuationSummary({ cards }) {
@@ -226,17 +195,32 @@ export default function Dashboard() {
           <Zap className="w-4 h-4 text-primary" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Investment-Grade Intelligence</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-          Today's comp is a snapshot.
-          <br />
-          <span className="text-primary">We find tomorrow's value.</span>
-        </h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-4 max-w-2xl leading-relaxed">
-          A comp tells you what someone paid <em>yesterday</em>. Our 42-attribute model captures pop report trends, serial scarcity, auto type, cultural momentum, and player trajectory — everything the comp ignores.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+          <div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
+              Today's comp is a snapshot.
+              <br />
+              <span className="text-primary">We find tomorrow's value.</span>
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-4 max-w-2xl leading-relaxed">
+              A comp tells you what someone paid <em>yesterday</em>. Our 44-factor model captures pop report trends, serial scarcity, auto type, cultural momentum, and player trajectory — everything the comp ignores.
+            </p>
+          </div>
+          <div className="relative shrink-0">
+            <img
+              src="https://d1htnxwo4o0jhw.cloudfront.net/cert/134044389/iiXp9pAT6EGgwPCfGBf1yA.jpg"
+              alt="1986 Fleer Michael Jordan #57 BGS 8.5"
+              className="w-28 h-36 object-cover rounded-xl border border-border/40 shadow-2xl"
+              onError={(e) => {
+                e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Michael_Jordan_in_2014.jpg/220px-Michael_Jordan_in_2014.jpg';
+              }}
+            />
+            <span className="absolute -bottom-2 -right-2 bg-amber-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-full shadow">BGS 8.5</span>
+            <span className="absolute -top-2 -left-2 bg-primary text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-full shadow">LIVE DEMO</span>
+          </div>
+        </div>
       </motion.div>
 
-      <HowItWorks />
       <ValuationSummary cards={cards} />
       <LiveDemo />
       <CTABanner />
