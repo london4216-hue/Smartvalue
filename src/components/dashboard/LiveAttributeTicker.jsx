@@ -69,9 +69,9 @@ export default function LiveAttributeTicker() {
 
   const rawComp = 38000;
   const gradeMultiplier = 0.65;
+  const attributeAdjustment = ((overallScore - 50) / 50) * 0.30;
+  const aiValue = Math.round((rawComp * gradeMultiplier) * (1 + attributeAdjustment));
   const adjustedComp = Math.round(rawComp * gradeMultiplier);
-  const attributeModifier = (overallScore - 50) / 50;
-  const aiValue = Math.round(adjustedComp * (1 + attributeModifier * 0.30));
   const pctVsComp = (((aiValue - rawComp) / rawComp) * 100).toFixed(1);
   const signal = getSignal(overallScore);
 

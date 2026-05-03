@@ -53,18 +53,18 @@ VALUATION MODEL:
 The comp is the market anchor — it represents what buyers are actually paying right now. The AI attributes adjust that anchor up or down based on investment fundamentals.
 
 The final ai_investment_value is calculated as:
-  Step 1: Apply grade multiplier → adjusted_comp = comp × ${gradeInfo ? gradeInfo.multiplier : 1.0}
-  Step 2: Add registry premium → registry_adjusted = adjusted_comp × (1 + ${gradeInfo ? gradeInfo.registry_premium : 0})
-  Step 3: Calculate AI attribute modifier → attribute_modifier = (overall_attribute_score - 50) / 50 (ranges from -1.0 to +1.0)
-  Step 4: Apply modifier to comp → final = registry_adjusted × (1 + (attribute_modifier × 0.30))
-  
-  This means:
-  - The comp + grade adjustment is the VALUE REALITY. It is always the anchor.
-  - If attributes average near 50 (ordinary card, ordinary outlook), ai_investment_value ≈ grade-adjusted comp. No inflation.
-  - Strong attributes (score 75+) can push value up to +15% above grade-adjusted comp
-  - Weak attributes (score 25-) can discount value up to -15% below grade-adjusted comp
-  - NEVER return a value more than 30% above or below the grade-adjusted comp. The comp IS the market.
-  - A card with average attributes should come back at almost exactly the comp. That is correct and intentional.
+  adjusted_value = (comp × grade_multiplier) × (1 + attribute_adjustment)
+
+  Where:
+  - comp = the last comparable sale price provided (or your best estimate of real market price)
+  - grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0} (based on grade tier)
+  - attribute_adjustment = a value between -0.30 and +0.30, derived from the weighted average of all attribute scores
+    → attribute_adjustment = (weighted_avg_score - 50) / 50 × 0.30
+    → If weighted avg ≈ 50 (ordinary card), attribute_adjustment ≈ 0 → final ≈ grade-adjusted comp
+    → If weighted avg = 80+, attribute_adjustment up to +0.18 → pushes above grade-adjusted comp
+    → If weighted avg = 25-, attribute_adjustment down to -0.15 → discounts below grade-adjusted comp
+  - NEVER exceed ±30% adjustment from the grade-adjusted comp. The comp IS the market.
+  - A card with average attributes should return ai_investment_value ≈ (comp × grade_multiplier). That is correct and intentional.
 
 IMPORTANT: If no comp is provided, use your best knowledge of real recent eBay/PWCC sold prices for this exact card + grade as the comp baseline. Research carefully — the comp is the foundation of everything.
 
