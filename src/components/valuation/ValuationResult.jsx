@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
+import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
   strong_buy: { label: 'Strong Buy', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20', icon: TrendingUp },
@@ -20,6 +21,9 @@ export default function ValuationResult({ result, onSave, onReset }) {
   const compValue = result.comp_value || 0;
   const aiValue = result.ai_investment_value || 0;
   const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
+  const gradeInfo = result.grade && GRADE_WEIGHTS[result.grade] ? GRADE_WEIGHTS[result.grade] : null;
+  const gradeTier = gradeInfo ? GRADE_TIER_LABELS[gradeInfo.tier] : null;
+  const gradeAdjustedComp = gradeInfo && compValue ? (compValue * gradeInfo.multiplier).toFixed(0) : null;
 
   return (
     <motion.div
@@ -49,20 +53,41 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <ScoreGauge score={result.overall_score} label="Investment Score" />
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-secondary/50 rounded-xl p-4">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                Comp Value (Baseline)
+          <div className="space-y-3">
+            {/* Raw Comp */}
+            <div className="bg-secondary/50 rounded-xl p-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                Raw Comp (last sale)
               </p>
-              <p className="text-xl font-mono font-bold text-muted-foreground">
+              <p className="text-lg font-mono font-bold text-muted-foreground">
                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
               </p>
             </div>
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">
+            {/* Grade-Adjusted Comp */}
+            {gradeInfo && gradeAdjustedComp && (
+              <div className="bg-secondary/80 rounded-xl p-3 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Shield className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    Grade-Adjusted ({gradeInfo.multiplier}× {result.grade?.split(' ')[0]})
+                  </p>
+                  {gradeTier && (
+                    <span className={cn("text-[10px] font-mono font-semibold ml-auto", gradeTier.color)}>
+                      {gradeTier.label}
+                    </span>
+                  )}
+                </div>
+                <p className="text-lg font-mono font-bold text-foreground">
+                  ${parseInt(gradeAdjustedComp).toLocaleString()}
+                </p>
+              </div>
+            )}
+            {/* AI Value */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-0.5">
                 AI Investment Value
               </p>
-              <div className="flex items-baseline gap-3">
+              <div className="flex items-baseline gap-2">
                 <p className="text-2xl font-mono font-bold text-primary">
                   ${aiValue.toLocaleString()}
                 </p>
@@ -71,7 +96,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                     "text-xs font-mono font-semibold",
                     parseFloat(valueDiff) >= 0 ? "text-emerald-400" : "text-red-400"
                   )}>
-                    {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}%
+                    {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs comp
                   </span>
                 )}
               </div>
@@ -79,27 +104,30 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </div>
 
           <div className="space-y-3">
-            <div className="text-center">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                Weight Split
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-muted-foreground/30 rounded-full overflow-hidden">
-                  <div className="h-full w-1/2 bg-muted-foreground/60 rounded-full" />
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center">
+              Value Model
+            </p>
+            {[
+              { label: "Raw Comp", pct: 50, color: "bg-muted-foreground/40", textColor: "text-muted-foreground" },
+              { label: `Grade ×${gradeInfo?.multiplier || 1}`, pct: gradeInfo ? Math.min((gradeInfo.multiplier / 2.8) * 100, 100) : 0, color: "bg-blue-400", textColor: "text-blue-400" },
+              { label: "AI Attributes", pct: 50, color: "bg-primary", textColor: "text-primary" },
+            ].map(item => (
+              <div key={item.label}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full transition-all", item.color)} style={{ width: `${item.pct}%` }} />
+                  </div>
+                  <span className={cn("text-[10px] font-mono w-24 text-right", item.textColor)}>{item.label}</span>
                 </div>
-                <span className="text-[10px] font-mono text-muted-foreground">50%</span>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Comp Baseline</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-primary/30 rounded-full overflow-hidden">
-                  <div className="h-full w-1/2 bg-primary rounded-full" />
-                </div>
-                <span className="text-[10px] font-mono text-primary">50%</span>
+            ))}
+            {gradeInfo && (
+              <div className="bg-secondary/30 rounded-lg p-2 mt-2">
+                <p className="text-[10px] font-mono text-muted-foreground text-center">
+                  Registry premium: {gradeInfo.registry_premium > 0 ? `+${(gradeInfo.registry_premium * 100).toFixed(0)}%` : 'none'}
+                </p>
               </div>
-              <p className="text-[10px] text-primary mt-1">AI Attribute Score</p>
-            </div>
+            )}
           </div>
         </div>
       </div>

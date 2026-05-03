@@ -4,12 +4,37 @@ import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import CardInputForm from '@/components/valuation/CardInputForm';
 import ValuationResult from '@/components/valuation/ValuationResult';
-import { ATTRIBUTE_CATEGORIES } from '@/components/valuation/AttributeCategories';
+import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 
 function buildPrompt(cardData) {
   const allAttrs = Object.values(ATTRIBUTE_CATEGORIES).flatMap(cat =>
     cat.attributes.map(a => `"${a.key}": (0-100 score for ${a.label}, weight: ${a.weight})`)
   );
+
+  const gradeInfo = cardData.grade && GRADE_WEIGHTS[cardData.grade]
+    ? GRADE_WEIGHTS[cardData.grade]
+    : null;
+
+  const gradeSection = gradeInfo ? `
+GRADE WEIGHT FACTORS (already computed — use these in your valuation math):
+- Grade: ${cardData.grade}
+- Value Multiplier: ${gradeInfo.multiplier}× (this directly scales the comp baseline)
+- Registry Premium: ${gradeInfo.registry_premium > 0 ? `+${(gradeInfo.registry_premium * 100).toFixed(0)}% added to comp` : 'None'}
+- Grading Company Market Trust: ${cardData.grade.startsWith('PSA') ? 'Highest (PSA dominates resale market)' : cardData.grade.startsWith('BGS') ? 'Very High (Beckett highly respected, BGS 10 Pristine is rarest)' : cardData.grade.startsWith('SGC') ? 'High (SGC growing rapidly, especially vintage)' : cardData.grade.startsWith('CGC') ? 'Moderate-High (CGC new entrant, growing)' : 'None — raw cards are illiquid, high risk'}
+- Centering Tolerance: ${gradeInfo.centering_tolerance}
+- Surface Standard: ${gradeInfo.surface_standard}
+- Population Scarcity at This Grade: ${(gradeInfo.pop_scarcity_factor * 100).toFixed(0)}/100 (higher = rarer at this grade)
+- Upgrade Potential: ${gradeInfo.tier === 'raw' ? 'High — could be worth much more if graded gem' : gradeInfo.tier === 'nm' || gradeInfo.tier === 'low' ? 'Moderate — crossover or resubmit possible' : 'Low — already at top grade'}
+
+When scoring the "grade_quality" category attributes, use these facts directly.
+The comp value of ${cardData.comp_value ? '$' + cardData.comp_value : 'unknown'} should be adjusted by the ${gradeInfo.multiplier}× multiplier when estimating AI investment value.
+` : '';
+
+  const scanNotes = cardData.scan_notes ? `
+CARD SCAN OBSERVATIONS (from AI image analysis):
+${cardData.scan_notes}
+Use these observations to inform your grade_quality scoring.
+` : '';
 
   return `You are an expert basketball card investment analyst. Analyze the following card and provide a comprehensive investment valuation.
 
@@ -20,24 +45,27 @@ ${cardData.card_set ? `- Set: ${cardData.card_set}` : ''}
 ${cardData.card_number ? `- Card Number: ${cardData.card_number}` : ''}
 ${cardData.variation ? `- Variation: ${cardData.variation}` : ''}
 ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
-${cardData.comp_value ? `- Last Comparable Sale: $${cardData.comp_value}` : '- Last Comparable Sale: Unknown'}
+${cardData.comp_value ? `- Last Comparable Sale (raw comp): $${cardData.comp_value}` : '- Last Comparable Sale: Unknown'}
+${gradeSection}
+${scanNotes}
 
 VALUATION MODEL:
-The final investment value is calculated as:
-- 50% weight: Comp baseline (last comparable sale)
-- 50% weight: AI Attribute Score (the multi-factor analysis below)
+The final ai_investment_value is calculated as:
+  Step 1: Apply grade multiplier → adjusted_comp = comp × ${gradeInfo ? gradeInfo.multiplier : 1.0}
+  Step 2: Add registry premium → registry_adjusted = adjusted_comp × (1 + ${gradeInfo ? gradeInfo.registry_premium : 0})
+  Step 3: Blend with AI attribute score → final = (registry_adjusted × 0.50) + (attribute_value × 0.50)
 
 Score each of these ${allAttrs.length} attributes from 0-100 based on your knowledge:
 
 ${allAttrs.join('\n')}
 
 Also provide:
-- "overall_score": An overall investment score from 0-100
-- "flip_vs_hold": One of "strong_buy", "buy", "hold", "sell", "strong_sell" — from a LONG-TERM INVESTMENT perspective (NOT a flipper perspective)
-- "ai_investment_value": Your estimated fair market investment value in USD (considering all factors, not just last sale)
-- "analysis_summary": A 2-3 sentence investment thesis explaining your valuation
+- "overall_score": Overall investment score 0-100
+- "flip_vs_hold": One of "strong_buy", "buy", "hold", "sell", "strong_sell" — LONG-TERM INVESTMENT perspective only
+- "ai_investment_value": Estimated fair investment value in USD using the 3-step model above
+- "analysis_summary": 3-4 sentence investment thesis. Reference the grade multiplier impact explicitly.
 
-IMPORTANT: Think about long-term investment value, not short-term flip value. Consider player trajectory, cultural impact, scarcity, and market dynamics. The comp is just a starting point — the real value comes from the multi-factor analysis.`;
+CRITICAL: This is for long-term investors, NOT flippers. A raw card with no grade should be heavily discounted. A PSA 10 or BGS 9.5 with scarce population should command a significant premium over raw comp prices.`;
 }
 
 function buildResponseSchema() {

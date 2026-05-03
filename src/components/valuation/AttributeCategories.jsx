@@ -1,3 +1,36 @@
+// Grade weight multipliers — how much each grade amplifies or discounts value
+// Scale: 1.0 = neutral baseline. Higher = premium. Lower = discount.
+export const GRADE_WEIGHTS = {
+  // PSA
+  "PSA 10":  { multiplier: 2.20, label: "PSA 10 — Gem Mint",        tier: "gem",      registry_premium: 0.25, centering_tolerance: "55/45", surface_standard: "pristine", pop_scarcity_factor: 0.9 },
+  "PSA 9":   { multiplier: 1.25, label: "PSA 9 — Mint",             tier: "mint",     registry_premium: 0.05, centering_tolerance: "60/40", surface_standard: "minor wear allowed", pop_scarcity_factor: 0.5 },
+  "PSA 8":   { multiplier: 0.70, label: "PSA 8 — Near Mint-Mint",   tier: "nm",       registry_premium: 0,    centering_tolerance: "65/35", surface_standard: "light wear", pop_scarcity_factor: 0.2 },
+  "PSA 7":   { multiplier: 0.45, label: "PSA 7 — Near Mint",        tier: "low",      registry_premium: 0,    centering_tolerance: "70/30", surface_standard: "moderate wear", pop_scarcity_factor: 0.1 },
+  // BGS / Beckett
+  "BGS 10":  { multiplier: 2.80, label: "BGS 10 — Pristine",        tier: "pristine", registry_premium: 0.35, centering_tolerance: "50/50", surface_standard: "flawless", pop_scarcity_factor: 1.0 },
+  "BGS 9.5": { multiplier: 1.90, label: "BGS 9.5 — Gem Mint",       tier: "gem",      registry_premium: 0.20, centering_tolerance: "55/45", surface_standard: "near flawless", pop_scarcity_factor: 0.85 },
+  "BGS 9":   { multiplier: 1.10, label: "BGS 9 — Mint",             tier: "mint",     registry_premium: 0.05, centering_tolerance: "60/40", surface_standard: "minor wear", pop_scarcity_factor: 0.4 },
+  "BGS 8.5": { multiplier: 0.65, label: "BGS 8.5 — Near Mint-Mint", tier: "nm",       registry_premium: 0,    centering_tolerance: "65/35", surface_standard: "light wear", pop_scarcity_factor: 0.15 },
+  // SGC
+  "SGC 10":  { multiplier: 1.80, label: "SGC 10 — Gem Mint",        tier: "gem",      registry_premium: 0.15, centering_tolerance: "55/45", surface_standard: "gem quality", pop_scarcity_factor: 0.75 },
+  "SGC 9.5": { multiplier: 1.40, label: "SGC 9.5 — Mint+",          tier: "gem",      registry_premium: 0.10, centering_tolerance: "58/42", surface_standard: "near gem", pop_scarcity_factor: 0.6 },
+  "SGC 9":   { multiplier: 1.05, label: "SGC 9 — Mint",             tier: "mint",     registry_premium: 0,    centering_tolerance: "60/40", surface_standard: "minor wear", pop_scarcity_factor: 0.35 },
+  // CGC
+  "CGC 10":  { multiplier: 1.70, label: "CGC 10 — Pristine",        tier: "gem",      registry_premium: 0.12, centering_tolerance: "55/45", surface_standard: "pristine", pop_scarcity_factor: 0.7 },
+  "CGC 9.5": { multiplier: 1.30, label: "CGC 9.5 — Gem Mint",       tier: "gem",      registry_premium: 0.08, centering_tolerance: "58/42", surface_standard: "near pristine", pop_scarcity_factor: 0.55 },
+  // Raw
+  "Raw (Ungraded)": { multiplier: 0.40, label: "Raw — Ungraded",    tier: "raw",      registry_premium: 0,    centering_tolerance: "unknown", surface_standard: "unknown", pop_scarcity_factor: 0 },
+};
+
+export const GRADE_TIER_LABELS = {
+  pristine: { label: "Pristine", color: "text-violet-400" },
+  gem:      { label: "Gem Mint", color: "text-emerald-400" },
+  mint:     { label: "Mint",     color: "text-blue-400" },
+  nm:       { label: "NM-MT",    color: "text-amber-400" },
+  low:      { label: "Low",      color: "text-orange-400" },
+  raw:      { label: "Raw",      color: "text-muted-foreground" },
+};
+
 // All 40+ attributes organized by category
 export const ATTRIBUTE_CATEGORIES = {
   player_performance: {
@@ -26,6 +59,20 @@ export const ATTRIBUTE_CATEGORIES = {
       { key: "volatility", label: "Price Volatility", weight: 2 },
       { key: "liquidity_score", label: "Liquidity Score", weight: 3 },
       { key: "buy_sell_ratio", label: "Buy/Sell Pressure Ratio", weight: 3 },
+    ]
+  },
+  grade_quality: {
+    label: "Grade & Condition Quality",
+    icon: "Shield",
+    attributes: [
+      { key: "grade_multiplier_value",   label: "Grade Tier Multiplier Impact",    weight: 5 },
+      { key: "registry_premium",         label: "Registry / Set Premium",          weight: 4 },
+      { key: "grading_company_trust",    label: "Grading Company Market Trust",    weight: 4 },
+      { key: "centering_quality",        label: "Centering Quality",               weight: 3 },
+      { key: "surface_condition",        label: "Surface Condition Score",         weight: 3 },
+      { key: "pop_scarcity_at_grade",    label: "Population Scarcity at This Grade", weight: 4 },
+      { key: "upgrade_potential",        label: "Upgrade Potential (raw/low grade)", weight: 2 },
+      { key: "crossover_appeal",         label: "Cross-Grade / Cross-Company Appeal", weight: 2 },
     ]
   },
   scarcity_supply: {

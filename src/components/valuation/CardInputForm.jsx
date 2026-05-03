@@ -3,8 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Loader2, Sparkles } from 'lucide-react';
+import { Search, Loader2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import CardImageScanner from './CardImageScanner';
+import GradeWeightDisplay from './GradeWeightDisplay';
+import { GRADE_WEIGHTS } from './AttributeCategories';
 
 const POPULAR_SETS = [
   "Prizm", "Optic", "National Treasures", "Select", "Mosaic",
@@ -12,13 +15,7 @@ const POPULAR_SETS = [
   "Contenders", "Revolution", "Spectra", "Crown Royale", "Other"
 ];
 
-const GRADES = [
-  "PSA 10", "PSA 9", "PSA 8", "PSA 7",
-  "BGS 10", "BGS 9.5", "BGS 9", "BGS 8.5",
-  "SGC 10", "SGC 9.5", "SGC 9",
-  "CGC 10", "CGC 9.5",
-  "Raw (Ungraded)"
-];
+const ALL_GRADES = Object.keys(GRADE_WEIGHTS);
 
 export default function CardInputForm({ onSubmit, isLoading }) {
   const [form, setForm] = useState({
@@ -29,10 +26,26 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     variation: '',
     grade: '',
     comp_value: '',
+    image_url: '',
   });
+  const [showScanner, setShowScanner] = useState(true);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleScanned = (extracted) => {
+    setForm(prev => ({
+      ...prev,
+      player_name: extracted.player_name || prev.player_name,
+      card_year:   extracted.card_year   || prev.card_year,
+      card_set:    extracted.card_set    || prev.card_set,
+      card_number: extracted.card_number || prev.card_number,
+      variation:   extracted.variation   || prev.variation,
+      grade:       extracted.grade       || prev.grade,
+      image_url:   extracted.image_url   || prev.image_url,
+      scan_notes:  extracted.scan_notes  || '',
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -50,7 +63,24 @@ export default function CardInputForm({ onSubmit, isLoading }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Player Name - Hero Input */}
+      {/* AI Card Scanner Toggle */}
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowScanner(s => !s)}
+          className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span className="font-mono uppercase tracking-wider">AI Card Scanner (optional)</span>
+          {showScanner ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+        {showScanner && (
+          <CardImageScanner onExtracted={handleScanned} />
+        )}
+      </div>
+
+      <div className="border-t border-border/30" />
+
+      {/* Player Name */}
       <div className="space-y-2">
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
           Player Name *
@@ -113,23 +143,23 @@ export default function CardInputForm({ onSubmit, isLoading }) {
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 col-span-2 sm:col-span-1">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Grade</Label>
           <Select value={form.grade} onValueChange={(v) => handleChange('grade', v)}>
             <SelectTrigger className="bg-secondary/50 border-border/50 rounded-xl">
               <SelectValue placeholder="Select grade" />
             </SelectTrigger>
             <SelectContent>
-              {GRADES.map(g => (
+              {ALL_GRADES.map(g => (
                 <SelectItem key={g} value={g}>{g}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 col-span-2 sm:col-span-3">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Last Comp Sale ($)
+            Last Comp Sale ($) — used as 50% baseline
           </Label>
           <Input
             type="number"
@@ -141,6 +171,9 @@ export default function CardInputForm({ onSubmit, isLoading }) {
         </div>
       </div>
 
+      {/* Grade Weight Panel */}
+      {form.grade && <GradeWeightDisplay grade={form.grade} />}
+
       <Button
         type="submit"
         disabled={isLoading || !form.player_name}
@@ -149,7 +182,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
         {isLoading ? (
           <>
             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Analyzing {42} Attributes...
+            Analyzing 50 Attributes...
           </>
         ) : (
           <>
