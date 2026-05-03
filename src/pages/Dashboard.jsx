@@ -112,6 +112,7 @@ function LiveDemo() {
               { label: "Grade-Adj (×0.65)",   value: "$6,825",    cls: "text-foreground" },
               { label: "1-Year Target",       value: "$13,650",   cls: "text-emerald-400" },
               { label: "5-Year Target",       value: "$29,400",   cls: "text-emerald-400" },
+              { label: "Market Heat",         value: "91/100",     cls: "text-emerald-400" },
               { label: "Signal",              value: "STRONG BUY",cls: "text-emerald-400 font-bold" },
             ].map(row => (
               <div key={row.label} className="flex justify-between text-xs">
