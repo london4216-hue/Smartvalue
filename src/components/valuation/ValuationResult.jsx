@@ -7,6 +7,7 @@ import AttributeBreakdown from './AttributeBreakdown';
 import KeySignals from './KeySignals';
 import ContextualSignals from './ContextualSignals';
 import InvestmentThesis from './InvestmentThesis';
+import ValuationBreakdown from './ValuationBreakdown';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -290,6 +291,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </p>
         </div>
       )}
+
+      {/* Valuation Calculation Breakdown */}
+      <ValuationBreakdown 
+        compValue={compValue}
+        attributeScores={result.attribute_scores || {}}
+        aiValue={result.ai_investment_value}
+      />
 
       {/* Full Attribute Breakdown */}
       <div className="bg-card border border-border/50 rounded-2xl p-6">
