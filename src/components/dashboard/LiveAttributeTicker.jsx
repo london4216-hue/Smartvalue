@@ -149,8 +149,9 @@ export default function LiveAttributeTicker() {
   const gradeMultiplier = 0.65; // BGS 8.5
   const registryPremium = 0;
   const adjustedComp = rawComp * gradeMultiplier * (1 + registryPremium);
-  const attrValue = (overallScore / 100) * adjustedComp * 2;
-  const aiValue = Math.round((adjustedComp * 0.5) + (attrValue * 0.5));
+  // New model: comp is anchor, attributes apply ±24% modifier
+  const attributeModifier = (overallScore - 50) / 50; // -1.0 to +1.0
+  const aiValue = Math.round(adjustedComp * (1 + (attributeModifier * 0.40)));
 
   return (
     <div className="space-y-4">

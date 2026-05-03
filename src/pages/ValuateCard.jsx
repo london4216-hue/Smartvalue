@@ -50,22 +50,33 @@ ${gradeSection}
 ${scanNotes}
 
 VALUATION MODEL:
+The comp is the market anchor — it represents what buyers are actually paying right now. The AI attributes adjust that anchor up or down based on investment fundamentals.
+
 The final ai_investment_value is calculated as:
   Step 1: Apply grade multiplier → adjusted_comp = comp × ${gradeInfo ? gradeInfo.multiplier : 1.0}
   Step 2: Add registry premium → registry_adjusted = adjusted_comp × (1 + ${gradeInfo ? gradeInfo.registry_premium : 0})
-  Step 3: Blend with AI attribute score → final = (registry_adjusted × 0.50) + (attribute_value × 0.50)
+  Step 3: Calculate AI attribute modifier → attribute_modifier = (overall_attribute_score - 50) / 50 (ranges from -1.0 to +1.0)
+  Step 4: Apply modifier to comp → final = registry_adjusted × (1 + (attribute_modifier × 0.40))
+  
+  This means:
+  - The comp + grade adjustment anchors 100% of the base value
+  - Strong attributes (score 80+) can push value up to +24% above grade-adjusted comp
+  - Weak attributes (score 20-) can discount value up to -24% below grade-adjusted comp
+  - The AI NEVER fabricates a value wildly disconnected from what the market is actually paying
+
+IMPORTANT: If no comp is provided, use your best knowledge of real recent eBay/PWCC sold prices for this exact card + grade as the comp baseline. Do NOT make up a comp — research it carefully.
 
 Score each of these ${allAttrs.length} attributes from 0-100 based on your knowledge:
 
 ${allAttrs.join('\n')}
 
 Also provide:
-- "overall_score": Overall investment score 0-100
+- "overall_score": Overall investment score 0-100 (weighted average of all attributes)
 - "flip_vs_hold": One of "strong_buy", "buy", "hold", "sell", "strong_sell" — LONG-TERM INVESTMENT perspective only
-- "ai_investment_value": Estimated fair investment value in USD using the 3-step model above
-- "analysis_summary": 3-4 sentence investment thesis. Reference the grade multiplier impact explicitly.
+- "ai_investment_value": Estimated fair investment value in USD using the 4-step model above. MUST be grounded in real market prices.
+- "analysis_summary": 3-4 sentence investment thesis. State the comp used, grade multiplier applied, and whether attributes are pushing value above or below market comp.
 
-CRITICAL: This is for long-term investors, NOT flippers. A raw card with no grade should be heavily discounted. A PSA 10 or BGS 9.5 with scarce population should command a significant premium over raw comp prices.`;
+CRITICAL: The comp is king. A PSA 10 Luka Prizm that last sold for $400 should NOT come back at $4,000 just because attributes are high. Attributes can adjust ±24% max. Be conservative and accurate. Real investors trust data, not hype.`;
 }
 
 function buildResponseSchema() {
