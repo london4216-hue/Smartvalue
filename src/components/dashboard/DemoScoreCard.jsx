@@ -107,17 +107,11 @@ export default function DemoScoreCard() {
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">AI Investment Value</p>
           <p className="text-3xl font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
-          <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-            <div>vs flippers{' '}
-              <span className={cn("font-semibold", parseFloat(vsFlippersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
-                {parseFloat(vsFlippersPct) >= 0 ? '+' : ''}{vsFlippersPct}%
-              </span>
-            </div>
-            <div>vs holders{' '}
-              <span className={cn("font-semibold", parseFloat(vsHoldersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
-                {parseFloat(vsHoldersPct) >= 0 ? '+' : ''}{vsHoldersPct}%
-              </span>
-            </div>
+          <div className="mt-1 text-[11px]">
+            vs holders{' '}
+            <span className={cn("font-semibold", parseFloat(vsHoldersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {parseFloat(vsHoldersPct) >= 0 ? '+' : ''}{vsHoldersPct}%
+            </span>
           </div>
           <div className="mt-2">
             <ScoreGauge score={91} label="Score" size="sm" />
