@@ -4,32 +4,34 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ATTRIBUTE_CATEGORIES } from '@/components/valuation/AttributeCategories';
 
-// Jordan Rookie Fleer BGS 8.5 — pre-baked demo scores
+// Jordan 1986 Fleer Rookie BGS 8.5 — demo scores
+// Retired player: N/A fields use -1 (current_season_performance, contract_status, playoff_team, mvp_potential)
+// Comp updated to reflect current 2025 market: BGS 8.5 Jordan Fleer trading ~$38,000
 const DEMO_SCORES = {
   // Player Performance
-  ppg: 87, career_trajectory: 99, injury_risk: 72, playoff_performer: 99,
-  all_star_selections: 99, mvp_potential: 99, championships: 99, all_nba_teams: 99,
-  current_season_performance: 40,
+  ppg: 97, career_trajectory: 99, injury_risk: 88, playoff_performer: 99,
+  all_star_selections: 99, mvp_potential: -1, championships: 99, all_nba_teams: 99,
+  current_season_performance: -1,
   // Market Dynamics
-  trade_volume_30d: 88, trade_volume_90d: 85, price_trend_30d: 76, price_trend_90d: 80,
-  volatility: 45, liquidity_score: 90, buy_sell_ratio: 82,
+  trade_volume_30d: 95, trade_volume_90d: 93, price_trend_30d: 91, price_trend_90d: 89,
+  volatility: 55, liquidity_score: 97, buy_sell_ratio: 94,
   // Grade & Condition
-  grade_multiplier_value: 65, registry_premium: 55, grading_company_trust: 85,
+  grade_multiplier_value: 65, registry_premium: 40, grading_company_trust: 92,
   centering_quality: 68, surface_condition: 70, pop_scarcity_at_grade: 72,
-  upgrade_potential: 60, crossover_appeal: 75,
+  upgrade_potential: 60, crossover_appeal: 88,
   // Scarcity
-  pop_report: 62, print_run: 70, grade_rarity: 65, set_prestige: 99,
-  variation_desirability: 88, rookie_card: 99,
+  pop_report: 62, pop_count_at_grade: 74, print_run: 70, grade_rarity: 65, set_prestige: 99,
+  variation_desirability: 92, rookie_card: 99, jersey_number_match: 15,
   // Cultural & Brand
-  social_media_following: 95, social_media_engagement: 78, highlight_virality: 92,
-  endorsement_deals: 99, jersey_sales_rank: 95, media_mentions: 90,
-  cultural_icon_status: 99, off_court_brand: 98,
+  social_media_following: 97, social_media_engagement: 85, highlight_virality: 98,
+  endorsement_deals: 99, jersey_sales_rank: 97, media_mentions: 95,
+  cultural_icon_status: 99, off_court_brand: 99,
   // Investment Fundamentals
-  historical_appreciation: 96, hold_period_returns: 91, downside_protection: 85,
-  comparable_player_premium: 95, era_value_multiplier: 88, cross_sport_demand: 80,
+  historical_appreciation: 99, hold_period_returns: 96, downside_protection: 92,
+  comparable_player_premium: 98, era_value_multiplier: 95, cross_sport_demand: 88,
   // External Factors
-  player_age: 30, contract_status: 35, team_market_size: 99, national_tv_appearances: 96,
-  playoff_team: 90, hall_of_fame_trajectory: 99, international_appeal: 98, draft_class_strength: 85,
+  player_age: 80, contract_status: -1, team_market_size: 99, national_tv_appearances: 98,
+  playoff_team: -1, hall_of_fame_trajectory: 99, international_appeal: 99, draft_class_strength: 92,
 };
 
 const CATEGORY_ICONS = {
@@ -63,7 +65,8 @@ function getTrend(score) {
 }
 
 function AttributeRow({ attr, score, index }) {
-  const trend = getTrend(score);
+  const isNA = score === -1 || score === null || score === undefined;
+  const trend = isNA ? 'neutral' : getTrend(score);
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -73,9 +76,10 @@ function AttributeRow({ attr, score, index }) {
     >
       {/* Trend arrow */}
       <div className="w-5 shrink-0 flex justify-center">
-        {trend === 'up' && <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />}
-        {trend === 'down' && <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
-        {trend === 'neutral' && <Minus className="w-3.5 h-3.5 text-yellow-400" />}
+        {!isNA && trend === 'up' && <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />}
+        {!isNA && trend === 'down' && <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+        {!isNA && trend === 'neutral' && <Minus className="w-3.5 h-3.5 text-yellow-400" />}
+        {isNA && <Minus className="w-3.5 h-3.5 text-muted-foreground/30" />}
       </div>
 
       {/* Label */}
@@ -86,17 +90,19 @@ function AttributeRow({ attr, score, index }) {
 
       {/* Mini bar */}
       <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden shrink-0">
-        <motion.div
-          className={cn("h-full rounded-full", getBarColor(score))}
-          initial={{ width: 0 }}
-          animate={{ width: `${score}%` }}
-          transition={{ duration: 0.8, delay: index * 0.025 }}
-        />
+        {!isNA && (
+          <motion.div
+            className={cn("h-full rounded-full", getBarColor(score))}
+            initial={{ width: 0 }}
+            animate={{ width: `${score}%` }}
+            transition={{ duration: 0.8, delay: index * 0.025 }}
+          />
+        )}
       </div>
 
       {/* Score */}
-      <span className={cn("text-[11px] font-mono font-bold w-7 text-right shrink-0", getColor(score))}>
-        {score}
+      <span className={cn("text-[11px] font-mono font-bold w-7 text-right shrink-0", isNA ? 'text-muted-foreground/30' : getColor(score))}>
+        {isNA ? 'N/A' : score}
       </span>
     </motion.div>
   );
@@ -104,7 +110,8 @@ function AttributeRow({ attr, score, index }) {
 
 function CategoryBlock({ catKey, cat, index }) {
   const attrs = cat.attributes;
-  const avgScore = Math.round(attrs.reduce((s, a) => s + (DEMO_SCORES[a.key] || 0), 0) / attrs.length);
+  const validScores = attrs.map(a => DEMO_SCORES[a.key]).filter(s => s !== undefined && s !== -1 && s !== null);
+  const avgScore = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
 
   return (
     <motion.div
@@ -139,13 +146,14 @@ function CategoryBlock({ catKey, cat, index }) {
 export default function LiveAttributeTicker() {
   const categories = Object.entries(ATTRIBUTE_CATEGORIES);
   const allAttrs = categories.flatMap(([, cat]) => cat.attributes);
+  const validAttrs = allAttrs.filter(a => DEMO_SCORES[a.key] !== undefined && DEMO_SCORES[a.key] !== -1);
   const overallScore = Math.round(
-    allAttrs.reduce((s, a) => s + (DEMO_SCORES[a.key] || 0) * a.weight, 0) /
-    allAttrs.reduce((s, a) => s + a.weight, 0)
+    validAttrs.reduce((s, a) => s + DEMO_SCORES[a.key] * a.weight, 0) /
+    validAttrs.reduce((s, a) => s + a.weight, 0)
   );
 
-  // Jordan 1986 Fleer BGS 8.5 — real recent eBay/PWCC sold comps ~$9,500
-  const rawComp = 9500;
+  // Jordan 1986 Fleer BGS 8.5 — real 2025 market: $35k–$42k range, using conservative $38k
+  const rawComp = 38000;
   const gradeMultiplier = 0.65; // BGS 8.5 multiplier
   const registryPremium = 0;
   const adjustedComp = rawComp * gradeMultiplier * (1 + registryPremium); // ~$6,175
