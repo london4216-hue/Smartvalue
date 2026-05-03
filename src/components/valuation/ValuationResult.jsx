@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
@@ -79,25 +79,27 @@ export default function ValuationResult({ result, onSave, onReset }) {
             </div>
 
             {/* Holder's Comp Projections */}
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">
-                Holder's Comp (Long-Term)
-              </p>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">1 Year</span>
-                  <span className="font-mono font-bold text-foreground">${(compValue * 1.15).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">5 Year</span>
-                  <span className="font-mono font-bold text-emerald-400">${(compValue * 1.6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">10 Year</span>
-                  <span className="font-mono font-bold text-emerald-300">${(compValue * 2.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                </div>
-              </div>
-            </div>
+             {(compValue > 0 || aiValue > 0) && (
+               <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                 <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">
+                   Estimated Future Value
+                 </p>
+                 <div className="space-y-1.5">
+                   <div className="flex justify-between items-center text-xs">
+                     <span className="text-muted-foreground">1 Year</span>
+                     <span className="font-mono font-bold text-foreground">${((compValue || aiValue) * 1.15).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-xs">
+                     <span className="text-muted-foreground">5 Year</span>
+                     <span className="font-mono font-bold text-emerald-400">${((compValue || aiValue) * 1.6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-xs">
+                     <span className="text-muted-foreground">10 Year</span>
+                     <span className="font-mono font-bold text-emerald-300">${((compValue || aiValue) * 2.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                   </div>
+                 </div>
+               </div>
+             )}
             {/* Cheapest Available */}
             {cheapestAvailable && (
               <div className={cn(
@@ -154,24 +156,31 @@ export default function ValuationResult({ result, onSave, onReset }) {
               </div>
             )}
             {/* AI Value */}
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-0.5">
-                AI Investment Value
-              </p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-mono font-bold text-primary">
-                  ${aiValue.toLocaleString()}
-                </p>
-                {valueDiff && (
-                  <span className={cn(
-                    "text-xs font-mono font-semibold",
-                    parseFloat(valueDiff) >= 0 ? "text-emerald-400" : "text-red-400"
-                  )}>
-                    {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs comp
-                  </span>
-                )}
-              </div>
-            </div>
+             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+               <div className="space-y-2">
+                 <div>
+                   <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-0.5">
+                     AI Investment Value
+                   </p>
+                   <div className="flex items-baseline gap-2">
+                     <p className="text-2xl font-mono font-bold text-primary">
+                       ${aiValue.toLocaleString()}
+                     </p>
+                     {valueDiff && (
+                       <span className={cn(
+                         "text-xs font-mono font-semibold",
+                         parseFloat(valueDiff) >= 0 ? "text-emerald-400" : "text-red-400"
+                       )}>
+                         {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs comp
+                       </span>
+                     )}
+                   </div>
+                 </div>
+                 <p className="text-[9px] text-primary/70 leading-tight">
+                   What this card is worth to a long-term holder based on grade, rarity, player demand & market signals. Accounts for PSA potential, condition, and collector interest.
+                 </p>
+               </div>
+             </div>
           </div>
 
           <div className="space-y-3">
@@ -199,7 +208,46 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 </p>
               </div>
             )}
+            <p className="text-[9px] text-muted-foreground/70 text-center mt-2">
+              70% = last sale anchor. Grade multiplier & AI signals adjust ±30%.
+            </p>
           </div>
+        </div>
+      </div>
+
+      {/* Where to Buy */}
+      <div className="bg-card border border-border/50 rounded-2xl p-6">
+        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
+          🛍️ Where to Buy
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <a
+            href={`https://www.ebay.com/sch/i.html?_nkw=${result.player_name}+${result.card_year}+${result.card_set}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
+          >
+            <span className="text-sm font-semibold text-foreground">eBay</span>
+            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+          </a>
+          <a
+            href={`https://www.pwccauctions.com/Search?searchType=0&searchQuery=${result.player_name}+${result.card_year}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
+          >
+            <span className="text-sm font-semibold text-foreground">PWCC Auctions</span>
+            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+          </a>
+          <a
+            href={`https://www.comc.com/Cards/Search?CardName=${result.player_name}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
+          >
+            <span className="text-sm font-semibold text-foreground">COMC</span>
+            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+          </a>
         </div>
       </div>
 
