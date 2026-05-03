@@ -133,9 +133,22 @@ function LiveDemo() {
               <span className="text-muted-foreground">× Grade multiplier (0.65)</span>
               <span className="font-mono font-semibold text-foreground">$6,825</span>
             </div>
-            <div className="flex justify-between text-xs items-center">
-              <span className="text-muted-foreground">+ Top 5 drivers (+26%)</span>
-              <span className="font-mono font-semibold text-emerald-400">+$1,775</span>
+            {/* Top 5 drivers */}
+            {[
+              { label: "eBay Sales Spike (30d)",      pct: "+8%" },
+              { label: "Record Sale (Higher Grade)",  pct: "+6%" },
+              { label: "Cultural Icon Momentum",      pct: "+5%" },
+              { label: "Sneaker Line Retro Release",  pct: "+4%" },
+              { label: "Auction Velocity Surge",      pct: "+3%" },
+            ].map(d => (
+              <div key={d.label} className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-emerald-400/30">
+                <span className="text-muted-foreground">{d.label}</span>
+                <span className="font-mono font-semibold text-emerald-400">{d.pct}</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-muted-foreground/20">
+              <span className="text-muted-foreground">39 supporting factors</span>
+              <span className="font-mono font-semibold text-muted-foreground">+11%</span>
             </div>
             <div className="h-px bg-border/40 my-1" />
             <div className="flex justify-between text-xs items-center">
