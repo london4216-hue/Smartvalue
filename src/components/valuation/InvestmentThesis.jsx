@@ -41,7 +41,13 @@ const ACTION_CONFIG = {
 };
 
 export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheapestAvailable }) {
-  const config = ACTION_CONFIG[flipVsHold] || ACTION_CONFIG.hold;
+  // Override recommendation if AI value is less than comp — that's a sell/wait signal
+  let recommendation = flipVsHold;
+  if (compValue > 0 && aiValue < compValue) {
+    recommendation = aiValue < (compValue * 0.85) ? 'sell' : 'hold';
+  }
+
+  const config = ACTION_CONFIG[recommendation] || ACTION_CONFIG.hold;
   const Icon = config.icon;
 
   const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
