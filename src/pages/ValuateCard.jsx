@@ -282,9 +282,33 @@ export default function ValuateCard() {
     // Ensure non-zero adjustments
     aiResult = ensureNonZeroAdjustments(aiResult, cardData);
 
+    // Call calculateValuation backend to ensure AI value differs from comp
+    let finalAiValue = aiResult.ai_investment_value;
+    if (cardData.comp_value && aiResult.key_signals) {
+      try {
+        const valuationResult = await base44.functions.invoke('calculateValuation', {
+          last_sold_price: cardData.comp_value,
+          grade: cardData.grade || 'Raw',
+          attributes: aiResult.key_signals.map(sig => ({
+            label: sig.label,
+            percent_adjustment: `${sig.direction === 'bullish' ? '+' : sig.direction === 'bearish' ? '-' : ''}${sig.impact_pct}%`,
+            reason: sig.reason
+          }))
+        });
+        finalAiValue = parseInt(valuationResult.holders_comp_display.replace(/[^0-9]/g, ''));
+      } catch (err) {
+        // Fallback: ensure AI value differs by at least 2%
+        const percentDiff = ((finalAiValue - cardData.comp_value) / cardData.comp_value * 100);
+        if (Math.abs(percentDiff) < 2) {
+          finalAiValue = Math.round(cardData.comp_value * 1.12);
+        }
+      }
+    }
+
     setResult({
       ...cardData,
       ...aiResult,
+      ai_investment_value: finalAiValue,
     });
     setIsLoading(false);
   };
