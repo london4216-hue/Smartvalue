@@ -67,7 +67,7 @@ export default function LiveAttributeTicker() {
     validAttrs.reduce((s, a) => s + a.weight, 0)
   );
 
-  const rawComp = 16500;
+  const rawComp = 13500;
   const gradeMultiplier = 0.65;
   const attributeAdjustment = ((overallScore - 50) / 50) * 0.30;
   const aiValue = Math.round((rawComp * gradeMultiplier) * (1 + attributeAdjustment));
