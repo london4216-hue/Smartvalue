@@ -23,7 +23,7 @@ export default function AppLayout() {
               <TrendingUp className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-lg font-bold tracking-tight text-foreground">CardIQ</span>
+              <span className="text-lg font-bold tracking-tight text-foreground">CARDS with Brains</span>
               <span className="text-[10px] font-mono text-primary ml-1.5 hidden sm:inline">PRO</span>
             </div>
           </Link>
