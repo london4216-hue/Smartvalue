@@ -116,13 +116,13 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
           {/* AI Value */}
           <div>
             <p className="text-xs text-primary font-mono uppercase tracking-wider mb-1">
-              Our AI Value
+              44-Point AI Value
             </p>
             <p className="text-xl font-mono font-bold text-primary">
               ${aiValue.toLocaleString()}
             </p>
             <p className="text-[10px] text-primary/70 mt-1">
-              What we think it's worth
+              Data-driven valuation from grade, scarcity, player signals
             </p>
           </div>
 
