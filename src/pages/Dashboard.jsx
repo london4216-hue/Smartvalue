@@ -102,11 +102,11 @@ function LiveDemo() {
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <img
-                src="https://images.psa.gradecompany.com/images/prod/1/1-1986-87-FLEER-MICHAEL-JORDAN-57.jpg"
+                src="https://d1htnxwo4o0jhw.cloudfront.net/cert/134044389/iiXp9pAT6EGgwPCfGBf1yA.jpg"
                 alt="1986 Fleer Michael Jordan #57 BGS 8.5"
                 className="w-24 h-32 object-cover rounded-lg border border-border/40 shadow-lg"
                 onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200&q=80';
+                  e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Michael_Jordan_in_2014.jpg/220px-Michael_Jordan_in_2014.jpg';
                 }}
               />
               <span className="absolute -bottom-1.5 -right-1.5 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">BGS 8.5</span>
@@ -140,7 +140,7 @@ function LiveDemo() {
           <div className="border-t border-border/30 pt-4 space-y-2">
             <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Key Signals</p>
             {[
-              { label: "Pop 74 at BGS 8.5",          color: "text-emerald-400" },
+              { label: "Pop 3,299 at BGS 8.5",         color: "text-amber-400" },
               { label: "True Rookie Card (1986 Fleer)", color: "text-emerald-400" },
               { label: "Jordan Brand: $6.6B/yr",      color: "text-emerald-400" },
               { label: "GOAT score: 99/100",           color: "text-primary" },

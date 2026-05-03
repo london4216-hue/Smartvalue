@@ -29,7 +29,7 @@ const SECTIONS = [
     emoji: "💎",
     label: "Scarcity & Supply",
     items: [
-      { label: "BGS Pop at 8.5 (This Grade)", stat: "Pop 74 — extremely scarce", note: "BGS pop report, verified Feb 2025",               trend: "up" },
+      { label: "BGS Pop at 8.5 (This Grade)", stat: "Pop 3,299 — high supply",   note: "BGS pop report — suppresses scarcity premium",  trend: "down" },
       { label: "Total Graded (All Graders)",  stat: "~3,296 total slabs",        note: "Raw copies estimated 5,000–8,000 remain",         trend: "neutral" },
       { label: "Gem Rate (BGS 9.5+)",         stat: "< 0.3% hit gem",            note: "1986 Fleer notoriously hard to grade",            trend: "up" },
       { label: "Rookie Card Status",          stat: "TRUE RC — 1986 Fleer #57",  note: "Only widely available Jordan rookie card ever",   trend: "up" },
