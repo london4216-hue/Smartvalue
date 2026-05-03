@@ -23,8 +23,15 @@ export default function CardDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.CardValuation.filter({ id }).then(results => {
-      setCard(results[0] || null);
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    base44.entities.CardValuation.get(id).then(result => {
+      setCard(result || null);
+      setLoading(false);
+    }).catch(() => {
+      setCard(null);
       setLoading(false);
     });
   }, [id]);
