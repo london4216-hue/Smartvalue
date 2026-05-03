@@ -16,6 +16,26 @@ function buildPrompt(cardData) {
     ? GRADE_WEIGHTS[cardData.grade]
     : null;
 
+  // AI SCANNER IMPACT — This is MASSIVE
+  const aiScanSection = cardData.ai_scan_quality ? `
+AI SCANNER QUALITY DETECTION (CRITICAL VALUATION DRIVER):
+This is a MASSIVE signal for PSA grading potential and future value appreciation.
+- AI Scan Quality: "${cardData.ai_scan_quality}"
+${cardData.psa_alignment ? '- AI CONFIRMS PSA 10 POTENTIAL: TRUE — This card meets PSA 10 gem mint standards per AI analysis. This is RARE and should dramatically elevate the valuation.' : ''}
+
+RULE: Cards with PSA 10 potential (flawless + psa_alignment) should score "psa_gem_potential" 95-100.
+Cards with Excellent quality (PSA 9-9.5 potential) should score 85-92.
+Cards with Good quality (PSA 8-8.5) should score 70-80.
+Fair or Poor should NOT receive upgrade premium.
+
+If psa_alignment=true AND ai_scan_quality="flawless":
+- Apply +40-60% value uplift to ai_investment_value
+- This represents the premium buyers pay for cards verified as PSA 10 ready
+- Score card_condition_psa_readiness: 95-100
+
+The AI scan is more reliable than human grading pre-submission. Use it aggressively in your valuation.
+` : '';
+
   const gradeSection = gradeInfo ? `
 GRADE FACTORS:
 - Grade: ${cardData.grade}
@@ -32,6 +52,8 @@ ${cardData.scan_notes}
 ` : '';
 
   return `You are an expert basketball card investment analyst running a PREDICTIVE INDEX — not a grading report. Every score should answer: "Does this signal make the card worth more in the future?"
+
+${aiScanSection}
 
 CARD DETAILS:
 - Player: ${cardData.player_name}

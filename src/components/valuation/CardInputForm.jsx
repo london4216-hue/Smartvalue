@@ -95,6 +95,8 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     viral_description: '',
     has_autograph: false,
     is_sticker_auto: false,
+    ai_scan_quality: '',      // "flawless" | "excellent" | "good" | "fair" | "poor"
+    psa_alignment: false,     // Whether AI scan indicates PSA 10 potential
   });
   const [showScanner, setShowScanner] = useState(true);
   const [showSignals, setShowSignals] = useState(true);
@@ -406,6 +408,39 @@ export default function CardInputForm({ onSubmit, isLoading }) {
                  )}
                </div>
              </div>
+
+            {/* AI Scan Quality & PSA Alignment */}
+            <div>
+              <SectionLabel>🤖 AI Scanner Detection — PSA Grading Alignment</SectionLabel>
+              <div className="space-y-3">
+                <p className="text-[10px] text-muted-foreground/70">
+                  How does the AI scan compare to PSA grading standards? This is a MASSIVE value driver.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'flawless', label: '💎 Flawless — PSA 10 potential' },
+                    { value: 'excellent', label: '⭐ Excellent — PSA 9-9.5 potential' },
+                    { value: 'good', label: '✓ Good — PSA 8-8.5 potential' },
+                    { value: 'fair', label: '~ Fair — PSA 7-7.5 potential' },
+                    { value: 'poor', label: '⚠️ Poor — Below PSA 7' },
+                  ].map(opt => (
+                    <ToggleChip
+                      key={opt.value}
+                      label={opt.label}
+                      selected={form.ai_scan_quality === opt.value}
+                      onClick={() => handleChange('ai_scan_quality', form.ai_scan_quality === opt.value ? '' : opt.value)}
+                    />
+                  ))}
+                </div>
+                {form.ai_scan_quality && (
+                  <ToggleChip
+                    label="✓ AI confirms PSA 10 grading potential (rare)"
+                    selected={form.psa_alignment}
+                    onClick={() => handleChange('psa_alignment', !form.psa_alignment)}
+                  />
+                )}
+              </div>
+            </div>
 
           </div>
         )}
