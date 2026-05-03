@@ -78,6 +78,10 @@ Also provide:
 - "ai_investment_value": Estimated fair investment value in USD using the 4-step model above. MUST be grounded in real market prices.
 - "analysis_summary": 3-4 sentence investment thesis. State the comp used, grade multiplier applied, and whether attributes are pushing value above or below market comp.
 
+SPECIAL SCORING NOTES:
+- "pop_count_at_grade": Score INVERSELY to population. A pop of 1-5 = score 95-100. Pop 10-25 = 80-90. Pop 50-100 = 60-70. Pop 500+ = 20-30. The rarer the pop, the higher the score.
+- "jersey_number_match": If the card number matches the player's jersey number (e.g., card #23 for Michael Jordan), score 90-100. This is a massive collector premium — jersey matches on numbered cards are among the most sought-after in the hobby. If it's a low-numbered match (e.g., /23 numbered AND #23), score 100. If no match, score 0-10.
+
 CRITICAL RULES:
 1. The comp is the market's verdict. Respect it. An average card with average attributes should return ai_investment_value ≈ comp. That is NOT a bug — it is the correct answer.
 2. Only exceptional fundamentals (rare pop, MVP trajectory, major market trade, viral cultural moment) justify pushing above comp.

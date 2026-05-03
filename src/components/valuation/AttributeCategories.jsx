@@ -80,11 +80,13 @@ export const ATTRIBUTE_CATEGORIES = {
     icon: "Diamond",
     attributes: [
       { key: "pop_report", label: "Population Report (# graded)", weight: 4 },
+      { key: "pop_count_at_grade", label: "Pop Count at This Exact Grade (lower = rarer)", weight: 5 },
       { key: "print_run", label: "Print Run / Numbered", weight: 4 },
-      { key: "grade_rarity", label: "Grade Rarity (gem rate)", weight: 3 },
+      { key: "grade_rarity", label: "Grade Rarity (gem rate %)", weight: 3 },
       { key: "set_prestige", label: "Set Prestige Level", weight: 3 },
       { key: "variation_desirability", label: "Variation Desirability", weight: 3 },
       { key: "rookie_card", label: "Rookie Card Status", weight: 4 },
+      { key: "jersey_number_match", label: "Jersey Number Match (card # = player jersey #)", weight: 5 },
     ]
   },
   cultural_brand: {
