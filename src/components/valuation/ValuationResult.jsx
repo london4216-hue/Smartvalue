@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, Shopping
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
+import KeySignals from './KeySignals';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -35,6 +36,11 @@ export default function ValuationResult({ result, onSave, onReset }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Key Signals — GOTCHA attributes up top */}
+      {result.key_signals && result.key_signals.length > 0 && (
+        <KeySignals signals={result.key_signals} />
+      )}
+
       {/* Hero Card */}
       <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
         {/* Player & Card Header */}

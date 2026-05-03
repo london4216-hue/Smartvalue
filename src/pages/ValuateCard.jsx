@@ -135,7 +135,13 @@ Return:
 - "overall_score": 0-100 weighted investment score
 - "flip_vs_hold": "strong_buy" | "buy" | "hold" | "sell" | "strong_sell" (long-term perspective)
 - "ai_investment_value": USD value using the model above, grounded in real market data
-- "analysis_summary": 3-4 sentence thesis. Lead with the card's key investment signals (auto type, print run, patch quality, player trajectory). State comp used and what's driving the AI value up or down.`;
+- "analysis_summary": 3-4 sentence thesis. Lead with the card's key investment signals (auto type, print run, patch quality, player trajectory). State comp used and what's driving the AI value up or down.
+- "key_signals": Array of 3-5 objects, each representing a GOTCHA attribute — the signals that most dramatically move this card's value UP or DOWN. Pick the ones with the biggest delta from average (score far above 70 or far below 30). For each:
+  - "label": short punchy name (e.g. "Rookie Year Card", "Sticker Auto", "Flawless Set", "High Pop at Grade", "Declining Player")
+  - "direction": "bullish" | "bearish" | "neutral"
+  - "impact_pct": estimated % impact on value this signal creates (integer, 5-30)
+  - "reason": 1 sentence explaining WHY this signal moves the needle for this specific card
+  Order by impact_pct descending. Mix bullish and bearish — show the full picture.`;
 }
 
 function buildResponseSchema() {
@@ -153,6 +159,18 @@ function buildResponseSchema() {
       flip_vs_hold: { type: "string" },
       ai_investment_value: { type: "number" },
       analysis_summary: { type: "string" },
+      key_signals: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            label:      { type: "string" },
+            direction:  { type: "string" },
+            impact_pct: { type: "number" },
+            reason:     { type: "string" },
+          }
+        }
+      },
       attribute_scores: {
         type: "object",
         properties: attrProps
