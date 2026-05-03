@@ -1,31 +1,57 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ATTRIBUTE_CATEGORIES } from '@/components/valuation/AttributeCategories';
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
-// Jordan 1986 Fleer Rookie #57 · BGS 8.5 NM-MT
-// Comp: $10,500 (90-day avg, 50 sales — sportscardspro/cardladder 2025-2026)
-// Retired player: N/A fields use -1
-
-const DEMO_SCORES = {
-  ppg: 97, career_trajectory: 99, injury_risk: 88, playoff_performer: 99,
-  all_star_selections: 99, mvp_potential: -1, championships: 99, all_nba_teams: 99,
-  current_season_performance: -1,
-  trade_volume_30d: 95, trade_volume_90d: 93, price_trend_30d: 91, price_trend_90d: 89,
-  volatility: 55, liquidity_score: 97, buy_sell_ratio: 94,
-  grade_multiplier_value: 65, registry_premium: 40, grading_company_trust: 92,
-  centering_quality: 68, surface_condition: 70, pop_scarcity_at_grade: 72,
-  upgrade_potential: 60, crossover_appeal: 88,
-  pop_report: 62, pop_count_at_grade: 74, print_run: 70, grade_rarity: 65, set_prestige: 99,
-  variation_desirability: 92, rookie_card: 99, jersey_number_match: 15,
-  social_media_following: 97, social_media_engagement: 85, highlight_virality: 98,
-  endorsement_deals: 99, jersey_sales_rank: 97, media_mentions: 95,
-  cultural_icon_status: 99, off_court_brand: 99,
-  historical_appreciation: 99, hold_period_returns: 96, downside_protection: 92,
-  comparable_player_premium: 98, era_value_multiplier: 95, cross_sport_demand: 88,
-  player_age: 80, contract_status: -1, team_market_size: 99, national_tv_appearances: 98,
-  playoff_team: -1, hall_of_fame_trajectory: 99, international_appeal: 99, draft_class_strength: 92,
-};
+// ─── New Attribute Schema ─────────────────────────────────────────────────────
+const ATTRIBUTE_CATEGORIES_DISPLAY = [
+  {
+    label: "🏆 GOAT & Legacy Factors",
+    attributes: [
+      { label: "Cultural Icon Status",       impact: "Very High", pct: "+6%" },
+      { label: "Historical Appreciation Rate", impact: "High",    pct: "+4%" },
+      { label: "Era Value Multiplier",        impact: "High",     pct: "+3%" },
+      { label: "International Appeal",        impact: "Medium",   pct: "+2%" },
+      { label: "Hall of Fame Status",         impact: "Very High", pct: "+5%" },
+    ],
+  },
+  {
+    label: "💎 Scarcity & Supply",
+    attributes: [
+      { label: "Population Report (Total)",   impact: "High",     pct: "+3%" },
+      { label: "Pop Count at This Grade",     impact: "Very High", pct: "+6%" },
+      { label: "Population Decay Trend",      impact: "High",     pct: "+3%" },
+      { label: "Grade Rarity",                impact: "Medium",   pct: "+2%" },
+      { label: "Set Prestige Level",          impact: "High",     pct: "+3%" },
+      { label: "Rookie Card Status",          impact: "Very High", pct: "+6%" },
+    ],
+  },
+  {
+    label: "📈 Market Dynamics",
+    attributes: [
+      { label: "30-Day Price Trend",          impact: "High",     pct: "+3%" },
+      { label: "90-Day Price Trend",          impact: "High",     pct: "+3%" },
+      { label: "Auction Velocity",            impact: "Medium",   pct: "+2%" },
+      { label: "Liquidity Score",             impact: "High",     pct: "+3%" },
+      { label: "Market Heat Score",           impact: "High",     pct: "+4%" },
+    ],
+  },
+  {
+    label: "🛡️ Grade & Condition",
+    attributes: [
+      { label: "Grade Tier Multiplier Impact", impact: "Very High", pct: "+5%" },
+      { label: "Grading Company Premium",     impact: "Medium",   pct: "+2%" },
+      { label: "Centering Quality",           impact: "Medium",   pct: "+2%" },
+      { label: "Surface Quality",             impact: "Medium",   pct: "+2%" },
+    ],
+  },
+  {
+    label: "💰 Investment Fundamentals",
+    attributes: [
+      { label: "Downside Protection",         impact: "High",     pct: "+3%" },
+      { label: "Long-Term Collector Demand",  impact: "Very High", pct: "+5%" },
+      { label: "Cross-Sport Collector Demand", impact: "Medium",  pct: "+2%" },
+    ],
+  },
+];
 
 const DEMO_DATA = {
   current_value: {
@@ -59,21 +85,18 @@ const DEMO_DATA = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const CATEGORY_ICONS = {
-  player_performance:      '🏀',
-  market_dynamics:         '📈',
-  grade_quality:           '🛡️',
-  scarcity_supply:         '💎',
-  cultural_brand:          '⭐',
-  investment_fundamentals: '📊',
-  external_factors:        '🌐',
-};
-
 function scoreColor(s) {
   if (s >= 80) return 'text-emerald-400';
   if (s >= 60) return 'text-yellow-400';
   if (s >= 40) return 'text-amber-400';
   return 'text-red-400';
+}
+
+function impactColor(impact) {
+  if (impact === 'Very High') return 'text-emerald-400';
+  if (impact === 'High')      return 'text-sky-400';
+  if (impact === 'Medium')    return 'text-yellow-400';
+  return 'text-muted-foreground';
 }
 
 function signalColor(variant) {
@@ -124,20 +147,11 @@ function Divider() {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function LiveAttributeTicker() {
   const { current_value: cv, future_projections: fp, momentum: mom, scarcity: sc, goat_premium: goat } = DEMO_DATA;
-  const categories = Object.entries(ATTRIBUTE_CATEGORIES);
-
-  const validAttrs = categories.flatMap(([, cat]) => cat.attributes).filter(
-    a => DEMO_SCORES[a.key] !== undefined && DEMO_SCORES[a.key] !== -1
-  );
-  const overallScore = Math.round(
-    validAttrs.reduce((s, a) => s + DEMO_SCORES[a.key] * a.weight, 0) /
-    validAttrs.reduce((s, a) => s + a.weight, 0)
-  );
 
   const adjustedComp = Math.round(cv.comp * cv.grade_multiplier);
-  const attributeAdjustment = ((overallScore - 50) / 50) * 0.30;
-  const aiValue = Math.round(adjustedComp * (1 + attributeAdjustment));
+  const aiValue = 8463; // fixed: comp × grade_multiplier × attribute boost
   const pctVsComp = (((aiValue - adjustedComp) / adjustedComp) * 100).toFixed(1);
+  const overallScore = 91;
 
   return (
     <motion.div
@@ -228,36 +242,28 @@ export default function LiveAttributeTicker() {
         </div>
         <Divider />
 
-        {/* ── 6. 42 Attributes ──────────────────────────────────────── */}
+        {/* ── 6. Attribute Categories ───────────────────────────────── */}
         <div className="pb-1">
-          <SectionHeader emoji="📋" label="All 42 Attributes" />
-          {categories.map(([catKey, cat], ci) => (
-            <div key={catKey} className="mb-3">
-              <div className="flex items-center gap-1 mb-1">
-                <span>{CATEGORY_ICONS[catKey]}</span>
-                <span className="text-muted-foreground/70 uppercase tracking-wider text-[10px]">{cat.label}</span>
-              </div>
+          <SectionHeader emoji="📋" label="Attribute Breakdown" />
+          {ATTRIBUTE_CATEGORIES_DISPLAY.map((cat, ci) => (
+            <div key={cat.label} className="mb-3">
+              <div className="text-muted-foreground/70 uppercase tracking-wider text-[10px] mb-1">{cat.label}</div>
               <div className="space-y-0.5 pl-1">
-                {cat.attributes.map((attr, i) => {
-                  const score = DEMO_SCORES[attr.key];
-                  const isNA = score === -1 || score === undefined || score === null;
-                  return (
-                    <motion.div
-                      key={attr.key}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: ci * 0.04 + i * 0.012 }}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-muted-foreground">
-                        - {attr.label} <span className="text-muted-foreground/30">(w{attr.weight})</span>:
-                      </span>
-                      <span className={cn('font-bold ml-2 shrink-0', isNA ? 'text-muted-foreground/30' : scoreColor(score))}>
-                        {isNA ? 'N/A' : score}
-                      </span>
-                    </motion.div>
-                  );
-                })}
+                {cat.attributes.map((attr, i) => (
+                  <motion.div
+                    key={attr.label}
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: ci * 0.04 + i * 0.012 }}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="text-muted-foreground">- {attr.label}:</span>
+                    <span className="ml-2 shrink-0 flex items-center gap-2">
+                      <span className={cn('text-[10px]', impactColor(attr.impact))}>{attr.impact}</span>
+                      <span className="text-emerald-400 font-bold">{attr.pct}</span>
+                    </span>
+                  </motion.div>
+                ))}
               </div>
             </div>
           ))}
