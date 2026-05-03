@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
 import KeySignals from './KeySignals';
+import ContextualSignals from './ContextualSignals';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -37,9 +38,12 @@ export default function ValuationResult({ result, onSave, onReset }) {
       className="space-y-6"
     >
       {/* Key Signals — GOTCHA attributes up top */}
-      {result.key_signals && result.key_signals.length > 0 && (
-        <KeySignals signals={result.key_signals} />
-      )}
+       {result.key_signals && result.key_signals.length > 0 && (
+         <KeySignals signals={result.key_signals} />
+       )}
+
+      {/* Contextual Market Signals */}
+      <ContextualSignals playerName={result.player_name} cardYear={result.card_year} cardSet={result.card_set} />
 
       {/* Hero Card */}
       <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
