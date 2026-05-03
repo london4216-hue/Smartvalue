@@ -65,13 +65,34 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
           <div className="space-y-3">
             {/* Raw Comp */}
-            <div className="bg-secondary/50 rounded-xl p-3">
+             <div className="bg-secondary/50 rounded-xl p-3">
               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                Raw Comp (last sale)
+                Raw Comp (Last Sale - Flippers)
               </p>
               <p className="text-lg font-mono font-bold text-muted-foreground">
                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
               </p>
+            </div>
+
+            {/* Holder's Comp Projections */}
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">
+                Holder's Comp (Long-Term)
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">1 Year</span>
+                  <span className="font-mono font-bold text-foreground">${(compValue * 1.15).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">5 Year</span>
+                  <span className="font-mono font-bold text-emerald-400">${(compValue * 1.6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">10 Year</span>
+                  <span className="font-mono font-bold text-emerald-300">${(compValue * 2.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+              </div>
             </div>
             {/* Cheapest Available */}
             {cheapestAvailable && (
