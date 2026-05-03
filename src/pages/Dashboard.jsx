@@ -86,43 +86,12 @@ function AttributeGridAndCharts() {
 
 // ── why_this_matters ──────────────────────────────────────────────────────────
 function WhyThisMatters() {
-  const steps = [
-    { step: "1", title: "Comp = Today's Market Price", desc: "The last sold price is your anchor — it's real, it's what the market paid. We never ignore it.", color: "bg-muted-foreground/20 text-muted-foreground" },
-    { step: "2", title: "Grade Multiplier Adjusts Reality", desc: "BGS 8.5 ≠ PSA 10. A 0.65× vs 2.2× grade multiplier can mean 3× the investment value on the same card.", color: "bg-blue-400/10 text-blue-400" },
-    { step: "3", title: "42 Attributes Capture What Comps Miss", desc: "MVP trajectory, market-size trade, pop report shrinkage, cultural heat — none of this is in the comp. We score all of it.", color: "bg-primary/10 text-primary" },
-    { step: "4", title: "Attributes Adjust Comp ±30%", desc: "Strong fundamentals push value above market. Weak outlook discounts it. The comp stays the anchor — attributes sharpen the aim.", color: "bg-emerald-400/10 text-emerald-400" },
-  ];
-
   return (
-    <div className="mb-10 grid lg:grid-cols-2 gap-6">
-      <div className="bg-card border border-border/50 rounded-2xl p-6">
-        <h3 className="text-base font-bold text-foreground mb-4">How The Model Works</h3>
-        <div className="space-y-4">
-          {steps.map(({ step, title, desc, color }) => (
-            <div key={step} className="flex gap-3">
-              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5", color)}>
-                {step}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-card border border-primary/20 rounded-2xl p-6 flex flex-col justify-between">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-2">Why This Matters</p>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Comps are backwards-looking. A card can sell low in a slow week, then spike after a big playoff run, a trade to a major market, or a social media moment. Our model looks <strong className="text-foreground">forward</strong> — factoring in trajectory, scarcity trends, and cultural momentum to tell you if today's comp is a deal or a trap.
-          </p>
-          <p className="text-sm text-muted-foreground leading-relaxed mt-3">
-            Flippers watch comps. <strong className="text-foreground">Investors watch signals.</strong> CardIQ PRO gives you the signals.
-          </p>
-        </div>
-      </div>
+    <div className="mb-10 bg-card border border-border/50 rounded-2xl p-6">
+      <h2 className="text-base font-semibold text-muted-foreground mb-2">Why This Matters</h2>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Comps are backwards-looking. Our model looks forward — factoring in trajectory, scarcity, and cultural momentum to tell you whether today's comp is a deal or a trap.
+      </p>
     </div>
   );
 }
