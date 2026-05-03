@@ -2,34 +2,79 @@ import { motion } from 'framer-motion';
 import { Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const ATTRIBUTE_REASONS = {
+  'cultural_icon_status': 'All-time legend status drives collector premium',
+  'player_momentum': 'Player in peak popularity window',
+  'recent_viral_moments': 'Recent cultural/athletic event spike demand',
+  'auction_velocity': 'Rapid sale velocity signals strong demand',
+  'scarcity_at_grade': 'Low population at this grade tier',
+  'sneaker_line_activity': 'Active sneaker releases boost brand relevance',
+  'record_sale_higher_grade': 'Higher grade sold recently at premium',
+  'upcoming_documentary': 'Upcoming media catalyst increases interest',
+  'goat_legacy_score': 'Recognized as all-time great in the sport',
+  'hall_of_fame_trajectory': 'Hall of Fame path supports long-term demand',
+  'historical_appreciation': 'Historical card status commands premium',
+  'retail_floor_strength': 'Strong retail/market floor prevents collapse',
+  'psa_gem_potential': 'PSA 10 grading potential verified by AI scan',
+};
+
 export default function ValuationBreakdown({ compValue, attributeScores, aiValue }) {
   if (!compValue || !attributeScores || !aiValue) return null;
 
-  // Build line items from attribute scores
-  const positiveFactors = [];
-  const negativeFactors = [];
+  // Map attribute scores to dollar adjustments
+  const drivers = Object.entries(attributeScores || {})
+    .map(([key, score]) => {
+      if (score === -1 || !score) return null;
+      const percentAdjustment = ((score - 50) / 50) * 0.30; // ±30% max
+      const dollarAdjustment = Math.round(compValue * percentAdjustment);
+      
+      return {
+        key,
+        label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        score,
+        percentAdjustment,
+        dollarAdjustment,
+        reason: ATTRIBUTE_REASONS[key] || 'Market factor analysis',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => Math.abs(b.dollarAdjustment) - Math.abs(a.dollarAdjustment));
 
-  Object.entries(attributeScores || {}).forEach(([key, score]) => {
-    if (score > 70) {
-      const impact = ((score - 50) / 50) * (compValue * 0.15);
-      positiveFactors.push({ label: key, score, impact: Math.round(impact) });
-    } else if (score < 30) {
-      const impact = ((50 - score) / 50) * (compValue * 0.15);
-      negativeFactors.push({ label: key, score, impact: Math.round(impact) });
-    }
-  });
+  // Grade multiplier (assume -35% impact if grade is high value)
+  const gradeMultiplierDollars = -Math.round(compValue * 0.35);
 
-  const totalPositive = positiveFactors.reduce((sum, f) => sum + f.impact, 0);
-  const totalNegative = negativeFactors.reduce((sum, f) => sum + f.impact, 0);
-  const calculated = compValue + totalPositive - totalNegative;
+  // Top 5 drivers
+  const top5 = drivers.slice(0, 5);
+  const remaining = drivers.slice(5);
+
+  // Supporting factors rollup
+  const supportingFactorsDollars = remaining.reduce((sum, d) => sum + d.dollarAdjustment, 0);
+
+  // Final calculation
+  const finalHoldersComp = compValue + gradeMultiplierDollars + 
+    top5.reduce((sum, d) => sum + d.dollarAdjustment, 0) + 
+    supportingFactorsDollars;
+
+  const calculation = {
+    last_sold_comp: compValue,
+    grade_multiplier_dollars: gradeMultiplierDollars,
+    top5_dollar_adjustments: top5.map(d => ({
+      label: d.label,
+      percent_adjustment: `${d.percentAdjustment >= 0 ? '+' : ''}${(d.percentAdjustment * 100).toFixed(0)}%`,
+      dollar_adjustment: `${d.dollarAdjustment >= 0 ? '+' : ''}$${d.dollarAdjustment.toLocaleString()}`,
+      reason: d.reason,
+    })),
+    supporting_factors_dollars: supportingFactorsDollars,
+    final_holders_comp: finalHoldersComp,
+  };
 
   return (
     <div className="bg-card border border-border/50 rounded-2xl p-6">
       <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-6">
-        💰 AI Valuation Calculation Breakdown
+        💰 Holder's Comp Calculation
       </h3>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Starting point */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -37,56 +82,77 @@ export default function ValuationBreakdown({ compValue, attributeScores, aiValue
           className="flex justify-between items-center p-3 bg-secondary/30 rounded-lg border border-border/30"
         >
           <span className="text-sm font-mono text-foreground">Last Sold Comp</span>
-          <span className="text-lg font-mono font-bold text-foreground">${compValue.toLocaleString()}</span>
+          <span className="text-lg font-mono font-bold text-foreground">${calculation.last_sold_comp.toLocaleString()}</span>
         </motion.div>
 
-        {/* Positive factors */}
-        {positiveFactors.length > 0 && (
-          <div className="space-y-2">
-            {positiveFactors.map((factor, i) => (
-              <motion.div
-                key={factor.label}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.05 * i }}
-                className="flex justify-between items-center p-3 bg-emerald-500/5 rounded-lg border border-emerald-500/20"
-              >
-                <div className="flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-mono text-muted-foreground capitalize">{factor.label.replace(/_/g, ' ')}</span>
-                </div>
-                <span className="text-sm font-mono font-bold text-emerald-400">+${factor.impact.toLocaleString()}</span>
-              </motion.div>
-            ))}
+        {/* Grade multiplier */}
+        <motion.div
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex justify-between items-center p-3 bg-red-500/5 rounded-lg border border-red-500/20"
+        >
+          <div className="flex items-center gap-2">
+            <Minus className="w-4 h-4 text-red-400" />
+            <span className="text-xs font-mono text-muted-foreground">Grade Multiplier Adjustment</span>
           </div>
-        )}
+          <span className="text-sm font-mono font-bold text-red-400">${calculation.grade_multiplier_dollars.toLocaleString()}</span>
+        </motion.div>
 
-        {/* Negative factors */}
-        {negativeFactors.length > 0 && (
-          <div className="space-y-2">
-            {negativeFactors.map((factor, i) => (
-              <motion.div
-                key={factor.label}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.05 * i }}
-                className="flex justify-between items-center p-3 bg-red-500/5 rounded-lg border border-red-500/20"
-              >
-                <div className="flex items-center gap-2">
-                  <Minus className="w-4 h-4 text-red-400" />
-                  <span className="text-xs font-mono text-muted-foreground capitalize">{factor.label.replace(/_/g, ' ')}</span>
-                </div>
-                <span className="text-sm font-mono font-bold text-red-400">-${factor.impact.toLocaleString()}</span>
-              </motion.div>
-            ))}
-          </div>
-        )}
+        {/* Top 5 drivers */}
+        {calculation.top5_dollar_adjustments.map((driver, i) => (
+          <motion.div
+            key={driver.label}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 + 0.05 * i }}
+            className={cn(
+              "p-3 rounded-lg border",
+              parseFloat(driver.dollar_adjustment) >= 0
+                ? "bg-emerald-500/5 border-emerald-500/20"
+                : "bg-red-500/5 border-red-500/20"
+            )}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs font-mono text-foreground font-semibold">{driver.label}</span>
+              <span className={cn(
+                "text-sm font-mono font-bold",
+                parseFloat(driver.dollar_adjustment) >= 0 ? "text-emerald-400" : "text-red-400"
+              )}>
+                {driver.dollar_adjustment}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/70">{driver.reason}</p>
+            <span className="text-[9px] text-muted-foreground/60">{driver.percent_adjustment}</span>
+          </motion.div>
+        ))}
 
-        {/* Total */}
+        {/* Supporting factors */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.35 }}
+          className={cn(
+            "flex justify-between items-center p-3 rounded-lg border",
+            calculation.supporting_factors_dollars >= 0
+              ? "bg-emerald-500/5 border-emerald-500/20"
+              : "bg-red-500/5 border-red-500/20"
+          )}
+        >
+          <span className="text-xs font-mono text-muted-foreground">Supporting Factors Rollup</span>
+          <span className={cn(
+            "text-sm font-mono font-bold",
+            calculation.supporting_factors_dollars >= 0 ? "text-emerald-400" : "text-red-400"
+          )}>
+            {calculation.supporting_factors_dollars >= 0 ? '+' : ''}${calculation.supporting_factors_dollars.toLocaleString()}
+          </span>
+        </motion.div>
+
+        {/* Final */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
           className={cn(
             "flex justify-between items-center p-4 rounded-lg border-2 font-mono font-bold text-lg",
             aiValue > compValue
@@ -96,7 +162,7 @@ export default function ValuationBreakdown({ compValue, attributeScores, aiValue
               : "bg-primary/10 border-primary/30 text-primary"
           )}
         >
-          <span className="text-foreground">AI Investment Value</span>
+          <span className="text-foreground">= AI Investment Value</span>
           <span>${aiValue.toLocaleString()}</span>
         </motion.div>
       </div>
