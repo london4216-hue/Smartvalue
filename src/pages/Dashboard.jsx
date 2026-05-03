@@ -6,6 +6,7 @@ import { Search, TrendingUp, BarChart3, Sparkles, ArrowRight, Zap } from 'lucide
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
+import LiveAttributeTicker from '@/components/dashboard/LiveAttributeTicker';
 
 function StatCard({ label, value, sub, delay }) {
   return (
@@ -115,6 +116,58 @@ export default function Dashboard() {
           />
         </div>
       )}
+
+      {/* Live Example Section */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            See It In Action — Jordan Rookie Fleer BGS 8.5
+          </span>
+          <div className="flex-1 h-px bg-border/40" />
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6 items-start">
+          {/* Left: How It Works explanation */}
+          <div className="space-y-4">
+            <div className="bg-card border border-border/50 rounded-2xl p-5">
+              <h3 className="text-base font-bold text-foreground mb-3">How The Model Works</h3>
+              <div className="space-y-3">
+                {[
+                  { step: "1", title: "Enter Last Comp Sale", desc: "You provide the last sold price — e.g. Jordan Fleer rookie sold for $3,200 raw.", color: "bg-muted-foreground/20 text-muted-foreground" },
+                  { step: "2", title: "Apply Grade Multiplier", desc: "BGS 8.5 = 0.65× multiplier. Grade-adjusted comp becomes $2,080. Raw cards are heavily discounted. PSA 10 would be 2.2×.", color: "bg-blue-400/10 text-blue-400" },
+                  { step: "3", title: "AI Scores 42 Attributes", desc: "Player trajectory, cultural impact, market dynamics, scarcity, investment fundamentals — each weighted 1–5×.", color: "bg-primary/10 text-primary" },
+                  { step: "4", title: "50/50 Blend = True Value", desc: "Grade-adjusted comp (50%) + AI attribute score (50%) = investment value. Not just what it last sold for.", color: "bg-emerald-400/10 text-emerald-400" },
+                ].map(({ step, title, desc, color }) => (
+                  <div key={step} className="flex gap-3">
+                    <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5", color)}>
+                      {step}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-card border border-primary/20 rounded-2xl p-5">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-2">Why This Matters</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                A Jordan Fleer BGS 8.5 and a BGS 9.5 can both "last sell" near each other in a slow market — but their true investment trajectories are completely different. Our model captures that.
+              </p>
+            </div>
+            <Link to="/valuate">
+              <Button className="w-full h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Run Your Own Valuation
+              </Button>
+            </Link>
+          </div>
+          {/* Right: Live attribute ticker */}
+          <div className="overflow-y-auto max-h-[85vh] pr-1 scrollbar-thin">
+            <LiveAttributeTicker />
+          </div>
+        </div>
+      </div>
 
       {/* Feature Cards + Recent */}
       <div className="grid lg:grid-cols-3 gap-6">
