@@ -106,7 +106,7 @@ Be strict: only extract information that is explicitly stated or clearly visible
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                'Extract'
+                'Submit'
               )}
             </Button>
           </div>
