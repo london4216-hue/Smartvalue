@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Loader2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CardImageScanner from './CardImageScanner';
 import GradeWeightDisplay from './GradeWeightDisplay';
 import { GRADE_WEIGHTS } from './AttributeCategories';
+import SearchableSelect from './SearchableSelect';
 
 const POPULAR_SETS = [
   "Prizm", "Optic", "National Treasures", "Select", "Mosaic",
@@ -111,16 +111,12 @@ export default function CardInputForm({ onSubmit, isLoading }) {
 
         <div className="space-y-2">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Set</Label>
-          <Select value={form.card_set} onValueChange={(v) => handleChange('card_set', v)}>
-            <SelectTrigger className="bg-secondary/50 border-border/50 rounded-xl">
-              <SelectValue placeholder="Select set" />
-            </SelectTrigger>
-            <SelectContent>
-              {POPULAR_SETS.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={POPULAR_SETS}
+            value={form.card_set}
+            onChange={(v) => handleChange('card_set', v)}
+            placeholder="Search set..."
+          />
         </div>
 
         <div className="space-y-2">
@@ -145,16 +141,12 @@ export default function CardInputForm({ onSubmit, isLoading }) {
 
         <div className="space-y-2 col-span-2 sm:col-span-1">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Grade</Label>
-          <Select value={form.grade} onValueChange={(v) => handleChange('grade', v)}>
-            <SelectTrigger className="bg-secondary/50 border-border/50 rounded-xl">
-              <SelectValue placeholder="Select grade" />
-            </SelectTrigger>
-            <SelectContent>
-              {ALL_GRADES.map(g => (
-                <SelectItem key={g} value={g}>{g}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={ALL_GRADES}
+            value={form.grade}
+            onChange={(v) => handleChange('grade', v)}
+            placeholder="Search grade..."
+          />
         </div>
 
         <div className="space-y-2 col-span-2 sm:col-span-3">
