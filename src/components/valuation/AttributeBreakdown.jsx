@@ -4,6 +4,14 @@ import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { ATTRIBUTE_CATEGORIES } from './AttributeCategories';
 
+function getScoreLabel(score) {
+  if (score === -1 || score === null || score === undefined) return 'N/A';
+  if (score >= 80) return 'High';
+  if (score >= 60) return 'Medium-High';
+  if (score >= 40) return 'Medium';
+  return 'Low';
+}
+
 function AttributeBar({ label, score, weight, delay }) {
   const isNA = score === -1 || score === null || score === undefined;
 
@@ -20,9 +28,14 @@ function AttributeBar({ label, score, weight, delay }) {
         <span className="text-xs text-muted-foreground">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-muted-foreground/60">w:{weight}</span>
-          <span className={cn("text-xs font-mono font-semibold", isNA ? 'text-muted-foreground/40' : 'text-foreground')}>
-            {isNA ? 'N/A' : score}
-          </span>
+          <div className="text-right">
+            <span className={cn("text-xs font-mono font-semibold block", isNA ? 'text-muted-foreground/40' : 'text-foreground')}>
+              {isNA ? 'N/A' : score}
+            </span>
+            <span className="text-[10px] text-muted-foreground/70">
+              {getScoreLabel(score)}
+            </span>
+          </div>
         </div>
       </div>
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
