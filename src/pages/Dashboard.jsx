@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Zap } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
@@ -196,15 +196,44 @@ export default function Dashboard() {
           <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Investment-Grade Intelligence</span>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-end gap-6">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-              Today's comp is a snapshot.
+              Comp value doesn't define a card's worth.
               <br />
-              <span className="text-primary">We find tomorrow's value.</span>
+              <span className="text-primary">44 data points do.</span>
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mt-4 max-w-2xl leading-relaxed">
-              A comp tells you what someone paid <em>yesterday</em>. Our 44-factor model captures pop report trends, serial scarcity, auto type, cultural momentum, and player trajectory — everything the comp ignores.
+              Collectors always knew the real drivers of value — but couldn't prove them. Serial number scarcity, auto type, PSA readiness, cultural momentum, set prestige, player trajectory, market velocity. We scored 44 factors to expose what a last sale never shows.
             </p>
+            
+            {/* Data Points Examples */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
+              {[
+                'Serial scarcity',
+                'Auto type & grade',
+                'Set prestige tier',
+                'PSA gem potential',
+                'Pop report trends',
+                'Player momentum',
+                'Cultural catalyst',
+                'Sneaker deal power',
+                'Market velocity',
+                'Auction activity',
+                'Rookie status',
+                'Viral moments'
+              ].map((point, i) => (
+                <motion.div
+                  key={point}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 + i * 0.02 }}
+                  className="flex items-center gap-2 text-xs text-muted-foreground"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                  <span>{point}</span>
+                </motion.div>
+              ))}
+            </div>
           </div>
           <div className="relative shrink-0">
             <img
