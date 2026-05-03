@@ -114,20 +114,36 @@ export default function DemoScoreCard() {
         </div>
       </div>
 
-      {/* Comps breakdown */}
-      <div className="border-t border-border/30 pt-4 space-y-2">
-        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Comps</p>
-        <div className="flex justify-between text-xs items-center">
-          <span className="text-muted-foreground">Flippers Comp (last sold)</span>
-          <span className="font-mono font-semibold text-foreground">${FLIPPERS_COMP.toLocaleString()}</span>
+      {/* Comps comparison */}
+      <div className="border-t border-border/30 pt-4">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Comps</p>
+        <div className="flex items-center gap-3 justify-between">
+          {/* Flippers */}
+          <div className="flex-1">
+            <p className="text-[9px] text-muted-foreground/60 mb-1">Flippers Comp</p>
+            <p className="text-2xl font-mono font-bold text-foreground">${FLIPPERS_COMP.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">last sold</p>
+          </div>
+          
+          {/* Versus divider */}
+          <div className="text-center px-2">
+            <p className="text-[10px] font-mono font-semibold text-muted-foreground/50">VERSUS</p>
+          </div>
+          
+          {/* Holders */}
+          <div className="flex-1">
+            <p className="text-[9px] text-muted-foreground/60 mb-1">Holders Comp</p>
+            <p className="text-2xl font-mono font-bold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">90-day avg</p>
+          </div>
         </div>
-        <div className="flex justify-between text-xs items-center">
-          <span className="text-muted-foreground">Holders Comp (90-day avg)</span>
-          <span className="font-mono font-semibold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between text-xs items-center bg-secondary/30 rounded px-2 py-1">
-          <span className="text-muted-foreground">Spread</span>
-          <span className="font-mono font-semibold text-emerald-400">${spread.toLocaleString()}</span>
+        
+        {/* Delta */}
+        <div className="mt-3 bg-secondary/30 rounded-lg px-3 py-2 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Flippers spread</span>
+          <span className={cn("text-sm font-mono font-bold", FLIPPERS_COMP > HOLDERS_COMP ? "text-emerald-400" : "text-red-400")}>
+            {FLIPPERS_COMP > HOLDERS_COMP ? '+' : ''}{vsHoldersPct}%
+          </span>
         </div>
       </div>
 
