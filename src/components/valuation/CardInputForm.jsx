@@ -93,6 +93,8 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     sneaker_brand: '',
     recent_viral_moment: false,
     viral_description: '',
+    has_autograph: false,
+    is_sticker_auto: false,
   });
   const [showScanner, setShowScanner] = useState(true);
   const [showSignals, setShowSignals] = useState(true);
@@ -364,27 +366,46 @@ export default function CardInputForm({ onSubmit, isLoading }) {
               </div>
             </div>
 
-            {/* Viral Moment */}
+            {/* Autograph */}
             <div>
-              <SectionLabel>🔥 Recent Viral Moment</SectionLabel>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
+              <SectionLabel>✍️ Autograph Details</SectionLabel>
+              <div className="flex flex-wrap gap-2">
+                <ToggleChip
+                  label="✍️ Card has autograph"
+                  selected={form.has_autograph}
+                  onClick={() => handleChange('has_autograph', !form.has_autograph)}
+                />
+                {form.has_autograph && (
                   <ToggleChip
-                    label="🔥 Player had a recent viral moment"
-                    selected={form.recent_viral_moment}
-                    onClick={() => handleChange('recent_viral_moment', !form.recent_viral_moment)}
-                  />
-                </div>
-                {form.recent_viral_moment && (
-                  <Input
-                    placeholder="Describe it (e.g. 50-pt game, record-breaking play, meme, interview clip...)"
-                    value={form.viral_description}
-                    onChange={(e) => handleChange('viral_description', e.target.value)}
-                    className="bg-secondary/50 border-border/50 rounded-xl text-sm"
+                    label="🏷️ Sticker auto (not on-card)"
+                    selected={form.is_sticker_auto}
+                    onClick={() => handleChange('is_sticker_auto', !form.is_sticker_auto)}
                   />
                 )}
               </div>
             </div>
+
+            {/* Viral Moment */}
+             <div>
+               <SectionLabel>🔥 Recent Viral Moment</SectionLabel>
+               <div className="space-y-2">
+                 <div className="flex flex-wrap gap-2">
+                   <ToggleChip
+                     label="🔥 Player had a recent viral moment"
+                     selected={form.recent_viral_moment}
+                     onClick={() => handleChange('recent_viral_moment', !form.recent_viral_moment)}
+                   />
+                 </div>
+                 {form.recent_viral_moment && (
+                   <Input
+                     placeholder="Describe it (e.g. 50-pt game, record-breaking play, meme, interview clip...)"
+                     value={form.viral_description}
+                     onChange={(e) => handleChange('viral_description', e.target.value)}
+                     className="bg-secondary/50 border-border/50 rounded-xl text-sm"
+                   />
+                 )}
+               </div>
+             </div>
 
           </div>
         )}
