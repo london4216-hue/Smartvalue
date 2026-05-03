@@ -60,12 +60,17 @@ const ALL_FACTORS = [
 
 const FLIPPERS_COMP = 10500;  // Last sold (current comp)
 const HOLDERS_COMP  = 9850;   // 90-day avg baseline
-const GRADE         = 0.65;
-const BASE          = FLIPPERS_COMP * GRADE; // 6825
 
 // Compute raw impact per factor: (score/10 - 0.5) * weight * scale_factor
 // Factors above 5 = positive contribution, below 5 = negative, 0 = neutral drag
 const SCALE = 0.008; // calibrated so all factors together net ~37% total
+
+// 1/5/10 year projections based on historical trajectory
+const PROJECTIONS = {
+  year_1:  { label: "1Y Projection", value: 12100, delta: 0.152 },
+  year_5:  { label: "5Y Projection", value: 16800, delta: 0.600 },
+  year_10: { label: "10Y Projection", value: 28500, delta: 1.714 },
+};
 
 function computeFactors() {
   return ALL_FACTORS.map(f => ({
@@ -77,16 +82,9 @@ function computeFactors() {
 export default function DemoScoreCard() {
   const sorted  = computeFactors();
   const top5    = sorted.slice(0, 5);
-  const rest    = sorted.slice(5);
 
-  const top5Adj    = top5.reduce((s, f) => s + f.impact, 0);
-  const rollupAdj  = rest.reduce((s, f) => s + f.impact, 0);
-  const totalAdj   = top5Adj + rollupAdj;
-  const aiValue    = Math.round(BASE * (1 + totalAdj));
-  const vsFlippersPct = ((aiValue - FLIPPERS_COMP) / FLIPPERS_COMP * 100).toFixed(1);
-  const vsHoldersPct  = ((aiValue - HOLDERS_COMP) / HOLDERS_COMP * 100).toFixed(1);
-
-  const fmt = (v) => (v >= 0 ? `+${(v * 100).toFixed(1)}%` : `${(v * 100).toFixed(1)}%`);
+  const spread = FLIPPERS_COMP - HOLDERS_COMP;
+  const vsHoldersPct = ((FLIPPERS_COMP - HOLDERS_COMP) / HOLDERS_COMP * 100).toFixed(1);
 
   return (
     <div className="bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-5">
@@ -105,13 +103,10 @@ export default function DemoScoreCard() {
           <span className="absolute -bottom-1.5 -right-1.5 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">BGS 8.5</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">AI Investment Value</p>
-          <p className="text-3xl font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
-          <div className="mt-1 text-[11px]">
-            vs holders{' '}
-            <span className={cn("font-semibold", parseFloat(vsHoldersPct) >= 0 ? "text-emerald-400" : "text-red-400")}>
-              {parseFloat(vsHoldersPct) >= 0 ? '+' : ''}{vsHoldersPct}%
-            </span>
+          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Flippers Comp</p>
+          <p className="text-3xl font-mono font-bold text-primary">${FLIPPERS_COMP.toLocaleString()}</p>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            vs holders baseline <span className="font-semibold text-emerald-400">+{vsHoldersPct}%</span>
           </div>
           <div className="mt-2">
             <ScoreGauge score={91} label="Score" size="sm" />
@@ -119,74 +114,49 @@ export default function DemoScoreCard() {
         </div>
       </div>
 
-      {/* Formula breakdown */}
-      <div className="border-t border-border/30 pt-4 space-y-1.5">
-        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">AI Value Formula</p>
-
-        {/* Step 1: comps */}
-        <div className="space-y-1 mb-2">
-          <div className="flex justify-between text-xs items-center">
-            <span className="text-muted-foreground">Flippers Comp (last sold)</span>
-            <span className="font-mono font-semibold text-foreground">${FLIPPERS_COMP.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-xs items-center">
-            <span className="text-muted-foreground">Holders Comp (90-day avg)</span>
-            <span className="font-mono font-semibold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</span>
-          </div>
-        </div>
-
-        {/* Step 2: grade */}
+      {/* Comps breakdown */}
+      <div className="border-t border-border/30 pt-4 space-y-2">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Comps</p>
         <div className="flex justify-between text-xs items-center">
-          <span className="text-muted-foreground">× Grade multiplier ({GRADE})</span>
-          <span className="font-mono font-semibold text-foreground">${BASE.toLocaleString()}</span>
+          <span className="text-muted-foreground">Flippers Comp (last sold)</span>
+          <span className="font-mono font-semibold text-foreground">${FLIPPERS_COMP.toLocaleString()}</span>
         </div>
+        <div className="flex justify-between text-xs items-center">
+          <span className="text-muted-foreground">Holders Comp (90-day avg)</span>
+          <span className="font-mono font-semibold text-muted-foreground/70">${HOLDERS_COMP.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between text-xs items-center bg-secondary/30 rounded px-2 py-1">
+          <span className="text-muted-foreground">Spread</span>
+          <span className="font-mono font-semibold text-emerald-400">${spread.toLocaleString()}</span>
+        </div>
+      </div>
 
-        {/* Step 3: top 5 drivers */}
-        <div className="pt-1 pb-0.5">
-          <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-1">Top 5 Value Drivers</p>
-          {top5.map(d => (
-            <div key={d.label} className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-emerald-400/40 mb-1">
-              <span className="text-muted-foreground truncate pr-2">{d.label}</span>
-              <span className={cn("font-mono font-semibold shrink-0", d.impact >= 0 ? "text-emerald-400" : "text-red-400")}>
-                {fmt(d.impact)}
+      {/* Projections */}
+      <div className="border-t border-border/30 pt-4 space-y-2">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Price Projections</p>
+        {Object.values(PROJECTIONS).map(proj => (
+          <div key={proj.label} className="flex justify-between text-xs items-center">
+            <span className="text-muted-foreground">{proj.label}</span>
+            <div className="text-right">
+              <span className="font-mono font-semibold text-primary">${proj.value.toLocaleString()}</span>
+              <span className="text-muted-foreground text-[10px] ml-1">
+                ({(proj.delta >= 0 ? '+' : '')}
+                {(proj.delta * 100).toFixed(0)}%)
               </span>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
-        {/* Step 4: rollup */}
-        <div className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-muted-foreground/20">
-          <span className="text-muted-foreground">{rest.length} supporting factors</span>
-          <span className={cn("font-mono font-semibold", rollupAdj >= 0 ? "text-muted-foreground" : "text-red-400/70")}>
-            {fmt(rollupAdj)}
-          </span>
-        </div>
-
-        <div className="h-px bg-border/40 my-1" />
-
-        {/* Total adjustment */}
-        <div className="flex justify-between text-xs items-center">
-          <span className="text-muted-foreground">Total adjustment</span>
-          <span className={cn("font-mono font-semibold", totalAdj >= 0 ? "text-emerald-400" : "text-red-400")}>
-            {fmt(totalAdj)}
-          </span>
-        </div>
-
-        {/* Final = */}
-        <div className="flex justify-between text-xs items-center bg-primary/5 border border-primary/15 rounded-lg px-2 py-1.5">
-          <span className="font-semibold text-foreground">= AI Investment Value</span>
-          <span className="font-mono font-bold text-primary">${aiValue.toLocaleString()}</span>
-        </div>
-
-        <div className="h-px bg-border/40 my-1" />
-        {[
-          { label: "Spread (flip ↔ hold)", value: `$${(FLIPPERS_COMP - HOLDERS_COMP).toLocaleString()}`, cls: "text-muted-foreground" },
-          { label: "Market Heat",  value: "91/100",     cls: "text-emerald-400" },
-          { label: "Signal",       value: "STRONG BUY", cls: "text-emerald-400 font-bold" },
-        ].map(row => (
-          <div key={row.label} className="flex justify-between text-xs">
-            <span className="text-muted-foreground">{row.label}</span>
-            <span className={cn("font-mono font-semibold", row.cls)}>{row.value}</span>
+      {/* Top 5 attributes driving above/below */}
+      <div className="border-t border-border/30 pt-4 space-y-2">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Top 5 Drivers vs Comp</p>
+        {top5.map(d => (
+          <div key={d.label} className="flex justify-between text-[11px] items-start pl-2 border-l-2 border-muted-foreground/20">
+            <span className="text-muted-foreground truncate pr-2 flex-1">{d.label}</span>
+            <span className={cn("font-mono font-semibold shrink-0", d.impact >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {d.impact >= 0 ? '+' : ''}{(d.impact * 100).toFixed(1)}%
+            </span>
           </div>
         ))}
       </div>
