@@ -1,0 +1,81 @@
+{
+  "name": "CardValuation",
+  "type": "object",
+  "properties": {
+    "player_name": {
+      "type": "string",
+      "description": "Name of the basketball player"
+    },
+    "card_year": {
+      "type": "string",
+      "description": "Year the card was produced"
+    },
+    "card_set": {
+      "type": "string",
+      "description": "Card set name (e.g. Prizm, Optic, National Treasures)"
+    },
+    "card_number": {
+      "type": "string",
+      "description": "Card number in the set"
+    },
+    "variation": {
+      "type": "string",
+      "description": "Card variation (e.g. Silver, Gold, Base)"
+    },
+    "grade": {
+      "type": "string",
+      "description": "Card grade (e.g. PSA 10, BGS 9.5, Raw)"
+    },
+    "comp_value": {
+      "type": "number",
+      "description": "Last comparable sale price in USD"
+    },
+    "ai_investment_value": {
+      "type": "number",
+      "description": "AI-calculated investment value in USD"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Overall investment score 0-100"
+    },
+    "flip_vs_hold": {
+      "type": "string",
+      "enum": [
+        "strong_buy",
+        "buy",
+        "hold",
+        "sell",
+        "strong_sell"
+      ],
+      "description": "Investment recommendation"
+    },
+    "attribute_scores": {
+      "type": "object",
+      "description": "JSON object with all 40+ attribute scores"
+    },
+    "analysis_summary": {
+      "type": "string",
+      "description": "AI-generated investment analysis summary"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL to card image if uploaded"
+    },
+    "notes": {
+      "type": "string",
+      "description": "User notes about this card"
+    },
+    "in_portfolio": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this card is in the user's portfolio"
+    },
+    "purchase_price": {
+      "type": "number",
+      "description": "Price the user paid for this card"
+    }
+  },
+  "required": [
+    "player_name"
+  ]
+}
