@@ -8,7 +8,7 @@ import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/Attr
 
 function buildPrompt(cardData) {
   const allAttrs = Object.values(ATTRIBUTE_CATEGORIES).flatMap(cat =>
-    cat.attributes.map(a => `"${a.key}": (0-100 score for ${a.label}, weight: ${a.weight})`)
+    cat.attributes.map(a => `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
   );
 
   const gradeInfo = cardData.grade && GRADE_WEIGHTS[cardData.grade]
@@ -16,27 +16,21 @@ function buildPrompt(cardData) {
     : null;
 
   const gradeSection = gradeInfo ? `
-GRADE WEIGHT FACTORS (already computed — use these in your valuation math):
+GRADE FACTORS:
 - Grade: ${cardData.grade}
-- Value Multiplier: ${gradeInfo.multiplier}× (this directly scales the comp baseline)
-- Registry Premium: ${gradeInfo.registry_premium > 0 ? `+${(gradeInfo.registry_premium * 100).toFixed(0)}% added to comp` : 'None'}
-- Grading Company Market Trust: ${cardData.grade.startsWith('PSA') ? 'Highest (PSA dominates resale market)' : cardData.grade.startsWith('BGS') ? 'Very High (Beckett highly respected, BGS 10 Pristine is rarest)' : cardData.grade.startsWith('SGC') ? 'High (SGC growing rapidly, especially vintage)' : cardData.grade.startsWith('CGC') ? 'Moderate-High (CGC new entrant, growing)' : 'None — raw cards are illiquid, high risk'}
-- Centering Tolerance: ${gradeInfo.centering_tolerance}
-- Surface Standard: ${gradeInfo.surface_standard}
-- Population Scarcity at This Grade: ${(gradeInfo.pop_scarcity_factor * 100).toFixed(0)}/100 (higher = rarer at this grade)
-- Upgrade Potential: ${gradeInfo.tier === 'raw' ? 'High — could be worth much more if graded gem' : gradeInfo.tier === 'nm' || gradeInfo.tier === 'low' ? 'Moderate — crossover or resubmit possible' : 'Low — already at top grade'}
-
-When scoring the "grade_quality" category attributes, use these facts directly.
-The comp value of ${cardData.comp_value ? '$' + cardData.comp_value : 'unknown'} should be adjusted by the ${gradeInfo.multiplier}× multiplier when estimating AI investment value.
+- Value Multiplier: ${gradeInfo.multiplier}×
+- Registry Premium: ${gradeInfo.registry_premium > 0 ? `+${(gradeInfo.registry_premium * 100).toFixed(0)}%` : 'None'}
+- Grading Company Trust: ${cardData.grade.startsWith('PSA') ? 'Highest (PSA dominates resale)' : cardData.grade.startsWith('BGS') ? 'Very High (BGS 10 Pristine is rarest slab)' : cardData.grade.startsWith('SGC') ? 'High (SGC growing fast, especially vintage)' : cardData.grade.startsWith('CGC') ? 'Moderate-High (CGC emerging)' : 'None — raw = illiquid, high risk'}
+- Pop Scarcity at This Grade: ${(gradeInfo.pop_scarcity_factor * 100).toFixed(0)}/100
+- Upgrade Potential: ${gradeInfo.tier === 'raw' ? 'High' : gradeInfo.tier === 'nm' || gradeInfo.tier === 'low' ? 'Moderate' : 'Low — already at top grade'}
 ` : '';
 
   const scanNotes = cardData.scan_notes ? `
-CARD SCAN OBSERVATIONS (from AI image analysis):
+CARD SCAN OBSERVATIONS:
 ${cardData.scan_notes}
-Use these observations to inform your grade_quality scoring.
 ` : '';
 
-  return `You are an expert basketball card investment analyst. Analyze the following card and provide a comprehensive investment valuation.
+  return `You are an expert basketball card investment analyst running a PREDICTIVE INDEX — not a grading report. Every score should answer: "Does this signal make the card worth more in the future?"
 
 CARD DETAILS:
 - Player: ${cardData.player_name}
@@ -45,58 +39,60 @@ ${cardData.card_set ? `- Set: ${cardData.card_set}` : ''}
 ${cardData.card_number ? `- Card Number: ${cardData.card_number}` : ''}
 ${cardData.variation ? `- Variation: ${cardData.variation}` : ''}
 ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
-${cardData.comp_value ? `- Last Comparable Sale (raw comp): $${cardData.comp_value}` : '- Last Comparable Sale: Unknown'}
+${cardData.comp_value ? `- Last Comparable Sale (raw comp): $${cardData.comp_value}` : '- Last Comparable Sale: Unknown — research real eBay/PWCC sold prices'}
 ${gradeSection}
 ${scanNotes}
 
+CARD DNA SCORING RULES (score these based on what you know about the card):
+- "card_brand_tier": National Treasures/Flawless/Exquisite = 90-100. Prizm/Select/Optic = 60-80. Base Topps/Donruss = 20-40.
+- "set_prestige": Iconic sets (1986 Fleer, 96-97 Topps Chrome, 03-04 Exquisite) = 95-100. Modern premium = 70-85. Base modern = 30-50.
+- "variation_desirability": Prizm Silver/Base = 60-70. Gold/Color parallels = 75-85. Low-numbered (/10 or less) = 90-100. Superfractor = 100.
+- "card_number_significance": If card number = player jersey number, score 85-100. Otherwise score 10-20.
+- "jersey_number_match": If card# matches player jersey# exactly (e.g. #23 for Jordan), score 90-100. If /23 numbered AND card #23, score 100. No match = 0-10.
+
+SERIAL NUMBER & PRINT RUN RULES:
+- "is_serialized": Card is numbered = 80-100. Unnumbered = 0-20.
+- "print_run_size": /1 = 100. /5 = 95. /10 = 90. /25 = 82. /49 = 75. /99 = 65. /149 = 55. /199 = 48. /249 = 40. /499+ = 25. Unnumbered = 10.
+- "bookend_number": Is serial #1 of run OR #max of run (e.g. 25/25)? Yes = 90-100. Not applicable = 0.
+- "low_serial_number": Serial #1 = 100. #2 = 95. #3-5 = 88. #6-10 = 78. #11-25 = 60. #26+ = 20. Not applicable = 0.
+- "is_one_of_one": True 1/1 (plate, superfractor, logoman, hand-numbered) = 100. Not a 1/1 = 0.
+
+AUTOGRAPH RULES:
+- "has_autograph": Card has a certified auto = 85-100. No auto = 0-10.
+- "auto_type": On-card auto (signed directly on card) = 85-100. Sticker auto = 30-55. No auto = 0.
+- "auto_quality": Bold full-name signature = 80-100. Partial/rushed = 40-65. Sticker scribble = 20-40.
+- "auto_graded": BGS 10 auto sub = 95. BGS 9.5 = 80. JSA/PSA auth = 60. Not graded = 30. No auto = 0.
+- "dual_triple_auto": Triple auto = 90-100. Dual = 75-85. Single only = 0-10.
+
+PATCH RULES:
+- "has_patch": Card has embedded patch/swatch = 80-100. No patch = 0.
+- "patch_quality": Logoman patch = 100. Nike Swoosh/Brand logo = 88. Number patch = 82. Multi-color = 70. Single white = 40. No patch = 0.
+- "rpa_designation": True RPA (RC + Patch + Auto) = 95-100. Has 2 of 3 = 60-70. Base card = 0.
+
+POPULATION SCORING (INVERSE — lower pop = higher score):
+- "pop_count_at_grade": Pop 1 = 100. Pop 2-5 = 92-96. Pop 6-15 = 82-88. Pop 16-30 = 72-78. Pop 31-75 = 60-68. Pop 76-150 = 45-55. Pop 151-300 = 30-42. Pop 301-500 = 18-28. Pop 500+ = 5-15.
+- "pop_report": Total graded count. Under 50 total = 90-100. Under 200 = 75-85. Under 500 = 60-70. 500-2000 = 40-55. 2000+ = 20-35. 10000+ = 5-15.
+
+RETIRED PLAYER HANDLING:
+If player is retired, score these as -1 (N/A): career_trajectory (if fully retired), injury_risk.
+For retired legends, goat_legacy_score, hall_of_fame_trajectory, cultural_icon_status, and historical_appreciation should all be very high (80-100).
+
 VALUATION MODEL:
-The comp is the market anchor — it represents what buyers are actually paying right now. The AI attributes adjust that anchor up or down based on investment fundamentals.
+  ai_investment_value = (comp × grade_multiplier) × (1 + attribute_adjustment)
+  - grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0}
+  - attribute_adjustment = (weighted_avg_score - 50) / 50 × 0.30 (capped at ±30%)
+  - A card with average attributes should return ≈ grade-adjusted comp. That is correct.
+  - Max deviation: ±30% from grade-adjusted comp.
 
-The final ai_investment_value is calculated as:
-  adjusted_value = (comp × grade_multiplier) × (1 + attribute_adjustment)
-
-  Where:
-  - comp = the last comparable sale price provided (or your best estimate of real market price)
-  - grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0} (based on grade tier)
-  - attribute_adjustment = a value between -0.30 and +0.30, derived from the weighted average of all attribute scores
-    → attribute_adjustment = (weighted_avg_score - 50) / 50 × 0.30
-    → If weighted avg ≈ 50 (ordinary card), attribute_adjustment ≈ 0 → final ≈ grade-adjusted comp
-    → If weighted avg = 80+, attribute_adjustment up to +0.18 → pushes above grade-adjusted comp
-    → If weighted avg = 25-, attribute_adjustment down to -0.15 → discounts below grade-adjusted comp
-  - NEVER exceed ±30% adjustment from the grade-adjusted comp. The comp IS the market.
-  - A card with average attributes should return ai_investment_value ≈ (comp × grade_multiplier). That is correct and intentional.
-
-IMPORTANT: If no comp is provided, use your best knowledge of real recent eBay/PWCC sold prices for this exact card + grade as the comp baseline. Research carefully — the comp is the foundation of everything.
-
-Score each of these ${allAttrs.length} attributes from 0-100 based on your knowledge:
+Score ALL ${allAttrs.length} attributes (0-100, or -1 for N/A):
 
 ${allAttrs.join('\n')}
 
-Also provide:
-- "overall_score": Overall investment score 0-100 (weighted average of all attributes)
-- "flip_vs_hold": One of "strong_buy", "buy", "hold", "sell", "strong_sell" — LONG-TERM INVESTMENT perspective only
-- "ai_investment_value": Estimated fair investment value in USD using the 4-step model above. MUST be grounded in real market prices.
-- "analysis_summary": 3-4 sentence investment thesis. State the comp used, grade multiplier applied, and whether attributes are pushing value above or below market comp.
-
-RETIRED PLAYER HANDLING:
-Some attributes only apply to active players. If the player is RETIRED, score the following as "N/A" (use -1 in the JSON, which will display as N/A in the UI):
-- current_season_performance → N/A (retired, no current season)
-- contract_status → N/A (no contract)
-- playoff_team → N/A (no current team)
-- trade_volume_30d / trade_volume_90d / price_trend_30d / price_trend_90d → use actual recent card market data, not player performance
-- mvp_potential → N/A for clearly retired legends (score their peak legacy instead via hall_of_fame_trajectory)
-For all other attributes, score based on career achievement and legacy value, which can be very high for legends.
-
-SPECIAL SCORING NOTES:
-- "pop_count_at_grade": Score INVERSELY to population. A pop of 1-5 = score 95-100. Pop 10-25 = 80-90. Pop 50-100 = 60-70. Pop 500+ = 20-30. The rarer the pop, the higher the score.
-- "jersey_number_match": If the card number matches the player's jersey number (e.g., card #23 for Michael Jordan), score 90-100. This is a massive collector premium — jersey matches on numbered cards are among the most sought-after in the hobby. If it's a low-numbered match (e.g., /23 numbered AND #23), score 100. If no match, score 0-10.
-
-CRITICAL RULES:
-1. The comp is the market's verdict. Respect it. An average card with average attributes should return ai_investment_value ≈ comp. That is NOT a bug — it is the correct answer.
-2. Only exceptional fundamentals (rare pop, MVP trajectory, major market trade, viral cultural moment) justify pushing above comp.
-3. Only serious red flags (injury, declining performance, oversaturated supply) justify going below comp.
-4. Max deviation from grade-adjusted comp is ±30%. Never exceed this.
-5. If you're unsure, stay close to the comp. Accuracy over hype.`;
+Return:
+- "overall_score": 0-100 weighted investment score
+- "flip_vs_hold": "strong_buy" | "buy" | "hold" | "sell" | "strong_sell" (long-term perspective)
+- "ai_investment_value": USD value using the model above, grounded in real market data
+- "analysis_summary": 3-4 sentence thesis. Lead with the card's key investment signals (auto type, print run, patch quality, player trajectory). State comp used and what's driving the AI value up or down.`;
 }
 
 function buildResponseSchema() {
@@ -186,7 +182,7 @@ export default function ValuateCard() {
       >
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">AI Card Valuation</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Comp = what it sold for. AI Value = what it's <em>worth</em>. 42 forward-looking attributes tell the difference.
+          Comp = what it sold for. AI Value = what it's <em>worth</em>. Serial number, auto type, patch quality, pop report, player thesis — every signal that moves the needle.
         </p>
       </motion.div>
 
@@ -200,9 +196,9 @@ export default function ValuateCard() {
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
-          <p className="text-sm font-medium text-foreground">Analyzing 42 investment factors...</p>
+          <p className="text-sm font-medium text-foreground">Running predictive investment index...</p>
           <p className="text-xs text-muted-foreground mt-2">
-            Pulling player data, market dynamics, cultural impact & more
+            Scoring card DNA, serial number, auto type, patch quality, pop data & market signals
           </p>
           <div className="flex justify-center gap-1 mt-4">
             {[0, 1, 2, 3, 4].map(i => (
