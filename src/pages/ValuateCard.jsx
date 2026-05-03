@@ -42,6 +42,42 @@ ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
 ${cardData.comp_value ? `- Last Comparable Sale (raw comp): $${cardData.comp_value}` : '- Last Comparable Sale: Unknown — research real eBay/PWCC sold prices'}
 ${cardData.cheapest_available ? `- Cheapest Available Now (lowest current ask/BIN): $${cardData.cheapest_available} — IMPORTANT: if this is lower than the comp, it directly suppresses real market value. The AI value cannot meaningfully exceed the cheapest replacement cost unless the supply is extremely limited.` : ''}
 ${gradeSection}
+
+CARD IDENTITY SIGNALS (user-provided):
+- Is Rookie Year Card: ${cardData.is_rookie_year ? 'YES — this is the player\'s rookie year. Rookie year cards from premium brands are the single most important category in the hobby. Apply maximum RC premium.' : 'No / Unknown'}
+- Parallel Color Matches Team Colors: ${cardData.color_matches_team ? 'YES — color-matched parallels are highly sought after by team collectors and player collectors. Apply +15-25% color match premium.' : 'No / Unknown'}
+
+SET BRAND TIER ANALYSIS:
+Set: "${cardData.card_set || 'Unknown'}"
+- Ultra-Premium (National Treasures, Flawless, Exquisite, Immaculate, Noir): These are the rarest, most expensive products. Autos and patches from these sets carry a massive prestige premium. Score card_brand_tier: 90-100.
+- Premium (Prizm, Select, Optic, Spectra, Crown Royale, Revolution): Industry-standard collectible sets. High collector demand, liquid market. Score: 65-85.
+- Mid-Tier (Mosaic, Certified, Hoops Premium Stock): Solid sets, lower prestige. Score: 40-60.
+- Base/Budget (Hoops, Donruss, Topps, Fleer, Upper Deck base): High print runs, low scarcity. Score: 10-35.
+Apply this tier directly to both card_brand_tier score AND the overall valuation context.
+
+PLAYER POPULARITY & CULTURAL STATUS:
+- Popularity Status: ${cardData.player_popularity === 'rising' ? '🚀 RISING STAR — demand is accelerating. Cards at floor NOW may be 2-5× in 2-3 years. Strong buy signal.' : cardData.player_popularity === 'peak' ? '🔥 PEAK POPULARITY — maximum current demand. Premium pricing NOW. Watch for correction.' : cardData.player_popularity === 'legend' ? '🐐 ALL-TIME LEGEND — demand never expires. Floor is permanently high. Treat as blue-chip asset.' : cardData.player_popularity === 'declining' ? '📉 DECLINING / RETIRING — demand softening. Sell pressure increasing. Be conservative on future value.' : 'Unknown — use your knowledge of the player'}
+
+TV SHOW / DOCUMENTARY IMPACT:
+${cardData.has_tv_show && cardData.tv_show_name ? `ACTIVE MEDIA CATALYST: "${cardData.tv_show_name}"
+This is a MAJOR demand driver. Documentaries and prestige TV shows introduce the player to a new generation of collectors and non-collectors. After The Last Dance (2020), Jordan card prices spiked 3-10×. After Winning Time (HBO), Magic Johnson and early Lakers cards spiked 40-120%.
+- Score "recent_viral_moments" high (80-95) if this show is currently airing or recently aired.
+- Score "upcoming_documentary" high (85-100) if it's upcoming/just announced.
+- This single signal can justify a 15-30% premium on the AI value vs comp alone.` : 'No known active TV/documentary catalyst.'}
+
+SNEAKER DEAL & BRAND POWER:
+${cardData.has_sneaker_deal && cardData.sneaker_brand ? `ACTIVE SNEAKER DEAL: ${cardData.sneaker_brand}
+Sneaker deals are massive cultural amplifiers. Nike/Jordan Brand is the most powerful — their retro releases (like Jordan Brand drops) directly spike card demand as the brand stays culturally relevant. Adidas/UA also significant. Non-Nike deals carry less premium.
+- Nike / Jordan Brand: Apply maximum sneaker premium. Score sneaker_line_activity: 90-100.
+- Adidas: Strong premium. Score: 75-90.
+- Under Armour / Puma / New Balance: Moderate premium. Score: 55-70.
+- Li-Ning / Anta: Signals international appeal (especially China market). Score: 60-75.
+${cardData.sneaker_brand.includes('Nike') || cardData.sneaker_brand.includes('Jordan') ? 'JORDAN BRAND NOTE: Jordan Brand retro releases create cyclical spikes. Every new Jordan shoe release re-exposes millions of consumers to the Jordan brand and drives card demand.' : ''}` : 'No sneaker deal specified — use your knowledge of the player.'}
+
+VIRAL MOMENT:
+${cardData.recent_viral_moment && cardData.viral_description ? `RECENT VIRAL MOMENT: "${cardData.viral_description}"
+Viral moments create immediate demand spikes. A record-breaking game, a memorable play, a controversial interview, a meme — anything that trends on social media drives people to search for and buy that player's cards within 24-72 hours of the event. Score recent_viral_moments: 85-100. Apply 10-20% uplift to near-term value projection.` : 'No recent viral moment reported.'}
+
 ${scanNotes}
 
 CARD DNA SCORING RULES (score these based on what you know about the card):

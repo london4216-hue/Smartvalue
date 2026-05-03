@@ -10,12 +10,67 @@ import { GRADE_WEIGHTS } from './AttributeCategories';
 import SearchableSelect from './SearchableSelect';
 
 const POPULAR_SETS = [
-  "Prizm", "Optic", "National Treasures", "Select", "Mosaic",
-  "Fleer", "Topps Chrome", "Hoops", "Court Kings", "Immaculate",
-  "Contenders", "Revolution", "Spectra", "Crown Royale", "Other"
+  // Ultra-Premium
+  "National Treasures", "Flawless", "Exquisite", "Immaculate", "Noir",
+  "Iridescence", "Obsidian", "One and One",
+  // Premium
+  "Prizm", "Select", "Optic", "Spectra", "Crown Royale",
+  "Revolution", "Court Kings", "Contenders",
+  // Mid-tier
+  "Mosaic", "Hoops Premium Stock", "Certified", "Absolute",
+  // Base / Budget
+  "Hoops", "Donruss", "Topps", "Topps Chrome", "Fleer", "Upper Deck",
+  "Other"
 ];
 
+const SET_TIERS = {
+  "Ultra-Premium": ["National Treasures", "Flawless", "Exquisite", "Immaculate", "Noir", "Iridescence", "Obsidian", "One and One"],
+  "Premium": ["Prizm", "Select", "Optic", "Spectra", "Crown Royale", "Revolution", "Court Kings", "Contenders"],
+  "Mid-Tier": ["Mosaic", "Hoops Premium Stock", "Certified", "Absolute"],
+  "Base": ["Hoops", "Donruss", "Topps", "Topps Chrome", "Fleer", "Upper Deck"],
+};
+
 const ALL_GRADES = Object.keys(GRADE_WEIGHTS);
+
+const TV_SHOWS = [
+  "The Last Dance (Netflix)",
+  "Winning Time (HBO)",
+  "Untold (Netflix)",
+  "Shut Up and Dribble (Showtime)",
+  "Shaq (HBO)",
+  "I Am Athlete (podcast/YouTube)",
+  "Pat McAfee Show (ESPN)",
+  "The Shop (HBO)",
+  "Man in the Arena (ESPN+)",
+  "Iverson (30 for 30)",
+  "Magic & Bird (HBO)",
+  "Other documentary",
+  "None",
+];
+
+function ToggleChip({ label, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+        selected
+          ? 'bg-primary/20 border-primary/50 text-primary'
+          : 'bg-secondary/50 border-border/30 text-muted-foreground hover:border-border'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <p className="text-[10px] font-mono uppercase tracking-wider text-primary/60 border-b border-border/20 pb-1 mb-3">
+      {children}
+    </p>
+  );
+}
 
 export default function CardInputForm({ onSubmit, isLoading }) {
   const [form, setForm] = useState({
@@ -28,8 +83,19 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     comp_value: '',
     cheapest_available: '',
     image_url: '',
+    // New signals
+    is_rookie_year: false,
+    color_matches_team: false,
+    has_tv_show: false,
+    tv_show_name: '',
+    player_popularity: '',   // "rising" | "peak" | "legend" | "declining"
+    has_sneaker_deal: false,
+    sneaker_brand: '',
+    recent_viral_moment: false,
+    viral_description: '',
   });
   const [showScanner, setShowScanner] = useState(true);
+  const [showSignals, setShowSignals] = useState(true);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -58,6 +124,15 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     });
   };
 
+  // Determine set tier for badge
+  const setTier = Object.entries(SET_TIERS).find(([, sets]) => sets.includes(form.card_set))?.[0] || null;
+  const tierColors = {
+    "Ultra-Premium": "text-violet-400 border-violet-400/30 bg-violet-400/10",
+    "Premium":       "text-emerald-400 border-emerald-400/30 bg-emerald-400/10",
+    "Mid-Tier":      "text-yellow-400 border-yellow-400/30 bg-yellow-400/10",
+    "Base":          "text-muted-foreground border-border/30 bg-secondary/50",
+  };
+
   return (
     <motion.form
       onSubmit={handleSubmit}
@@ -75,9 +150,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
           <span className="font-mono uppercase tracking-wider">AI Card Scanner (optional)</span>
           {showScanner ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
-        {showScanner && (
-          <CardImageScanner onExtracted={handleScanned} />
-        )}
+        {showScanner && <CardImageScanner onExtracted={handleScanned} />}
       </div>
 
       <div className="border-t border-border/30" />
@@ -112,7 +185,14 @@ export default function CardInputForm({ onSubmit, isLoading }) {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Set</Label>
+          <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Set
+            {setTier && (
+              <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] border ${tierColors[setTier]}`}>
+                {setTier}
+              </span>
+            )}
+          </Label>
           <SearchableSelect
             options={POPULAR_SETS}
             value={form.card_set}
@@ -181,6 +261,135 @@ export default function CardInputForm({ onSubmit, isLoading }) {
       {/* Grade Weight Panel */}
       {form.grade && <GradeWeightDisplay grade={form.grade} />}
 
+      <div className="border-t border-border/30" />
+
+      {/* ── DEEP SIGNALS ─────────────────────────────────────── */}
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowSignals(s => !s)}
+          className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span className="font-mono uppercase tracking-wider">
+            Deep Signals <span className="text-primary/60">(boosts AI accuracy significantly)</span>
+          </span>
+          {showSignals ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+
+        {showSignals && (
+          <div className="space-y-5 bg-secondary/20 border border-border/20 rounded-xl p-4">
+
+            {/* Rookie Year */}
+            <div>
+              <SectionLabel>🏆 Rookie Year & Card Identity</SectionLabel>
+              <div className="flex flex-wrap gap-2">
+                <ToggleChip
+                  label="✅ This IS a Rookie Year card"
+                  selected={form.is_rookie_year}
+                  onClick={() => handleChange('is_rookie_year', !form.is_rookie_year)}
+                />
+                <ToggleChip
+                  label="🎨 Parallel color matches team colors"
+                  selected={form.color_matches_team}
+                  onClick={() => handleChange('color_matches_team', !form.color_matches_team)}
+                />
+              </div>
+            </div>
+
+            {/* Player Popularity */}
+            <div>
+              <SectionLabel>📈 Player Popularity Status</SectionLabel>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 'rising',    label: '🚀 Rising Star' },
+                  { value: 'peak',      label: '🔥 Peak Popularity' },
+                  { value: 'legend',    label: '🐐 All-Time Legend' },
+                  { value: 'declining', label: '📉 Declining / Retiring' },
+                ].map(opt => (
+                  <ToggleChip
+                    key={opt.value}
+                    label={opt.label}
+                    selected={form.player_popularity === opt.value}
+                    onClick={() => handleChange('player_popularity', form.player_popularity === opt.value ? '' : opt.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* TV Shows & Media */}
+            <div>
+              <SectionLabel>📺 TV Show / Documentary / Media Feature</SectionLabel>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <ToggleChip
+                    label="📺 Featured in a TV show / doc"
+                    selected={form.has_tv_show}
+                    onClick={() => handleChange('has_tv_show', !form.has_tv_show)}
+                  />
+                </div>
+                {form.has_tv_show && (
+                  <SearchableSelect
+                    options={TV_SHOWS}
+                    value={form.tv_show_name}
+                    onChange={(v) => handleChange('tv_show_name', v)}
+                    placeholder="Which show / doc?"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Sneaker Deal */}
+            <div>
+              <SectionLabel>👟 Sneaker Deal & Brand Power</SectionLabel>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <ToggleChip
+                    label="👟 Has active sneaker deal"
+                    selected={form.has_sneaker_deal}
+                    onClick={() => handleChange('has_sneaker_deal', !form.has_sneaker_deal)}
+                  />
+                </div>
+                {form.has_sneaker_deal && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {['Nike / Jordan Brand', 'Adidas', 'Under Armour', 'Puma', 'New Balance', 'Reebok', 'Li-Ning', 'Anta', 'Other'].map(brand => (
+                      <ToggleChip
+                        key={brand}
+                        label={brand}
+                        selected={form.sneaker_brand === brand}
+                        onClick={() => handleChange('sneaker_brand', form.sneaker_brand === brand ? '' : brand)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Viral Moment */}
+            <div>
+              <SectionLabel>🔥 Recent Viral Moment</SectionLabel>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <ToggleChip
+                    label="🔥 Player had a recent viral moment"
+                    selected={form.recent_viral_moment}
+                    onClick={() => handleChange('recent_viral_moment', !form.recent_viral_moment)}
+                  />
+                </div>
+                {form.recent_viral_moment && (
+                  <Input
+                    placeholder="Describe it (e.g. 50-pt game, record-breaking play, meme, interview clip...)"
+                    value={form.viral_description}
+                    onChange={(e) => handleChange('viral_description', e.target.value)}
+                    className="bg-secondary/50 border-border/50 rounded-xl text-sm"
+                  />
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+
       <Button
         type="submit"
         disabled={isLoading || !form.player_name}
@@ -189,7 +398,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
         {isLoading ? (
           <>
             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            Analyzing 50 Attributes...
+            Analyzing Signals...
           </>
         ) : (
           <>
