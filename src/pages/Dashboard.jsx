@@ -97,13 +97,28 @@ function LiveDemo() {
 
         {/* Score card */}
         <div className="lg:col-span-2 bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-5">
-          <div className="flex items-center justify-between">
-            <div>
+
+          {/* Card image + score row */}
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <img
+                src="https://images.psa.gradecompany.com/images/prod/1/1-1986-87-FLEER-MICHAEL-JORDAN-57.jpg"
+                alt="1986 Fleer Michael Jordan #57 BGS 8.5"
+                className="w-24 h-32 object-cover rounded-lg border border-border/40 shadow-lg"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200&q=80';
+                }}
+              />
+              <span className="absolute -bottom-1.5 -right-1.5 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">BGS 8.5</span>
+            </div>
+            <div className="flex-1 min-w-0">
               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">AI Investment Value</p>
               <p className="text-3xl font-mono font-bold text-primary">$8,463</p>
               <p className="text-xs text-muted-foreground mt-1">vs last comp <span className="text-emerald-400 font-semibold">+24%</span></p>
+              <div className="mt-2">
+                <ScoreGauge score={91} label="Score" size="sm" />
+              </div>
             </div>
-            <ScoreGauge score={91} label="Score" />
           </div>
 
           <div className="border-t border-border/30 pt-4 space-y-2">
