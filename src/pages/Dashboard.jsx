@@ -251,7 +251,6 @@ export default function Dashboard() {
       </motion.div>
 
       <ValuationSummary cards={cards} />
-      <LiveDemo />
       <CTABanner />
       <RecentAndTrending cards={cards} />
     </div>
