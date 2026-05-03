@@ -39,7 +39,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
     >
       {/* Key Signals — GOTCHA attributes up top */}
        {result.key_signals && result.key_signals.length > 0 && (
-         <KeySignals signals={result.key_signals} />
+         <KeySignals signals={result.key_signals} flipVsHold={result.flip_vs_hold} />
        )}
 
       {/* Contextual Market Signals */}

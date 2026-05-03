@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, ShoppingCart, Clock, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const IMPACT_CONFIG = {
@@ -8,17 +8,34 @@ const IMPACT_CONFIG = {
   neutral:  { icon: Zap,          bar: 'bg-yellow-400',  text: 'text-yellow-400',  border: 'border-yellow-400/20',  bg: 'bg-yellow-400/5'   },
 };
 
-export default function KeySignals({ signals = [] }) {
+export default function KeySignals({ signals = [], flipVsHold = 'hold' }) {
   if (!signals || signals.length === 0) return null;
+
+  const actionConfig = {
+    strong_buy: { label: '🔥 BUY IT NOW!', color: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400', icon: ShoppingCart },
+    buy: { label: '✓ BUY IT', color: 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400', icon: ShoppingCart },
+    hold: { label: '⏳ WAIT FOR IT', color: 'bg-amber-500/10 border-amber-500/30 text-amber-400', icon: Clock },
+    sell: { label: '💰 SELL AT THIS PRICE', color: 'bg-orange-500/10 border-orange-500/20 text-orange-400', icon: DollarSign },
+    strong_sell: { label: '⚠️ STRONG SELL', color: 'bg-red-500/10 border-red-500/20 text-red-400', icon: DollarSign },
+  };
+
+  const action = actionConfig[flipVsHold] || actionConfig.hold;
+  const ActionIcon = action.icon;
 
   return (
     <div className="bg-card border border-border/50 rounded-2xl p-5 sm:p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Zap className="w-4 h-4 text-primary" />
-        <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
-          Key Value Drivers
-        </h3>
-        <span className="text-[10px] font-mono text-muted-foreground ml-1">— what's really moving this card</span>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
+            Key Value Drivers
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground ml-1">— what's really moving this card</span>
+        </div>
+        <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold', action.color)}>
+          <ActionIcon className="w-3.5 h-3.5" />
+          {action.label}
+        </div>
       </div>
 
       <div className="space-y-2.5">
