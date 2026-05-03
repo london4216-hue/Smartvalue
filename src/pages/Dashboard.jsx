@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
 import LiveAttributeTicker from '@/components/dashboard/LiveAttributeTicker';
 import TopTrending from '@/components/dashboard/TopTrending';
+import DemoScoreCard from '@/components/dashboard/DemoScoreCard';
 
 // ── How it works pills ────────────────────────────────────────────────────────
 const HOW_IT_WORKS = [
@@ -96,92 +97,8 @@ function LiveDemo() {
       <div className="grid lg:grid-cols-5 gap-4">
 
         {/* Score card */}
-        <div className="lg:col-span-2 bg-card border border-border/50 rounded-2xl p-5 flex flex-col gap-5">
-
-          {/* Card image + score row */}
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <img
-                src="https://d1htnxwo4o0jhw.cloudfront.net/cert/134044389/iiXp9pAT6EGgwPCfGBf1yA.jpg"
-                alt="1986 Fleer Michael Jordan #57 BGS 8.5"
-                className="w-24 h-32 object-cover rounded-lg border border-border/40 shadow-lg"
-                onError={(e) => {
-                  e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Michael_Jordan_in_2014.jpg/220px-Michael_Jordan_in_2014.jpg';
-                }}
-              />
-              <span className="absolute -bottom-1.5 -right-1.5 bg-amber-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">BGS 8.5</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">AI Investment Value</p>
-              <p className="text-3xl font-mono font-bold text-primary">$8,600</p>
-              <p className="text-xs text-muted-foreground mt-1">vs last comp <span className="text-emerald-400 font-semibold">+26%</span></p>
-              <div className="mt-2">
-                <ScoreGauge score={91} label="Score" size="sm" />
-              </div>
-            </div>
-          </div>
-
-          {/* AI Value Formula */}
-          <div className="border-t border-border/30 pt-4 space-y-1.5">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">AI Value Formula</p>
-
-            <div className="flex justify-between text-xs items-center">
-              <span className="text-muted-foreground">Comp (last sale)</span>
-              <span className="font-mono font-semibold text-foreground">$10,500</span>
-            </div>
-            <div className="flex justify-between text-xs items-center">
-              <span className="text-muted-foreground">× Grade multiplier (0.65)</span>
-              <span className="font-mono font-semibold text-foreground">$6,825</span>
-            </div>
-            {/* Top 5 drivers */}
-            {[
-              { label: "eBay Sales Spike (30d)",      pct: "+8%" },
-              { label: "Record Sale (Higher Grade)",  pct: "+6%" },
-              { label: "Cultural Icon Momentum",      pct: "+5%" },
-              { label: "Sneaker Line Retro Release",  pct: "+4%" },
-              { label: "Auction Velocity Surge",      pct: "+3%" },
-            ].map(d => (
-              <div key={d.label} className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-emerald-400/30">
-                <span className="text-muted-foreground">{d.label}</span>
-                <span className="font-mono font-semibold text-emerald-400">{d.pct}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-[11px] items-center pl-2 border-l-2 border-muted-foreground/20">
-              <span className="text-muted-foreground">39 supporting factors</span>
-              <span className="font-mono font-semibold text-muted-foreground">+11%</span>
-            </div>
-            <div className="h-px bg-border/40 my-1" />
-            <div className="flex justify-between text-xs items-center">
-              <span className="font-semibold text-foreground">= AI Investment Value</span>
-              <span className="font-mono font-bold text-primary text-sm">$8,600</span>
-            </div>
-
-            <div className="h-px bg-border/40 my-1" />
-            {[
-              { label: "Market Heat",  value: "91/100",    cls: "text-emerald-400" },
-              { label: "Signal",       value: "STRONG BUY", cls: "text-emerald-400 font-bold" },
-            ].map(row => (
-              <div key={row.label} className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{row.label}</span>
-                <span className={cn("font-mono font-semibold", row.cls)}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-border/30 pt-4 space-y-2">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Key Signals</p>
-            {[
-              { label: "Pop 3,299 at BGS 8.5",         color: "text-amber-400" },
-              { label: "True Rookie Card (1986 Fleer)", color: "text-emerald-400" },
-              { label: "Jordan Brand: $6.6B/yr",      color: "text-emerald-400" },
-              { label: "GOAT score: 99/100",           color: "text-primary" },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-2 text-xs">
-                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0 bg-current", s.color)} />
-                <span className={cn(s.color)}>{s.label}</span>
-              </div>
-            ))}
-          </div>
+        <div className="lg:col-span-2">
+          <DemoScoreCard />
         </div>
 
         {/* Signal breakdown */}
