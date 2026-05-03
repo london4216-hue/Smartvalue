@@ -68,15 +68,18 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </div>
 
           <div className="space-y-3">
-            {/* Raw Comp */}
+            {/* Last Sale */}
              <div className="bg-secondary/50 rounded-xl p-3">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                Raw Comp (Last Sale - Flippers)
-              </p>
-              <p className="text-lg font-mono font-bold text-muted-foreground">
-                {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
-              </p>
-            </div>
+               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                 Last Sale Price
+               </p>
+               <p className="text-lg font-mono font-bold text-muted-foreground">
+                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
+               </p>
+               <p className="text-[9px] text-muted-foreground/60 mt-1">
+                 {compValue > 0 ? 'What someone actually paid for this card' : 'Enter a recent sale price to anchor the valuation'}
+               </p>
+             </div>
 
             {/* Holder's Comp Projections */}
              {(compValue > 0 || aiValue > 0) && (
