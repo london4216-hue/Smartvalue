@@ -121,7 +121,10 @@ export default function DemoScoreCard() {
           {/* Flippers */}
           <div>
             <p className="text-[9px] text-muted-foreground/60 mb-1">Last Sold Comp (Flippers Comp)</p>
-            <p className="text-2xl font-mono font-bold text-foreground">${FLIPPERS_COMP.toLocaleString()}</p>
+            <div className="flex items-end gap-3">
+              <p className="text-2xl font-mono font-bold text-foreground">${FLIPPERS_COMP.toLocaleString()}</p>
+              <p className="text-[9px] font-semibold text-emerald-400 italic mb-1">Long-term wealth builder</p>
+            </div>
             <p className="text-[10px] text-muted-foreground mt-2 bg-secondary/30 rounded px-2 py-1.5 w-fit">
               vs collector long term <span className={cn("font-semibold ml-1", FLIPPERS_COMP > HOLDERS_COMP ? "text-emerald-400" : "text-red-400")}>
                 {FLIPPERS_COMP > HOLDERS_COMP ? '+' : ''}{vsHoldersPct}%
