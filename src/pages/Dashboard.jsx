@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
 import LiveAttributeTicker from '@/components/dashboard/LiveAttributeTicker';
+import TopTrending from '@/components/dashboard/TopTrending';
 
 function StatCard({ label, value, sub, delay }) {
   return (
@@ -170,30 +171,9 @@ export default function Dashboard() {
 
       {/* Feature Cards + Recent */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Features */}
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">How It Works</h2>
-          {[
-            { icon: Search, title: "Enter Card Details", desc: "Player, year, set, grade, and last comp sale." },
-            { icon: BarChart3, title: "42 Factors Analyzed", desc: "AI scores performance, scarcity, culture, market dynamics & more." },
-            { icon: TrendingUp, title: "Investment Value", desc: "50% comp baseline + 50% AI attribute score = true investment value." },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + i * 0.1 }}
-              className="flex gap-4 bg-card border border-border/50 rounded-xl p-4"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <item.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-              </div>
-            </motion.div>
-          ))}
+        {/* Top 10 Trending */}
+        <div className="lg:col-span-1">
+          <TopTrending cards={cards} />
         </div>
 
         {/* Recent Valuations */}

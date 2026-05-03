@@ -9,6 +9,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
 import ValuateCard from '@/pages/ValuateCard';
 import Portfolio from '@/pages/Portfolio';
+import CardDetail from '@/pages/CardDetail';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -40,6 +41,7 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/valuate" element={<ValuateCard />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/card/:id" element={<CardDetail />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

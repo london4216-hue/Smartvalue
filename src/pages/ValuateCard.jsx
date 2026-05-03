@@ -78,6 +78,15 @@ Also provide:
 - "ai_investment_value": Estimated fair investment value in USD using the 4-step model above. MUST be grounded in real market prices.
 - "analysis_summary": 3-4 sentence investment thesis. State the comp used, grade multiplier applied, and whether attributes are pushing value above or below market comp.
 
+RETIRED PLAYER HANDLING:
+Some attributes only apply to active players. If the player is RETIRED, score the following as "N/A" (use -1 in the JSON, which will display as N/A in the UI):
+- current_season_performance → N/A (retired, no current season)
+- contract_status → N/A (no contract)
+- playoff_team → N/A (no current team)
+- trade_volume_30d / trade_volume_90d / price_trend_30d / price_trend_90d → use actual recent card market data, not player performance
+- mvp_potential → N/A for clearly retired legends (score their peak legacy instead via hall_of_fame_trajectory)
+For all other attributes, score based on career achievement and legacy value, which can be very high for legends.
+
 SPECIAL SCORING NOTES:
 - "pop_count_at_grade": Score INVERSELY to population. A pop of 1-5 = score 95-100. Pop 10-25 = 80-90. Pop 50-100 = 60-70. Pop 500+ = 20-30. The rarer the pop, the higher the score.
 - "jersey_number_match": If the card number matches the player's jersey number (e.g., card #23 for Michael Jordan), score 90-100. This is a massive collector premium — jersey matches on numbered cards are among the most sought-after in the hobby. If it's a low-numbered match (e.g., /23 numbered AND #23), score 100. If no match, score 0-10.

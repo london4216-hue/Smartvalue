@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { ATTRIBUTE_CATEGORIES } from './AttributeCategories';
 
 function AttributeBar({ label, score, weight, delay }) {
+  const isNA = score === -1 || score === null || score === undefined;
+
   const getBarColor = (s) => {
     if (s >= 80) return 'bg-emerald-400';
     if (s >= 60) return 'bg-primary';
@@ -18,16 +20,20 @@ function AttributeBar({ label, score, weight, delay }) {
         <span className="text-xs text-muted-foreground">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-muted-foreground/60">w:{weight}</span>
-          <span className="text-xs font-mono font-semibold text-foreground">{score}</span>
+          <span className={cn("text-xs font-mono font-semibold", isNA ? 'text-muted-foreground/40' : 'text-foreground')}>
+            {isNA ? 'N/A' : score}
+          </span>
         </div>
       </div>
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-        <motion.div
-          className={cn("h-full rounded-full", getBarColor(score))}
-          initial={{ width: 0 }}
-          animate={{ width: `${score}%` }}
-          transition={{ duration: 0.8, delay: delay * 0.02, ease: "easeOut" }}
-        />
+        {!isNA && (
+          <motion.div
+            className={cn("h-full rounded-full", getBarColor(score))}
+            initial={{ width: 0 }}
+            animate={{ width: `${score}%` }}
+            transition={{ duration: 0.8, delay: delay * 0.02, ease: "easeOut" }}
+          />
+        )}
       </div>
     </div>
   );
@@ -36,7 +42,9 @@ function AttributeBar({ label, score, weight, delay }) {
 function CategorySection({ categoryKey, categoryDef, scores, startDelay }) {
   const [open, setOpen] = useState(true);
 
-  const catScores = categoryDef.attributes.map(attr => scores[attr.key] || 0);
+  const catScores = categoryDef.attributes
+    .map(attr => scores[attr.key])
+    .filter(s => s !== undefined && s !== null && s !== -1);
   const avgScore = catScores.length > 0
     ? Math.round(catScores.reduce((a, b) => a + b, 0) / catScores.length)
     : 0;
@@ -77,7 +85,7 @@ function CategorySection({ categoryKey, categoryDef, scores, startDelay }) {
             <AttributeBar
               key={attr.key}
               label={attr.label}
-              score={scores[attr.key] || 0}
+              score={scores[attr.key] ?? 0}
               weight={attr.weight}
               delay={startDelay + i}
             />
