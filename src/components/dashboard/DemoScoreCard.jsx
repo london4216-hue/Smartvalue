@@ -162,14 +162,19 @@ export default function DemoScoreCard() {
       {/* Top 5 attributes driving above/below */}
       <div className="border-t border-border/30 pt-4 space-y-2">
         <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Top 5 Drivers vs Comp</p>
-        {top5.map(d => (
-          <div key={d.label} className="flex justify-between text-[11px] items-start pl-2 border-l-2 border-muted-foreground/20">
-            <span className="text-muted-foreground truncate pr-2 flex-1">{d.label}</span>
-            <span className={cn("font-mono font-semibold shrink-0", d.impact >= 0 ? "text-emerald-400" : "text-red-400")}>
-              {d.impact >= 0 ? '+' : ''}{(d.impact * 100).toFixed(1)}%
-            </span>
-          </div>
-        ))}
+        {top5.map((d, idx) => {
+          const emojis = ["🔥", "📈", "🌍", "👟", "⚡"];
+          return (
+            <div key={d.label} className="flex justify-between text-[11px] items-center">
+              <span className="text-muted-foreground">
+                {emojis[idx]} {d.label}
+              </span>
+              <span className={cn("font-mono font-semibold", d.impact >= 0 ? "text-emerald-400" : "text-red-400")}>
+                {d.impact >= 0 ? '+' : ''}{(d.impact * 100).toFixed(0)}%
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Key signals */}
