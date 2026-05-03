@@ -44,10 +44,12 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
   const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
   const marginOfSafety = compValue > 0 ? ((aiValue - compValue) / aiValue * 100).toFixed(1) : null;
 
-  // Override recommendation if AI value is less than comp — that's a sell/wait signal
+  // Override recommendation if AI value equals or is less than comp — that's a hold/sell signal
   let recommendation = flipVsHold;
-  if (compValue > 0 && aiValue < compValue) {
-    recommendation = aiValue < (compValue * 0.85) ? 'sell' : 'hold';
+  if (compValue > 0) {
+    if (aiValue <= compValue) {
+      recommendation = aiValue < (compValue * 0.85) ? 'sell' : 'hold';
+    }
   }
 
   const config = ACTION_CONFIG[recommendation] || ACTION_CONFIG.hold;
