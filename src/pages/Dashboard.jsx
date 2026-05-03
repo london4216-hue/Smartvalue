@@ -85,13 +85,12 @@ export default function Dashboard() {
           <span className="text-xs font-mono uppercase tracking-wider text-primary">Investment-Grade Intelligence</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-          Comps are for flippers.
+          Today's comp is just a snapshot.
           <br />
-          <span className="text-primary">This is for investors.</span>
+          <span className="text-primary">We find tomorrow's value.</span>
         </h1>
         <p className="text-base text-muted-foreground mt-4 max-w-2xl">
-          42 AI-analyzed attributes. Player trajectory, social media presence, market dynamics,
-          cultural impact, and more — weighted against comp baselines to find true investment value.
+          A comp tells you what someone paid <em>yesterday</em>. It doesn't know the player just got traded to a bigger market, is trending toward an MVP season, or that the pop report at this grade is drying up. Our 42-attribute model captures what the comp can't — and prices accordingly.
         </p>
         <Link to="/valuate">
           <Button className="mt-6 h-12 px-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold">
@@ -132,10 +131,10 @@ export default function Dashboard() {
               <h3 className="text-base font-bold text-foreground mb-3">How The Model Works</h3>
               <div className="space-y-3">
                 {[
-                  { step: "1", title: "Enter Last Comp Sale", desc: "You provide the last sold price — e.g. Jordan Fleer rookie sold for $3,200 raw.", color: "bg-muted-foreground/20 text-muted-foreground" },
-                  { step: "2", title: "Apply Grade Multiplier", desc: "BGS 8.5 = 0.65× multiplier. Grade-adjusted comp becomes $2,080. Raw cards are heavily discounted. PSA 10 would be 2.2×.", color: "bg-blue-400/10 text-blue-400" },
-                  { step: "3", title: "AI Scores 42 Attributes", desc: "Player trajectory, cultural impact, market dynamics, scarcity, investment fundamentals — each weighted 1–5×.", color: "bg-primary/10 text-primary" },
-                  { step: "4", title: "50/50 Blend = True Value", desc: "Grade-adjusted comp (50%) + AI attribute score (50%) = investment value. Not just what it last sold for.", color: "bg-emerald-400/10 text-emerald-400" },
+                  { step: "1", title: "Comp = Today's Market Price", desc: "The last sold price is your anchor — it's real, it's what the market paid. We never ignore it.", color: "bg-muted-foreground/20 text-muted-foreground" },
+                  { step: "2", title: "Grade Multiplier Adjusts Reality", desc: "BGS 8.5 ≠ PSA 10. A 0.65× vs 2.2× grade multiplier can mean 3× the investment value on the same card.", color: "bg-blue-400/10 text-blue-400" },
+                  { step: "3", title: "42 Attributes Capture What Comps Miss", desc: "MVP trajectory, market-size trade, pop report shrinkage, cultural heat — none of this is in the comp. We score all of it.", color: "bg-primary/10 text-primary" },
+                  { step: "4", title: "Attributes Adjust Comp ±24%", desc: "Strong fundamentals push value above market. Weak outlook discounts it. The comp stays the anchor — attributes sharpen the aim.", color: "bg-emerald-400/10 text-emerald-400" },
                 ].map(({ step, title, desc, color }) => (
                   <div key={step} className="flex gap-3">
                     <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5", color)}>
@@ -152,7 +151,7 @@ export default function Dashboard() {
             <div className="bg-card border border-primary/20 rounded-2xl p-5">
               <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-2">Why This Matters</p>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                A Jordan Fleer BGS 8.5 and a BGS 9.5 can both "last sell" near each other in a slow market — but their true investment trajectories are completely different. Our model captures that.
+                Comps are backwards-looking. A card can sell low in a slow week, then spike after a big playoff run. Our model looks forward — factoring in trajectory, scarcity trends, and cultural momentum to tell you if today's comp is a deal or a trap.
               </p>
             </div>
             <Link to="/valuate">
