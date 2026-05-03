@@ -1,35 +1,25 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ATTRIBUTE_CATEGORIES } from '@/components/valuation/AttributeCategories';
 
 // Jordan 1986 Fleer Rookie BGS 8.5 — demo scores
-// Retired player: N/A fields use -1 (current_season_performance, contract_status, playoff_team, mvp_potential)
-// Comp updated to reflect current 2025 market: BGS 8.5 Jordan Fleer trading ~$38,000
+// Retired player: N/A fields use -1
 const DEMO_SCORES = {
-  // Player Performance
   ppg: 97, career_trajectory: 99, injury_risk: 88, playoff_performer: 99,
   all_star_selections: 99, mvp_potential: -1, championships: 99, all_nba_teams: 99,
   current_season_performance: -1,
-  // Market Dynamics
   trade_volume_30d: 95, trade_volume_90d: 93, price_trend_30d: 91, price_trend_90d: 89,
   volatility: 55, liquidity_score: 97, buy_sell_ratio: 94,
-  // Grade & Condition
   grade_multiplier_value: 65, registry_premium: 40, grading_company_trust: 92,
   centering_quality: 68, surface_condition: 70, pop_scarcity_at_grade: 72,
   upgrade_potential: 60, crossover_appeal: 88,
-  // Scarcity
   pop_report: 62, pop_count_at_grade: 74, print_run: 70, grade_rarity: 65, set_prestige: 99,
   variation_desirability: 92, rookie_card: 99, jersey_number_match: 15,
-  // Cultural & Brand
   social_media_following: 97, social_media_engagement: 85, highlight_virality: 98,
   endorsement_deals: 99, jersey_sales_rank: 97, media_mentions: 95,
   cultural_icon_status: 99, off_court_brand: 99,
-  // Investment Fundamentals
   historical_appreciation: 99, hold_period_returns: 96, downside_protection: 92,
   comparable_player_premium: 98, era_value_multiplier: 95, cross_sport_demand: 88,
-  // External Factors
   player_age: 80, contract_status: -1, team_market_size: 99, national_tv_appearances: 98,
   playoff_team: -1, hall_of_fame_trajectory: 99, international_appeal: 99, draft_class_strength: 92,
 };
@@ -44,193 +34,126 @@ const CATEGORY_ICONS = {
   external_factors: '🌐',
 };
 
-function getColor(score) {
-  if (score >= 80) return 'text-emerald-400';
-  if (score >= 60) return 'text-yellow-400';
-  if (score >= 40) return 'text-amber-400';
+function getScoreColor(s) {
+  if (s >= 80) return 'text-emerald-400';
+  if (s >= 60) return 'text-yellow-400';
+  if (s >= 40) return 'text-amber-400';
   return 'text-red-400';
 }
 
-function getBarColor(score) {
-  if (score >= 80) return 'bg-emerald-400';
-  if (score >= 60) return 'bg-yellow-400';
-  if (score >= 40) return 'bg-amber-400';
-  return 'bg-red-400';
+function getSignal(score) {
+  if (score >= 85) return 'STRONG BUY';
+  if (score >= 70) return 'BUY';
+  if (score >= 50) return 'HOLD';
+  if (score >= 35) return 'SELL';
+  return 'STRONG SELL';
 }
 
-function getTrend(score) {
-  if (score >= 75) return 'up';
-  if (score >= 45) return 'neutral';
-  return 'down';
-}
-
-function AttributeRow({ attr, score, index }) {
-  const isNA = score === -1 || score === null || score === undefined;
-  const trend = isNA ? 'neutral' : getTrend(score);
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.025 }}
-      className="flex items-center gap-2 py-1.5 border-b border-border/20 last:border-0 group hover:bg-white/3 rounded px-1 transition-colors"
-    >
-      {/* Trend arrow */}
-      <div className="w-5 shrink-0 flex justify-center">
-        {!isNA && trend === 'up' && <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />}
-        {!isNA && trend === 'down' && <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
-        {!isNA && trend === 'neutral' && <Minus className="w-3.5 h-3.5 text-yellow-400" />}
-        {isNA && <Minus className="w-3.5 h-3.5 text-muted-foreground/30" />}
-      </div>
-
-      {/* Label */}
-      <span className="flex-1 text-[11px] text-muted-foreground truncate">{attr.label}</span>
-
-      {/* Weight badge */}
-      <span className="text-[9px] font-mono text-muted-foreground/50 w-6 text-right">w{attr.weight}</span>
-
-      {/* Mini bar */}
-      <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden shrink-0">
-        {!isNA && (
-          <motion.div
-            className={cn("h-full rounded-full", getBarColor(score))}
-            initial={{ width: 0 }}
-            animate={{ width: `${score}%` }}
-            transition={{ duration: 0.8, delay: index * 0.025 }}
-          />
-        )}
-      </div>
-
-      {/* Score */}
-      <span className={cn("text-[11px] font-mono font-bold w-7 text-right shrink-0", isNA ? 'text-muted-foreground/30' : getColor(score))}>
-        {isNA ? 'N/A' : score}
-      </span>
-    </motion.div>
-  );
-}
-
-function CategoryBlock({ catKey, cat, index }) {
-  const attrs = cat.attributes;
-  const validScores = attrs.map(a => DEMO_SCORES[a.key]).filter(s => s !== undefined && s !== -1 && s !== null);
-  const avgScore = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08 }}
-      className="bg-card border border-border/40 rounded-xl p-3"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-base">{CATEGORY_ICONS[catKey]}</span>
-          <span className="text-[11px] font-mono font-semibold text-foreground uppercase tracking-wider">
-            {cat.label}
-          </span>
-        </div>
-        <span className={cn("text-sm font-mono font-bold", getColor(avgScore))}>{avgScore}</span>
-      </div>
-      <div>
-        {attrs.map((attr, i) => (
-          <AttributeRow
-            key={attr.key}
-            attr={attr}
-            score={DEMO_SCORES[attr.key] || 0}
-            index={i}
-          />
-        ))}
-      </div>
-    </motion.div>
-  );
+function getSignalColor(score) {
+  if (score >= 85) return 'text-emerald-400';
+  if (score >= 70) return 'text-emerald-300';
+  if (score >= 50) return 'text-primary';
+  if (score >= 35) return 'text-amber-400';
+  return 'text-red-400';
 }
 
 export default function LiveAttributeTicker() {
   const categories = Object.entries(ATTRIBUTE_CATEGORIES);
-  const allAttrs = categories.flatMap(([, cat]) => cat.attributes);
-  const validAttrs = allAttrs.filter(a => DEMO_SCORES[a.key] !== undefined && DEMO_SCORES[a.key] !== -1);
+  const validAttrs = categories.flatMap(([, cat]) => cat.attributes).filter(
+    a => DEMO_SCORES[a.key] !== undefined && DEMO_SCORES[a.key] !== -1
+  );
   const overallScore = Math.round(
     validAttrs.reduce((s, a) => s + DEMO_SCORES[a.key] * a.weight, 0) /
     validAttrs.reduce((s, a) => s + a.weight, 0)
   );
 
-  // Jordan 1986 Fleer BGS 8.5 — real 2025 market: $35k–$42k range, using conservative $38k
   const rawComp = 38000;
-  const gradeMultiplier = 0.65; // BGS 8.5 multiplier
-  const registryPremium = 0;
-  const adjustedComp = rawComp * gradeMultiplier * (1 + registryPremium); // ~$6,175
+  const gradeMultiplier = 0.65;
+  const adjustedComp = Math.round(rawComp * gradeMultiplier);
   const attributeModifier = (overallScore - 50) / 50;
-  const aiValue = Math.round(adjustedComp * (1 + (attributeModifier * 0.30)));
+  const aiValue = Math.round(adjustedComp * (1 + attributeModifier * 0.30));
   const pctVsComp = (((aiValue - rawComp) / rawComp) * 100).toFixed(1);
+  const signal = getSignal(overallScore);
 
   return (
-    <div className="space-y-4">
-      {/* Card Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Live Demo</span>
-          <span className="text-[10px] font-mono text-muted-foreground">44 attributes scored</span>
-        </div>
-        <h3 className="text-lg font-bold text-foreground">Michael Jordan</h3>
-        <p className="text-xs text-muted-foreground mb-4">1986 Fleer Rookie #57 · BGS 8.5 NM-MT</p>
-
-        {/* Value Row: Last Sale → Grade Adj → AI Value */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="bg-secondary/60 rounded-xl p-2.5">
-            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Last Sale (Comp)</p>
-            <p className="text-base font-mono font-bold text-foreground">${rawComp.toLocaleString()}</p>
-            <p className="text-[9px] font-mono text-muted-foreground">today's market</p>
-          </div>
-          <div className="bg-secondary/80 rounded-xl p-2.5 border border-border/50">
-            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Grade ×0.65</p>
-            <p className="text-base font-mono font-bold text-foreground">${adjustedComp.toLocaleString()}</p>
-            <p className="text-[9px] font-mono text-muted-foreground">BGS 8.5 adj.</p>
-          </div>
-          <div className="bg-primary/10 border border-primary/30 rounded-xl p-2.5">
-            <p className="text-[9px] font-mono uppercase tracking-wider text-primary mb-1">AI Inv. Value</p>
-            <p className="text-base font-mono font-bold text-primary">${aiValue.toLocaleString()}</p>
-            <p className={cn("text-[9px] font-mono font-semibold", parseFloat(pctVsComp) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-              {parseFloat(pctVsComp) >= 0 ? '+' : ''}{pctVsComp}% vs comp
-            </p>
-          </div>
-        </div>
-
-        {/* Score bar */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-primary rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${overallScore}%` }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-            />
-          </div>
-          <span className="text-sm font-mono font-bold text-primary shrink-0">{overallScore}/100</span>
-        </div>
-        <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
-          <span>Overall Investment Score</span>
-          <span className="text-emerald-400">STRONG BUY ↑</span>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-primary/20 rounded-2xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="bg-primary/10 border-b border-primary/20 px-4 py-3 flex items-center gap-2">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-primary bg-primary/20 px-2 py-0.5 rounded-full">Live Demo</span>
+        <span className="text-xs font-mono font-semibold text-foreground">Michael Jordan — 1986 Fleer Rookie #57 · BGS 8.5</span>
       </div>
 
-      {/* All Categories */}
-      <div className="grid grid-cols-1 gap-3">
-        {categories.map(([catKey, cat], i) => (
-          <CategoryBlock key={catKey} catKey={catKey} cat={cat} index={i} />
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 pt-1">
-        {[
-          { icon: TrendingUp, color: 'text-emerald-400', label: 'Strong (75+)' },
-          { icon: Minus, color: 'text-yellow-400', label: 'Moderate (45-74)' },
-          { icon: TrendingDown, color: 'text-red-400', label: 'Weak (<45)' },
-        ].map(({ icon: Icon, color, label }) => (
-          <div key={label} className="flex items-center gap-1">
-            <Icon className={cn("w-3 h-3", color)} />
-            <span className="text-[10px] text-muted-foreground font-mono">{label}</span>
+      <div className="p-4 font-mono text-xs space-y-1">
+        {/* Summary Block */}
+        <div className="space-y-0.5 pb-3 border-b border-border/30 mb-3">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Last Sale (Comp):</span>
+            <span className="text-foreground font-semibold">${rawComp.toLocaleString()}</span>
           </div>
-        ))}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Grade Adjustment (×{gradeMultiplier} BGS 8.5):</span>
+            <span className="text-foreground font-semibold">${adjustedComp.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-primary">AI Investment Value:</span>
+            <span className="text-primary font-bold">${aiValue.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Difference vs Comp:</span>
+            <span className={cn("font-bold", parseFloat(pctVsComp) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              {parseFloat(pctVsComp) >= 0 ? '+' : ''}{pctVsComp}%
+            </span>
+          </div>
+          <div className="flex justify-between pt-1">
+            <span className="text-muted-foreground">Investment Score:</span>
+            <span className={cn("font-bold", getSignalColor(overallScore))}>
+              {overallScore}/100 — {signal}
+            </span>
+          </div>
+        </div>
+
+        {/* Categories */}
+        {categories.map(([catKey, cat], ci) => {
+          const validCatScores = cat.attributes.map(a => DEMO_SCORES[a.key]).filter(s => s !== undefined && s !== -1);
+          return (
+            <div key={catKey} className="pb-3 mb-1">
+              {/* Category header */}
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span>{CATEGORY_ICONS[catKey]}</span>
+                <span className="font-semibold text-foreground uppercase tracking-wider text-[11px]">{cat.label}</span>
+              </div>
+              {/* Attribute rows */}
+              <div className="space-y-0.5 pl-1">
+                {cat.attributes.map((attr, i) => {
+                  const score = DEMO_SCORES[attr.key];
+                  const isNA = score === -1 || score === undefined || score === null;
+                  return (
+                    <motion.div
+                      key={attr.key}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: ci * 0.05 + i * 0.015 }}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-muted-foreground">
+                        - {attr.label} <span className="text-muted-foreground/40">(w{attr.weight})</span>:
+                      </span>
+                      <span className={cn("font-bold ml-2 shrink-0", isNA ? 'text-muted-foreground/30' : getScoreColor(score))}>
+                        {isNA ? 'N/A' : score}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              {ci < categories.length - 1 && <div className="mt-2 border-b border-border/20" />}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </motion.div>
   );
 }
