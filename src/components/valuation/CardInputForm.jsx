@@ -26,6 +26,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     variation: '',
     grade: '',
     comp_value: '',
+    cheapest_available: '',
     image_url: '',
   });
   const [showScanner, setShowScanner] = useState(true);
@@ -53,6 +54,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     onSubmit({
       ...form,
       comp_value: form.comp_value ? parseFloat(form.comp_value) : null,
+      cheapest_available: form.cheapest_available ? parseFloat(form.cheapest_available) : null,
     });
   };
 
@@ -149,15 +151,28 @@ export default function CardInputForm({ onSubmit, isLoading }) {
           />
         </div>
 
-        <div className="space-y-2 col-span-2 sm:col-span-3">
+        <div className="space-y-2 col-span-2 sm:col-span-1">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Last Comp Sale ($) — used as 50% baseline
+            Last Comp Sale ($)
           </Label>
           <Input
             type="number"
             placeholder="150.00"
             value={form.comp_value}
             onChange={(e) => handleChange('comp_value', e.target.value)}
+            className="bg-secondary/50 border-border/50 rounded-xl"
+          />
+        </div>
+
+        <div className="space-y-2 col-span-2 sm:col-span-2">
+          <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Cheapest Available Now ($) <span className="text-primary/70 normal-case">— lowest current ask online</span>
+          </Label>
+          <Input
+            type="number"
+            placeholder="e.g. 120.00 (eBay BIN / COMC / 130pt)"
+            value={form.cheapest_available}
+            onChange={(e) => handleChange('cheapest_available', e.target.value)}
             className="bg-secondary/50 border-border/50 rounded-xl"
           />
         </div>

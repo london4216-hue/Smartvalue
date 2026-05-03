@@ -40,6 +40,7 @@ ${cardData.card_number ? `- Card Number: ${cardData.card_number}` : ''}
 ${cardData.variation ? `- Variation: ${cardData.variation}` : ''}
 ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
 ${cardData.comp_value ? `- Last Comparable Sale (raw comp): $${cardData.comp_value}` : '- Last Comparable Sale: Unknown — research real eBay/PWCC sold prices'}
+${cardData.cheapest_available ? `- Cheapest Available Now (lowest current ask/BIN): $${cardData.cheapest_available} — IMPORTANT: if this is lower than the comp, it directly suppresses real market value. The AI value cannot meaningfully exceed the cheapest replacement cost unless the supply is extremely limited.` : ''}
 ${gradeSection}
 ${scanNotes}
 
@@ -77,7 +78,13 @@ RETIRED PLAYER HANDLING:
 If player is retired, score these as -1 (N/A): career_trajectory (if fully retired), injury_risk.
 For retired legends, goat_legacy_score, hall_of_fame_trajectory, cultural_icon_status, and historical_appreciation should all be very high (80-100).
 
-VALUATION MODEL:
+CHEAPEST AVAILABLE RULE:
+If cheapest_available is provided and is LOWER than the grade-adjusted comp:
+- This is a hard ceiling signal. A buyer can get the same card cheaper right now.
+- Adjust ai_investment_value DOWN toward cheapest_available unless pop is extremely low (under 10 at grade).
+- Mention this in analysis_summary — it's one of the most important real-world signals.
+
+  VALUATION MODEL:
   ai_investment_value = (comp × grade_multiplier) × (1 + attribute_adjustment)
   - grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0}
   - attribute_adjustment = (weighted_avg_score - 50) / 50 × 0.30 (capped at ±30%)
@@ -153,6 +160,7 @@ export default function ValuateCard() {
       variation: result.variation || '',
       grade: result.grade || '',
       comp_value: result.comp_value || 0,
+      cheapest_available: result.cheapest_available || null,
       ai_investment_value: result.ai_investment_value || 0,
       overall_score: result.overall_score || 0,
       flip_vs_hold: result.flip_vs_hold || 'hold',

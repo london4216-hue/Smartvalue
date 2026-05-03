@@ -12,7 +12,7 @@
     },
     "card_set": {
       "type": "string",
-      "description": "Card set name (e.g. Prizm, Optic, National Treasures)"
+      "description": "Card set name"
     },
     "card_number": {
       "type": "string",
@@ -20,15 +20,19 @@
     },
     "variation": {
       "type": "string",
-      "description": "Card variation (e.g. Silver, Gold, Base)"
+      "description": "Card variation"
     },
     "grade": {
       "type": "string",
-      "description": "Card grade (e.g. PSA 10, BGS 9.5, Raw)"
+      "description": "Card grade"
     },
     "comp_value": {
       "type": "number",
       "description": "Last comparable sale price in USD"
+    },
+    "cheapest_available": {
+      "type": "number",
+      "description": "Lowest current asking price online (BIN/COMC etc)"
     },
     "ai_investment_value": {
       "type": "number",
@@ -51,7 +55,7 @@
     },
     "attribute_scores": {
       "type": "object",
-      "description": "JSON object with all 40+ attribute scores"
+      "description": "JSON object with all attribute scores"
     },
     "analysis_summary": {
       "type": "string",

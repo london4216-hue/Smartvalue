@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
@@ -24,6 +24,10 @@ export default function ValuationResult({ result, onSave, onReset }) {
   const gradeInfo = result.grade && GRADE_WEIGHTS[result.grade] ? GRADE_WEIGHTS[result.grade] : null;
   const gradeTier = gradeInfo ? GRADE_TIER_LABELS[gradeInfo.tier] : null;
   const gradeAdjustedComp = gradeInfo && compValue ? (compValue * gradeInfo.multiplier).toFixed(0) : null;
+  const cheapestAvailable = result.cheapest_available || null;
+  const cheapestVsComp = cheapestAvailable && compValue > 0
+    ? ((cheapestAvailable - compValue) / compValue * 100).toFixed(1)
+    : null;
 
   return (
     <motion.div
@@ -63,6 +67,42 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
               </p>
             </div>
+            {/* Cheapest Available */}
+            {cheapestAvailable && (
+              <div className={cn(
+                "rounded-xl p-3 border",
+                cheapestAvailable < compValue
+                  ? "bg-amber-500/5 border-amber-500/20"
+                  : "bg-secondary/50 border-border/50"
+              )}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <ShoppingCart className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    Cheapest Available Now
+                  </p>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className={cn(
+                    "text-lg font-mono font-bold",
+                    cheapestAvailable < compValue ? "text-amber-400" : "text-foreground"
+                  )}>
+                    ${cheapestAvailable.toLocaleString()}
+                  </p>
+                  {cheapestVsComp && (
+                    <span className={cn(
+                      "text-xs font-mono",
+                      parseFloat(cheapestVsComp) < 0 ? "text-amber-400" : "text-emerald-400"
+                    )}>
+                      {parseFloat(cheapestVsComp) >= 0 ? '+' : ''}{cheapestVsComp}% vs comp
+                    </span>
+                  )}
+                </div>
+                {cheapestAvailable < compValue && (
+                  <p className="text-[10px] text-amber-400/80 mt-1">⚠ Cheaper than last sale — suppresses value</p>
+                )}
+              </div>
+            )}
+
             {/* Grade-Adjusted Comp */}
             {gradeInfo && gradeAdjustedComp && (
               <div className="bg-secondary/80 rounded-xl p-3 border border-border/50">
