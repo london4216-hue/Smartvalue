@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink, Gem, AlertTriangle, Zap, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
@@ -91,25 +91,31 @@ export default function ValuationResult({ result, onSave, onReset }) {
                </p>
              </div>
 
-            {/* Holder's Comp Projections */}
-             {(compValue > 0 || aiValue > 0) && (
+            {/* AI-Driven Projections */}
+             {result.projections && (result.projections.one_year || result.projections.three_year || result.projections.five_year) && (
                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
                  <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">
-                   Estimated Future Value
+                   Projected Value Range
                  </p>
                  <div className="space-y-1.5">
-                   <div className="flex justify-between items-center text-xs">
-                     <span className="text-muted-foreground">1 Year</span>
-                     <span className="font-mono font-bold text-foreground">${((compValue || aiValue) * 1.15).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                   </div>
-                   <div className="flex justify-between items-center text-xs">
-                     <span className="text-muted-foreground">5 Year</span>
-                     <span className="font-mono font-bold text-emerald-400">${((compValue || aiValue) * 1.6).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                   </div>
-                   <div className="flex justify-between items-center text-xs">
-                     <span className="text-muted-foreground">10 Year</span>
-                     <span className="font-mono font-bold text-emerald-300">${((compValue || aiValue) * 2.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                   </div>
+                   {result.projections.one_year && (
+                     <div className="flex justify-between items-center text-xs">
+                       <span className="text-muted-foreground">1 Year</span>
+                       <span className="font-mono font-bold text-foreground">{result.projections.one_year}</span>
+                     </div>
+                   )}
+                   {result.projections.three_year && (
+                     <div className="flex justify-between items-center text-xs">
+                       <span className="text-muted-foreground">3 Year</span>
+                       <span className="font-mono font-bold text-emerald-400">{result.projections.three_year}</span>
+                     </div>
+                   )}
+                   {result.projections.five_year && (
+                     <div className="flex justify-between items-center text-xs">
+                       <span className="text-muted-foreground">5 Year</span>
+                       <span className="font-mono font-bold text-emerald-300">{result.projections.five_year}</span>
+                     </div>
+                   )}
                  </div>
                </div>
              )}
@@ -279,6 +285,54 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </a>
         </div>
       </div>
+
+      {/* Possible Treasure Found Alert */}
+      {result.possible_treasure && result.possible_treasure_text && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-emerald-500/10 border border-emerald-500/40 rounded-2xl p-5 flex gap-4 items-start">
+          <Gem className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-emerald-400 mb-1">Possible Treasure Found</p>
+            <p className="text-xs text-emerald-300/80 leading-relaxed">{result.possible_treasure_text}</p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Bust Risk Alert */}
+      {result.bust_risk && result.bust_risk_text && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500/10 border border-red-500/40 rounded-2xl p-5 flex gap-4 items-start">
+          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-red-400 mb-1">Bust Risk</p>
+            <p className="text-xs text-red-300/80 leading-relaxed">{result.bust_risk_text}</p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Trader Recommendation + Liquidity */}
+      {(result.trader_recommendation || result.liquidity_score) && (
+        <div className="bg-card border border-border/50 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {result.trader_recommendation && (
+            <div className="flex gap-3 items-start">
+              <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Trader Recommendation</p>
+                <p className="text-sm text-foreground leading-relaxed">{result.trader_recommendation}</p>
+              </div>
+            </div>
+          )}
+          {result.liquidity_score && (
+            <div className="flex gap-3 items-start">
+              <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Liquidity Score</p>
+                <p className="text-sm text-foreground leading-relaxed capitalize">{result.liquidity_score}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Analysis Summary */}
       {result.analysis_summary && (
