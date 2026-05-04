@@ -77,21 +77,16 @@ Deno.serve(async (req) => {
 
     let holdersComp = comp + top5Total + supportingTotal;
 
-    // IRONCLAD RULE: AI Value MUST differ from Last Sold by at least 8%
-    // Determine net signal direction to pick the right side
+    // IRONCLAD RULE: AI Value MUST differ from Last Sold by at least 8% — no exceptions
     const netSignal = top5Total + supportingTotal;
     const diffPct = ((holdersComp - comp) / comp) * 100;
     if (Math.abs(diffPct) < 8) {
-      if (netSignal < 0) {
-        holdersComp = Math.round(comp * 0.92); // -8%
-      } else {
-        holdersComp = Math.round(comp * 1.08); // +8%
-      }
+      holdersComp = netSignal < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
     }
 
-    // Absolute final safety: never let holdersComp === comp
-    if (holdersComp === comp) {
-      holdersComp = Math.round(comp * 1.08);
+    // Triple-check: absolute final safety before returning
+    if (Math.abs(holdersComp - comp) / comp < 0.08) {
+      holdersComp = netSignal < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
     }
 
     const difference = holdersComp - comp;

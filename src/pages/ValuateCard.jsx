@@ -369,16 +369,16 @@ export default function ValuateCard() {
       return sum + (sig.direction === 'bullish' ? pct : sig.direction === 'bearish' ? -pct : 0);
     }, 0);
 
-    // Enforce minimum 8% diff from comp, direction driven by net signals
+    // IRONCLAD: AI value MUST differ from comp by at least 8%. No exceptions.
     const enforceMinDiff = (aiVal, comp) => {
-      if (comp <= 0) return aiVal > 0 ? aiVal : Math.round(comp * 1.08) || 0;
-      const diff = ((aiVal - comp) / comp) * 100;
-      if (Math.abs(diff) < 8) {
-        return netSignalPct < 0
-          ? Math.round(comp * 0.92)   // net bearish → show -8%
-          : Math.round(comp * 1.08);  // net bullish or neutral → show +8%
+      if (!comp || comp <= 0) return aiVal > 0 ? Math.round(aiVal) : 0;
+      const candidate = Math.round(aiVal);
+      const diffPct = Math.abs((candidate - comp) / comp) * 100;
+      if (diffPct < 8) {
+        // Direction determined by net signal sentiment
+        return netSignalPct < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
       }
-      return Math.round(aiVal);
+      return candidate;
     };
 
     finalAiValue = enforceMinDiff(finalAiValue, compValue);
@@ -398,22 +398,24 @@ export default function ValuateCard() {
         });
         const vr = valuationResponse.data;
         const parsed = parseFloat((vr.holders_comp_display || '').replace(/[^0-9.]/g, ''));
-        // Re-enforce after backend — it may still come back too close to comp
-        finalAiValue = enforceMinDiff(parsed && !isNaN(parsed) ? parsed : finalAiValue, compValue);
+        const backendValue = parsed && !isNaN(parsed) ? parsed : finalAiValue;
+        // Always re-enforce after backend — backend can still return same-as-comp
+        finalAiValue = enforceMinDiff(backendValue, compValue);
         backendCalc = vr.holders_comp_calculation;
         if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
           aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
         }
       } catch (err) {
-        // enforceMinDiff already applied above
+        // enforceMinDiff already applied above, value is safe
       }
     }
 
-    // Absolute final safety — value must never equal comp
-    if (compValue > 0 && Math.abs(finalAiValue - compValue) / compValue < 0.03) {
-      finalAiValue = netSignalPct < 0
-        ? Math.round(compValue * 0.92)
-        : Math.round(compValue * 1.08);
+    // FINAL ABSOLUTE SAFETY — triple-check before setting state, no matter what path was taken
+    if (compValue > 0) {
+      const finalDiffPct = Math.abs((finalAiValue - compValue) / compValue) * 100;
+      if (finalDiffPct < 8) {
+        finalAiValue = netSignalPct < 0 ? Math.round(compValue * 0.92) : Math.round(compValue * 1.08);
+      }
     }
 
     setResult({
