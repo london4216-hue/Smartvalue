@@ -158,7 +158,32 @@ Return:
   - "direction": "bullish" | "bearish" | "neutral"
   - "impact_pct": realistic % impact (integer, 2-20 — stay conservative, rarely >15%)
   - "reason": 1 sentence with real market logic
-  Order by impact_pct descending.`;
+  Order by impact_pct descending.
+
+DOLLAR-BASED VALUE DRIVERS (REQUIRED — this is the math that makes valuation transparent):
+Using comp_value = $${cardData.comp_value || 0} and grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0}:
+
+For each top value driver, compute:
+  dollar_adjustment = comp_value × percent_adjustment
+
+Return "value_drivers" as an array of the top 6-8 drivers ranked by absolute dollar impact:
+{
+  "label": "...",
+  "percent_adjustment": "+X%" or "-X%",
+  "dollar_adjustment": "+$XXX" or "-$XXX",
+  "reason": "One sentence of real market logic"
+}
+
+Also return "holders_comp_calculation" showing the full math:
+{
+  "last_sold_comp": "$${cardData.comp_value || 0}",
+  "grade_multiplier_dollars": "-$XXX (grade_multiplier reduces base by (1 - ${gradeInfo ? gradeInfo.multiplier : 1.0}) × comp)",
+  "top5_dollar_adjustments": ["+$XXX – Label", "-$XXX – Label", ...],
+  "supporting_factors_dollars": "+$XXX (sum of remaining drivers)",
+  "final_holders_comp": "$YYY"
+}
+
+CRITICAL: final_holders_comp MUST differ from last_sold_comp. Minimum ±3% difference always.`;
 }
 
 function buildResponseSchema() {
@@ -186,6 +211,28 @@ function buildResponseSchema() {
             impact_pct: { type: "number" },
             reason:     { type: "string" },
           }
+        }
+      },
+      value_drivers: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            label:              { type: "string" },
+            percent_adjustment: { type: "string" },
+            dollar_adjustment:  { type: "string" },
+            reason:             { type: "string" },
+          }
+        }
+      },
+      holders_comp_calculation: {
+        type: "object",
+        properties: {
+          last_sold_comp:            { type: "string" },
+          grade_multiplier_dollars:  { type: "string" },
+          top5_dollar_adjustments:   { type: "array", items: { type: "string" } },
+          supporting_factors_dollars:{ type: "string" },
+          final_holders_comp:        { type: "string" },
         }
       },
       attribute_scores: {

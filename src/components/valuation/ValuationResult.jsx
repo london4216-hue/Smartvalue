@@ -297,6 +297,8 @@ export default function ValuationResult({ result, onSave, onReset }) {
         compValue={compValue}
         attributeScores={result.attribute_scores || {}}
         aiValue={result.ai_investment_value}
+        valueDrivers={result.value_drivers || []}
+        holdersCompCalc={result.holders_comp_calculation || null}
       />
 
       {/* Full Attribute Breakdown */}
