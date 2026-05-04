@@ -470,7 +470,7 @@ export default function ValuateCard() {
       >
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">AI Card Valuation</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Comp = what it sold for. AI Value = what it's <em>worth</em>. Serial number, auto type, patch quality, pop report, player thesis — every signal that moves the needle.
+          Last Sold = what it sold for. AI Value = what it's <em>worth</em>. Serial number, auto type, patch quality, pop report, player thesis — every signal that moves the needle.
         </p>
       </motion.div>
 

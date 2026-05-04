@@ -237,7 +237,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
 
         <div className="space-y-2 col-span-2 sm:col-span-1">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Last Comp Sale ($)
+            Last Sold Price ($)
           </Label>
           <Input
             type="number"

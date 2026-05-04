@@ -15,7 +15,7 @@ const ACTION_CONFIG = {
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10 border-emerald-400/20',
     icon: ShoppingCart,
-    thesis: 'AI value is 8-20% above last sale. Attributes justify meaningful upside vs. last comp — good entry relative to fundamentals.'
+    thesis: 'AI value is 8-20% above last sold. Attributes justify meaningful upside vs. last sold price — good entry relative to fundamentals.'
   },
   hold: {
     label: '⏳ HOLD / FAIR VALUE',

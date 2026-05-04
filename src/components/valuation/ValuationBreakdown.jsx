@@ -80,10 +80,10 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
     <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="px-6 pt-6 pb-4 border-b border-border/30">
-        <h3 className="text-sm font-bold text-foreground">How AI Value Is Calculated</h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          Last comp is the 90% anchor. Every signal below adds or subtracts dollars from that baseline.
-        </p>
+      <h3 className="text-sm font-bold text-foreground">How AI Value Is Calculated</h3>
+      <p className="text-xs text-muted-foreground mt-1">
+        Last sold price is the 90% anchor. Every signal below adds or subtracts dollars from that baseline.
+      </p>
       </div>
 
       <div className="px-4 py-4 space-y-2">
@@ -95,7 +95,7 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
           className="flex items-center justify-between px-4 py-4 rounded-xl bg-primary/5 border border-primary/25"
         >
           <div>
-            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-0.5">Last Comp (90% Anchor)</p>
+            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-0.5">Last Sold (90% Anchor)</p>
             <p className="text-xs text-muted-foreground">What someone actually paid — your baseline</p>
           </div>
           <span className="text-2xl font-mono font-bold text-foreground">
@@ -160,7 +160,7 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
               <p className={cn('text-xs font-semibold',
                 diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-muted-foreground'
               )}>
-                {diff > 0 ? '+' : ''}{fmt(diff)} vs last comp
+                {diff > 0 ? '+' : ''}{fmt(diff)} vs last sold
               </p>
             )}
           </div>
