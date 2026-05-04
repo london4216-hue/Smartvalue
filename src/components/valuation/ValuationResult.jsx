@@ -47,6 +47,14 @@ export default function ValuationResult({ result, onSave, onReset }) {
         cheapestAvailable={cheapestAvailable}
       />
 
+      {/* Dollar Waterfall — HOW the AI value was built */}
+      <ValuationBreakdown
+        compValue={compValue}
+        aiValue={result.ai_investment_value}
+        valueDrivers={result.value_drivers || []}
+        holdersCompCalc={result.holders_comp_calculation || null}
+      />
+
       {/* Key Signals — GOTCHA attributes up top */}
        {result.key_signals && result.key_signals.length > 0 && (
          <KeySignals signals={result.key_signals} flipVsHold={result.flip_vs_hold} />
@@ -72,7 +80,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
         </div>
 
         {/* Score + Values Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
           <div className="flex justify-center">
             <ScoreGauge score={result.overall_score} label="Investment Score" />
           </div>
@@ -202,51 +210,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
              </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                How We Calculate AI Value
-              </p>
-              <div className="bg-secondary/30 rounded-lg p-3 space-y-2 text-xs text-muted-foreground/80">
-                <p>
-                  <span className="text-foreground font-semibold">Step 1:</span> Start with what it last sold for (comp)
-                </p>
-                <p>
-                  <span className="text-foreground font-semibold">Step 2:</span> Multiply by grade quality (e.g., PSA 10 = ×2.2)
-                </p>
-                <p>
-                  <span className="text-foreground font-semibold">Step 3:</span> Adjust up/down based on rarity, player demand, autographs, patches (±30%)
-                </p>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Grade Impact
-              </p>
-              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-2">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-foreground">{result.grade || 'No Grade'}</span>
-                  <span className="text-blue-400 font-semibold">×{gradeInfo?.multiplier || 1}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground/70">
-                  {gradeInfo?.label || 'Raw card — no grading company premium'}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                AI Signals Adjustment
-              </p>
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-2">
-                <p className="text-[10px] text-muted-foreground/80">
-                  Looking at: serial number, autograph type, patch quality, player momentum, rarity
-                </p>
-                <p className="text-[10px] text-primary font-semibold mt-1">Can adjust value up to +30% or down to -30%</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -345,15 +309,6 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </p>
         </div>
       )}
-
-      {/* Valuation Calculation Breakdown */}
-      <ValuationBreakdown 
-        compValue={compValue}
-        attributeScores={result.attribute_scores || {}}
-        aiValue={result.ai_investment_value}
-        valueDrivers={result.value_drivers || []}
-        holdersCompCalc={result.holders_comp_calculation || null}
-      />
 
       {/* Full Attribute Breakdown */}
       <div className="bg-card border border-border/50 rounded-2xl p-6">

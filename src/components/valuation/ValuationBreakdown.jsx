@@ -1,201 +1,174 @@
 import { motion } from 'framer-motion';
-import { Plus, Minus, TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Parse a dollar string like "+$1,250" or "-$340" into a number
 function parseDollar(str) {
   if (!str) return 0;
-  const clean = str.replace(/[^0-9.\-]/g, '');
-  const num = parseFloat(clean) || 0;
-  return str.includes('-') ? -Math.abs(num) : Math.abs(num);
+  const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+  return str.includes('-') ? -num : num;
 }
 
-export default function ValuationBreakdown({ compValue, attributeScores, aiValue, valueDrivers, holdersCompCalc }) {
-  if (!compValue) return null;
+function fmt(n) {
+  const abs = Math.abs(Math.round(n)).toLocaleString('en-US');
+  if (n > 0) return `+$${abs}`;
+  if (n < 0) return `-$${abs}`;
+  return '$0';
+}
 
-  // ── Use AI-returned data when available ──────────────────────────────────
-  const hasAiData = valueDrivers && valueDrivers.length > 0 && holdersCompCalc;
+function DriverRow({ label, dollars, reason, delay }) {
+  const isPos = dollars > 0;
+  const isNeg = dollars < 0;
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay }}
+      className={cn(
+        'flex items-start gap-3 px-4 py-3 rounded-xl border',
+        isPos && 'bg-emerald-500/5 border-emerald-500/20',
+        isNeg && 'bg-red-500/5 border-red-500/20',
+        !isPos && !isNeg && 'bg-secondary/40 border-border/30'
+      )}
+    >
+      <div className="mt-0.5 shrink-0">
+        {isPos && <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />}
+        {isNeg && <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
+        {!isPos && !isNeg && <Minus className="w-3.5 h-3.5 text-muted-foreground" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
+        {reason && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{reason}</p>}
+      </div>
+      <span className={cn(
+        'text-base font-mono font-bold shrink-0',
+        isPos && 'text-emerald-500',
+        isNeg && 'text-red-500',
+        !isPos && !isNeg && 'text-muted-foreground'
+      )}>
+        {fmt(dollars)}
+      </span>
+    </motion.div>
+  );
+}
 
-  if (hasAiData) {
-    const top5 = valueDrivers.slice(0, 5);
-    const supportingDollars = parseDollar(holdersCompCalc.supporting_factors_dollars);
-    const finalComp = parseDollar(holdersCompCalc.final_holders_comp) || aiValue;
-    const gradeLabel = holdersCompCalc.grade_multiplier_label || holdersCompCalc.grade_multiplier_dollars || '';
+export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, holdersCompCalc }) {
+  // ── Prefer backend/AI-returned driver data ────────────────────────────────
+  const hasDriverData = valueDrivers && valueDrivers.length > 0;
 
-    return (
-      <div className="bg-card border border-border/50 rounded-2xl p-6">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
-          💰 Holder's Comp Calculation
-        </h3>
-        <p className="text-[10px] text-muted-foreground/60 mb-6">
-          Every dollar added or subtracted — transparent, auditable math.
+  // Build driver list — from backend value_drivers or fallback to empty
+  const drivers = hasDriverData
+    ? valueDrivers.map(d => ({
+        label: d.label,
+        dollars: parseDollar(d.dollar_adjustment),
+        reason: d.reason,
+      }))
+    : [];
+
+  // Supporting / rollup dollar amount
+  const supportingDollars = holdersCompCalc
+    ? parseDollar(holdersCompCalc.supporting_factors_dollars)
+    : 0;
+
+  // True final AI value for the = row
+  const finalValue = aiValue || 0;
+  const diff = compValue > 0 ? finalValue - compValue : 0;
+
+  if (!compValue && !finalValue) return null;
+
+  return (
+    <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 border-b border-border/30">
+        <h3 className="text-sm font-bold text-foreground">How AI Value Is Calculated</h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Last comp is the 90% anchor. Every signal below adds or subtracts dollars from that baseline.
         </p>
+      </div>
 
-        <div className="space-y-2">
-          {/* Last Sold */}
+      <div className="px-4 py-4 space-y-2">
+
+        {/* ── COMP ANCHOR (90%) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between px-4 py-4 rounded-xl bg-primary/5 border border-primary/25"
+        >
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-0.5">Last Comp (90% Anchor)</p>
+            <p className="text-xs text-muted-foreground">What someone actually paid — your baseline</p>
+          </div>
+          <span className="text-2xl font-mono font-bold text-foreground">
+            {compValue > 0 ? `$${compValue.toLocaleString()}` : '—'}
+          </span>
+        </motion.div>
+
+        {/* ── DIVIDER ── */}
+        <div className="flex items-center gap-2 px-2 py-1">
+          <div className="flex-1 h-px bg-border/40" />
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">AI signal adjustments</span>
+          <div className="flex-1 h-px bg-border/40" />
+        </div>
+
+        {/* ── INDIVIDUAL DRIVERS ── */}
+        {drivers.length > 0 ? (
+          drivers.map((d, i) => (
+            <DriverRow key={d.label} label={d.label} dollars={d.dollars} reason={d.reason} delay={0.05 + i * 0.04} />
+          ))
+        ) : (
+          <div className="px-4 py-3 text-xs text-muted-foreground text-center">No signal breakdown available</div>
+        )}
+
+        {/* ── SUPPORTING FACTORS ROLLUP ── */}
+        {supportingDollars !== 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="flex justify-between items-center p-3 bg-secondary/40 rounded-lg border border-border/30"
-          >
-            <span className="text-sm font-mono text-muted-foreground">Last Sold Comp</span>
-            <span className="text-lg font-mono font-bold text-foreground">${compValue.toLocaleString()}</span>
-          </motion.div>
-
-          {/* Grade info row */}
-          {gradeLabel && (
-            <motion.div
-              initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
-              className="flex items-center p-3 bg-blue-500/5 rounded-lg border border-blue-500/20 gap-2"
-            >
-              <span className="text-xs font-mono text-blue-600 flex-1">{gradeLabel}</span>
-            </motion.div>
-          )}
-
-          {/* Top 5 drivers */}
-          {top5.map((driver, i) => {
-            const dollars = parseDollar(driver.dollar_adjustment);
-            const isPositive = dollars >= 0;
-            return (
-              <motion.div
-                key={driver.label}
-                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + 0.05 * i }}
-                className={cn(
-                  "p-3 rounded-lg border",
-                  isPositive ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"
-                )}
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      {isPositive
-                        ? <TrendingUp className="w-3 h-3 text-emerald-400 shrink-0" />
-                        : <TrendingDown className="w-3 h-3 text-red-400 shrink-0" />
-                      }
-                      <span className="text-xs font-mono font-semibold text-foreground truncate">{driver.label}</span>
-                      <span className="text-[9px] font-mono text-muted-foreground/60 shrink-0">{driver.percent_adjustment}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/70 ml-4.5 leading-relaxed">{driver.reason}</p>
-                  </div>
-                  <span className={cn(
-                    "text-base font-mono font-bold shrink-0",
-                    isPositive ? "text-emerald-400" : "text-red-400"
-                  )}>
-                    {driver.dollar_adjustment}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-
-          {/* Supporting factors rollup */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35 }}
             className={cn(
-              "flex justify-between items-center p-3 rounded-lg border",
-              supportingDollars >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"
+              'flex items-center justify-between px-4 py-3 rounded-xl border',
+              supportingDollars >= 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'
             )}
           >
             <div>
-              <span className="text-xs font-mono text-muted-foreground">Supporting Factors Rollup</span>
-              <p className="text-[9px] text-muted-foreground/50 mt-0.5">
-                Remaining {Math.max(0, valueDrivers.length - 5)} signals combined
-              </p>
+              <p className="text-sm font-semibold text-foreground">Remaining signals (combined)</p>
+              <p className="text-xs text-muted-foreground">{Math.max(0, (valueDrivers?.length || 0) - drivers.length + (holdersCompCalc ? 1 : 0))} additional factors rolled up</p>
             </div>
-            <span className={cn(
-              "text-sm font-mono font-bold",
-              supportingDollars >= 0 ? "text-emerald-400" : "text-red-400"
-            )}>
-              {holdersCompCalc.supporting_factors_dollars}
+            <span className={cn('text-base font-mono font-bold', supportingDollars >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+              {fmt(supportingDollars)}
             </span>
           </motion.div>
+        )}
 
-          {/* Final = line */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-            className={cn(
-              "flex justify-between items-center p-4 rounded-xl border-2 font-mono font-bold",
-              finalComp > compValue
-                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                : finalComp < compValue
-                ? "bg-red-500/10 border-red-500/40 text-red-400"
-                : "bg-primary/10 border-primary/40 text-primary"
+        {/* ── EQUALS LINE ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className={cn(
+            'flex items-center justify-between px-4 py-4 rounded-xl border-2 mt-1',
+            diff > 0 ? 'bg-emerald-500/10 border-emerald-500/50' :
+            diff < 0 ? 'bg-red-500/10 border-red-500/50' :
+            'bg-primary/10 border-primary/40'
+          )}
+        >
+          <div>
+            <p className={cn('text-xs font-mono uppercase tracking-wider mb-0.5',
+              diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-primary'
+            )}>= AI Investment Value</p>
+            {compValue > 0 && (
+              <p className={cn('text-xs font-semibold',
+                diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-muted-foreground'
+              )}>
+                {diff > 0 ? '+' : ''}{fmt(diff)} vs last comp
+              </p>
             )}
-          >
-            <span className="text-sm text-foreground">= AI Investment Value</span>
-            <span className="text-xl">{holdersCompCalc.final_holders_comp || `$${aiValue.toLocaleString()}`}</span>
-          </motion.div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Fallback: compute from attribute scores ───────────────────────────────
-  let drivers = Object.entries(attributeScores || {})
-    .map(([key, score]) => {
-      if (score === -1 || score === null || score === undefined) return null;
-      const pct = ((score - 50) / 50) * 0.15;
-      const dollars = Math.round(compValue * pct);
-      return {
-        label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        percent_adjustment: `${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(0)}%`,
-        dollar_adjustment: `${dollars >= 0 ? '+' : ''}$${Math.abs(dollars).toLocaleString()}`,
-        dollars,
-        reason: 'Market factor analysis',
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => Math.abs(b.dollars) - Math.abs(a.dollars));
-
-  const top5 = drivers.slice(0, 5);
-  const remaining = drivers.slice(5);
-  const gradeMultiplierDollars = -Math.round(compValue * 0.35);
-  let supportingDollars = remaining.reduce((s, d) => s + d.dollars, 0) || Math.round(compValue * 0.05);
-  let finalComp = compValue + gradeMultiplierDollars + top5.reduce((s, d) => s + d.dollars, 0) + supportingDollars;
-  if (finalComp === compValue) finalComp = Math.round(compValue * 1.08);
-
-  return (
-    <div className="bg-card border border-border/50 rounded-2xl p-6">
-      <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
-        💰 Holder's Comp Calculation
-      </h3>
-      <p className="text-[10px] text-muted-foreground/60 mb-6">
-        Every dollar added or subtracted — transparent, auditable math.
-      </p>
-      <div className="space-y-2">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="flex justify-between items-center p-3 bg-secondary/40 rounded-lg border border-border/30">
-          <span className="text-sm font-mono text-muted-foreground">Last Sold Comp</span>
-          <span className="text-lg font-mono font-bold text-foreground">${compValue.toLocaleString()}</span>
-        </motion.div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}
-          className="flex justify-between items-center p-3 bg-red-500/5 rounded-lg border border-red-500/20">
-          <span className="text-xs font-mono text-muted-foreground">Grade Multiplier Adjustment</span>
-          <span className="text-sm font-mono font-bold text-red-400">${gradeMultiplierDollars.toLocaleString()}</span>
-        </motion.div>
-        {top5.map((d, i) => (
-          <motion.div key={d.label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + 0.05 * i }}
-            className={cn("p-3 rounded-lg border", d.dollars >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
-            <div className="flex justify-between items-center mb-0.5">
-              <span className="text-xs font-mono font-semibold text-foreground">{d.label}</span>
-              <span className={cn("text-sm font-mono font-bold", d.dollars >= 0 ? "text-emerald-400" : "text-red-400")}>{d.dollar_adjustment}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70">{d.reason} <span className="text-muted-foreground/50">({d.percent_adjustment})</span></p>
-          </motion.div>
-        ))}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }}
-          className={cn("flex justify-between items-center p-3 rounded-lg border", supportingDollars >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20")}>
-          <span className="text-xs font-mono text-muted-foreground">Supporting Factors Rollup</span>
-          <span className={cn("text-sm font-mono font-bold", supportingDollars >= 0 ? "text-emerald-400" : "text-red-400")}>
-            {supportingDollars >= 0 ? '+' : ''}${Math.abs(supportingDollars).toLocaleString()}
+          </div>
+          <span className={cn(
+            'text-3xl font-mono font-bold',
+            diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-primary'
+          )}>
+            ${finalValue.toLocaleString()}
           </span>
-        </motion.div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
-          className={cn("flex justify-between items-center p-4 rounded-xl border-2 font-mono font-bold",
-            finalComp > compValue ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-            : finalComp < compValue ? "bg-red-500/10 border-red-500/40 text-red-400"
-            : "bg-primary/10 border-primary/40 text-primary")}>
-          <span className="text-sm text-foreground">= AI Investment Value</span>
-          <span className="text-xl">${finalComp.toLocaleString()}</span>
         </motion.div>
       </div>
     </div>
