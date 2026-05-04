@@ -25,20 +25,25 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
 CRITICAL INSTRUCTIONS:
 1. Visit the URL and extract ALL available data from the listing page.
-2. For comp_value: use the SOLD/FINAL SALE price if this is a completed listing. If it's an active listing, look for "sold" comps nearby or the current bid/BIN price.
-3. For cheapest_available: use the current asking/BIN price if active listing.
-4. NEVER return 0 for comp_value or cheapest_available if any price is visible — use the actual number.
-5. Return null only if a value is truly not present anywhere on the page.
+2. DISTINGUISH between asking price vs sold price:
+   - "comp_value" = the most recent ACTUAL SOLD price for this exact card (same player, set, grade). Search your knowledge of recent eBay/PWCC sold comps. This is NOT the listing price.
+   - "cheapest_available" = the current asking/listing price on this page (what the seller wants). Use the price shown on the listing.
+3. If the listing is an ACTIVE (unsold) listing: cheapest_available = the listed price. For comp_value, use your knowledge of recent real sold prices for this card.
+4. If the listing is a COMPLETED/SOLD listing: comp_value = the final sale price. cheapest_available = null.
+5. NEVER set comp_value = cheapest_available unless the listing explicitly shows both as the same transaction.
+6. NEVER return 0 — use null if a value is truly unknown.
+
+Example: A BGS 9.5 LeBron 2003 Topps Chrome Refractor listed for $30,000 → cheapest_available=30000, comp_value=[research real recent sold price, e.g. $27000-$35000 range from your knowledge].
 
 Return a JSON object with these exact fields:
 - player_name: string (REQUIRED — player's full name)
 - card_year: string (e.g. "1986", "2003", "2023")
-- card_set: string (e.g. "Topps", "Prizm", "National Treasures")
+- card_set: string (e.g. "Topps Chrome", "Prizm", "National Treasures")
 - card_number: string (e.g. "221", "57")
-- variation: string (e.g. "Gold Parallel", "Silver", "Base", "Superfractor")
-- grade: string (e.g. "PSA 9", "BGS 10", "Raw" — include grading company)
-- comp_value: number (the actual dollar amount paid — NEVER 0 if a price exists)
-- cheapest_available: number (current asking price — NEVER 0 if price exists)
+- variation: string (e.g. "Refractor", "Gold Parallel", "Silver", "Base", "Superfractor")
+- grade: string (e.g. "PSA 9", "BGS 9.5", "Raw" — include grading company)
+- comp_value: number (most recent REAL SOLD price — NOT the listing price)
+- cheapest_available: number (current asking/listing price on this page)
 - is_rookie_year: boolean
 - color_matches_team: boolean
 - has_autograph: boolean
