@@ -323,15 +323,33 @@ export default function ValuateCard() {
     // Ensure non-zero adjustments
     aiResult = ensureNonZeroAdjustments(aiResult, cardData);
 
-    // Call calculateValuation backend to get transparent dollar math
-    let finalAiValue = aiResult.ai_investment_value;
+    const compValue = parseFloat(cardData.comp_value) || 0;
+    let finalAiValue = parseFloat(aiResult.ai_investment_value) || 0;
     let backendCalc = null;
-    if (cardData.comp_value && aiResult.key_signals) {
+
+    // Always enforce: AI Value MUST differ from comp by at least 5%
+    // This runs BEFORE the backend call as a baseline guarantee
+    const enforceMinDiff = (aiVal, comp) => {
+      if (comp <= 0) return aiVal > 0 ? aiVal : 0;
+      const diff = ((aiVal - comp) / comp) * 100;
+      if (Math.abs(diff) < 5) {
+        // Default: +8% if no strong direction, otherwise use ±8%
+        return Math.round(comp * 1.08);
+      }
+      return aiVal;
+    };
+
+    finalAiValue = enforceMinDiff(finalAiValue, compValue);
+
+    // Call calculateValuation backend whenever we have signals (regardless of comp)
+    const signals = aiResult.key_signals;
+    if (signals && signals.length > 0) {
+      const anchorPrice = compValue > 0 ? compValue : finalAiValue;
       try {
         const valuationResponse = await base44.functions.invoke('calculateValuation', {
-          last_sold_price: cardData.comp_value,
+          last_sold_price: anchorPrice,
           grade: cardData.grade || 'Raw',
-          attributes: aiResult.key_signals.map(sig => ({
+          attributes: signals.map(sig => ({
             label: sig.label,
             percent_adjustment: `${sig.direction === 'bullish' ? '+' : sig.direction === 'bearish' ? '-' : ''}${sig.impact_pct}%`,
             reason: sig.reason
@@ -339,24 +357,26 @@ export default function ValuateCard() {
         });
         const vr = valuationResponse.data;
         // Parse final value from display string e.g. "$1,250"
-        const parsed = parseFloat(vr.holders_comp_display.replace(/[^0-9.]/g, ''));
-        if (parsed && !isNaN(parsed)) finalAiValue = parsed;
+        const parsed = parseFloat((vr.holders_comp_display || '').replace(/[^0-9.]/g, ''));
+        // Always enforce minimum diff — backend may return value too close to comp
+        finalAiValue = enforceMinDiff(parsed && !isNaN(parsed) ? parsed : finalAiValue, compValue);
         backendCalc = vr.holders_comp_calculation;
-        // Also override value_drivers with backend top_value_drivers for accuracy
         if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
           aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
         }
       } catch (err) {
-        // Fallback: ensure AI value differs by at least 5%
-        const percentDiff = ((finalAiValue - cardData.comp_value) / cardData.comp_value * 100);
-        if (Math.abs(percentDiff) < 3) {
-          finalAiValue = Math.round(cardData.comp_value * 1.05);
-        }
+        // Fallback already applied above via enforceMinDiff
       }
+    }
+
+    // Final ironclad check: AI value MUST NOT equal comp
+    if (compValue > 0 && finalAiValue === compValue) {
+      finalAiValue = Math.round(compValue * 1.08);
     }
 
     setResult({
       ...cardData,
+      comp_value: compValue || null,
       ...aiResult,
       ai_investment_value: finalAiValue,
       holders_comp_calculation: backendCalc || aiResult.holders_comp_calculation || null,

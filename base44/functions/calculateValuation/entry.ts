@@ -1,7 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// Grade multipliers relative to raw/ungraded card
-// These represent how much MORE (or less) a graded card is worth vs raw comp
+// v2 — Grade multipliers for display context only (comp already reflects grade)
 const GRADE_MULTIPLIERS = {
   "PSA 10":   2.20,
   "PSA 9":    1.50,
@@ -26,6 +25,15 @@ const GRADE_MULTIPLIERS = {
   "Raw":      1.00,
 };
 
+// Format a dollar adjustment: "+$1,250", "-$340", "$0"
+function fmt(n) {
+  const rounded = Math.round(n);
+  const abs = Math.abs(rounded).toLocaleString('en-US');
+  if (rounded > 0) return `+$${abs}`;
+  if (rounded < 0) return `-$${abs}`;
+  return `$0`;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -41,19 +49,14 @@ Deno.serve(async (req) => {
     const comp = parseFloat(last_sold_price);
     const gradeMultiplier = GRADE_MULTIPLIERS[grade] ?? 1.0;
 
-    // Grade-adjusted base: what the card is worth after grading premium/discount
-    // If comp was for the same grade, we use it as-is (multiplier = 1.0 relative)
-    // We treat comp as already reflecting the grade, so grade adjustment is 0
-    // BUT we show grade multiplier as context info in the breakdown
-    const gradeBase = comp; // comp IS the graded price — no further grade adjustment needed
-    const gradeDollarDisplay = 0; // no double-counting
-
-    // Parse attribute adjustments into dollar values
+    // Parse and sort attribute adjustments by absolute dollar impact
     const attributeDrivers = attributes
       .map(attr => {
-        // Parse percent from strings like "+12%", "-8%", "12%", "-8"
-        const raw = String(attr.percent_adjustment || "0").replace(/[^0-9.\-+]/g, "");
-        const percentValue = parseFloat(raw) || 0;
+        const raw = String(attr.percent_adjustment || "0");
+        // Extract sign and number cleanly
+        const isNeg = raw.includes('-');
+        const numStr = raw.replace(/[^0-9.]/g, '');
+        const percentValue = (parseFloat(numStr) || 0) * (isNeg ? -1 : 1);
         const dollarAdjustment = Math.round(comp * (percentValue / 100));
         return {
           label: attr.label,
@@ -69,31 +72,30 @@ Deno.serve(async (req) => {
     const remaining = attributeDrivers.slice(5);
 
     const top5Total = top5.reduce((sum, d) => sum + d.dollarAdjustment, 0);
-    let supportingTotal = remaining.reduce((sum, d) => sum + d.dollarAdjustment, 0);
-
-    // Ensure supporting factors aren't zero (at least a small positive baseline)
-    if (supportingTotal === 0 && remaining.length === 0) {
-      supportingTotal = Math.round(comp * 0.03);
-    }
+    const supportingTotal = remaining.reduce((sum, d) => sum + d.dollarAdjustment, 0);
+    // NOTE: no artificial baseline added here — the diff-enforcement below handles it cleanly
 
     let holdersComp = comp + top5Total + supportingTotal;
 
-    // CRITICAL RULE: AI Value MUST differ from comp by at least 3%
+    // IRONCLAD RULE: AI Value MUST differ from Last Sold by at least 8%
+    // Determine net signal direction to pick the right side
+    const netSignal = top5Total + supportingTotal;
     const diffPct = ((holdersComp - comp) / comp) * 100;
-    if (Math.abs(diffPct) < 3) {
-      // Force a minimum positive adjustment of 5%
-      holdersComp = Math.round(comp * 1.05);
+    if (Math.abs(diffPct) < 8) {
+      if (netSignal < 0) {
+        holdersComp = Math.round(comp * 0.92); // -8%
+      } else {
+        holdersComp = Math.round(comp * 1.08); // +8%
+      }
+    }
+
+    // Absolute final safety: never let holdersComp === comp
+    if (holdersComp === comp) {
+      holdersComp = Math.round(comp * 1.08);
     }
 
     const difference = holdersComp - comp;
     const differencePercent = ((difference / comp) * 100).toFixed(1);
-
-    const fmt = (n) => {
-      const abs = Math.abs(Math.round(n)).toLocaleString('en-US');
-      if (n > 0) return `+$${abs}`;
-      if (n < 0) return `-$${abs}`;
-      return `$0`;
-    };
 
     return Response.json({
       last_sold_price_display: `$${comp.toLocaleString('en-US')}`,

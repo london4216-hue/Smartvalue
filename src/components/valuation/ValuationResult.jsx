@@ -79,15 +79,15 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
           <div className="space-y-3">
             {/* Last Sale */}
-             <div className="bg-secondary/50 rounded-xl p-3">
+             <div className={`rounded-xl p-3 ${compValue > 0 ? 'bg-secondary/50' : 'bg-amber-500/5 border border-amber-500/20'}`}>
                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                  Last Sale Price
                </p>
-               <p className="text-lg font-mono font-bold text-muted-foreground">
-                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'N/A'}
+               <p className={`text-lg font-mono font-bold ${compValue > 0 ? 'text-foreground' : 'text-amber-500'}`}>
+                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'Not provided'}
                </p>
                <p className="text-[9px] text-muted-foreground/60 mt-1">
-                 {compValue > 0 ? 'What someone actually paid for this card' : 'Enter a recent sale price to anchor the valuation'}
+                 {compValue > 0 ? 'What someone actually paid for this card' : '⚠ No comp entered — AI Value based on market knowledge only'}
                </p>
              </div>
 
