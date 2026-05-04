@@ -6,9 +6,7 @@ import { Sparkles, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
-import LiveAttributeTicker from '@/components/dashboard/LiveAttributeTicker';
 import TopTrending from '@/components/dashboard/TopTrending';
-import DemoScoreCard from '@/components/dashboard/DemoScoreCard';
 
 
 
@@ -43,38 +41,6 @@ function ValuationSummary({ cards }) {
           <p className={cn("text-2xl font-bold text-foreground", item.mono && "font-mono")}>{item.value}</p>
         </motion.div>
       ))}
-    </div>
-  );
-}
-
-// ── Live demo section ─────────────────────────────────────────────────────────
-function LiveDemo() {
-  return (
-    <div className="mb-10">
-      {/* Header row */}
-      <div className="flex items-center gap-3 mb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Live Demo</span>
-            <span className="text-sm font-semibold text-foreground">Michael Jordan — 1986 Fleer Rookie #57 · BGS 8.5</span>
-          </div>
-          <p className="text-xs text-muted-foreground">Every signal feeding the model — real sourced numbers</p>
-        </div>
-      </div>
-
-      {/* Two-column: left = scores, right = signals */}
-      <div className="grid lg:grid-cols-5 gap-4">
-
-        {/* Score card */}
-        <div className="lg:col-span-2">
-          <DemoScoreCard />
-        </div>
-
-        {/* Signal breakdown */}
-        <div className="lg:col-span-3 space-y-2">
-          <LiveAttributeTicker />
-        </div>
-      </div>
     </div>
   );
 }
@@ -235,18 +201,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          <div className="relative shrink-0">
-            <img
-              src="https://d1htnxwo4o0jhw.cloudfront.net/cert/134044389/iiXp9pAT6EGgwPCfGBf1yA.jpg"
-              alt="1986 Fleer Michael Jordan #57 BGS 8.5"
-              className="w-28 h-36 object-cover rounded-xl border border-border/40 shadow-2xl"
-              onError={(e) => {
-                e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Michael_Jordan_in_2014.jpg/220px-Michael_Jordan_in_2014.jpg';
-              }}
-            />
-            <span className="absolute -bottom-2 -right-2 bg-amber-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-full shadow">BGS 8.5</span>
-            <span className="absolute -top-2 -left-2 bg-primary text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-full shadow">LIVE DEMO</span>
-          </div>
+
         </div>
       </motion.div>
 
