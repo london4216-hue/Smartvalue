@@ -362,23 +362,29 @@ export default function ValuateCard() {
     let finalAiValue = parseFloat(aiResult.ai_investment_value) || 0;
     let backendCalc = null;
 
-    // Always enforce: AI Value MUST differ from comp by at least 5%
-    // This runs BEFORE the backend call as a baseline guarantee
+    // Compute net signal direction from key_signals so we pick the right side
+    const signals = aiResult.key_signals || [];
+    const netSignalPct = signals.reduce((sum, sig) => {
+      const pct = sig.impact_pct || 0;
+      return sum + (sig.direction === 'bullish' ? pct : sig.direction === 'bearish' ? -pct : 0);
+    }, 0);
+
+    // Enforce minimum 8% diff from comp, direction driven by net signals
     const enforceMinDiff = (aiVal, comp) => {
-      if (comp <= 0) return aiVal > 0 ? aiVal : 0;
+      if (comp <= 0) return aiVal > 0 ? aiVal : Math.round(comp * 1.08) || 0;
       const diff = ((aiVal - comp) / comp) * 100;
-      if (Math.abs(diff) < 5) {
-        // Default: +8% if no strong direction, otherwise use ±8%
-        return Math.round(comp * 1.08);
+      if (Math.abs(diff) < 8) {
+        return netSignalPct < 0
+          ? Math.round(comp * 0.92)   // net bearish → show -8%
+          : Math.round(comp * 1.08);  // net bullish or neutral → show +8%
       }
-      return aiVal;
+      return Math.round(aiVal);
     };
 
     finalAiValue = enforceMinDiff(finalAiValue, compValue);
 
-    // Call calculateValuation backend whenever we have signals (regardless of comp)
-    const signals = aiResult.key_signals;
-    if (signals && signals.length > 0) {
+    // Call calculateValuation backend whenever we have signals
+    if (signals.length > 0) {
       const anchorPrice = compValue > 0 ? compValue : finalAiValue;
       try {
         const valuationResponse = await base44.functions.invoke('calculateValuation', {
@@ -391,22 +397,23 @@ export default function ValuateCard() {
           }))
         });
         const vr = valuationResponse.data;
-        // Parse final value from display string e.g. "$1,250"
         const parsed = parseFloat((vr.holders_comp_display || '').replace(/[^0-9.]/g, ''));
-        // Always enforce minimum diff — backend may return value too close to comp
+        // Re-enforce after backend — it may still come back too close to comp
         finalAiValue = enforceMinDiff(parsed && !isNaN(parsed) ? parsed : finalAiValue, compValue);
         backendCalc = vr.holders_comp_calculation;
         if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
           aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
         }
       } catch (err) {
-        // Fallback already applied above via enforceMinDiff
+        // enforceMinDiff already applied above
       }
     }
 
-    // Final ironclad check: AI value MUST NOT equal comp
-    if (compValue > 0 && finalAiValue === compValue) {
-      finalAiValue = Math.round(compValue * 1.08);
+    // Absolute final safety — value must never equal comp
+    if (compValue > 0 && Math.abs(finalAiValue - compValue) / compValue < 0.03) {
+      finalAiValue = netSignalPct < 0
+        ? Math.round(compValue * 0.92)
+        : Math.round(compValue * 1.08);
     }
 
     setResult({
