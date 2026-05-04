@@ -421,13 +421,34 @@ export default function ValuateCard() {
       }
     }
 
-    setResult({
+    const finalResult = {
       ...cardData,
       comp_value: compValue || null,
       ...aiResult,
       ai_investment_value: finalAiValue,
       holders_comp_calculation: backendCalc || aiResult.holders_comp_calculation || null,
-    });
+    };
+
+    // Check alerts — fire-and-forget, never block the result
+    if (compValue > 0) {
+      base44.functions.invoke('checkAlerts', {
+        player_name: cardData.player_name,
+        card_set: cardData.card_set || '',
+        grade: cardData.grade || '',
+        variation: cardData.variation || '',
+        last_sold_price: compValue,
+      }).then(res => {
+        const matches = res?.data?.matches || [];
+        matches.forEach(match => {
+          toast({
+            title: `🔔 Alert Match: ${match.player_name}`,
+            description: `Last sold $${compValue.toLocaleString()} ${match.grade ? `· ${match.grade}` : ''} matches your "${match.alert_type.replace(/_/g, ' ')}" alert.`,
+          });
+        });
+      }).catch(() => {});
+    }
+
+    setResult(finalResult);
     setIsLoading(false);
   };
 

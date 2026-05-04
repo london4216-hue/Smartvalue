@@ -1,0 +1,66 @@
+{
+  "name": "CardAlert",
+  "type": "object",
+  "properties": {
+    "player_name": {
+      "type": "string",
+      "description": "Player name to watch"
+    },
+    "card_set": {
+      "type": "string",
+      "description": "Optional card set filter"
+    },
+    "grade": {
+      "type": "string",
+      "description": "Grade filter e.g. PSA 10, BGS 9.5"
+    },
+    "variation": {
+      "type": "string",
+      "description": "Optional variation filter e.g. Silver, Gold"
+    },
+    "price_min": {
+      "type": "number",
+      "description": "Minimum price threshold in USD"
+    },
+    "price_max": {
+      "type": "number",
+      "description": "Maximum price threshold in USD"
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "below_price",
+        "above_price",
+        "in_range",
+        "any_sale"
+      ],
+      "description": "Type of price alert"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the alert is active"
+    },
+    "last_triggered_at": {
+      "type": "string",
+      "description": "ISO timestamp of last trigger"
+    },
+    "last_triggered_value": {
+      "type": "number",
+      "description": "Last value that triggered this alert"
+    },
+    "trigger_count": {
+      "type": "number",
+      "default": 0,
+      "description": "How many times this alert has fired"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional user note for this alert"
+    }
+  },
+  "required": [
+    "player_name",
+    "alert_type"
+  ]
+}

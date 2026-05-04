@@ -10,6 +10,7 @@ import Dashboard from '@/pages/Dashboard';
 import ValuateCard from '@/pages/ValuateCard';
 import Portfolio from '@/pages/Portfolio';
 import CardDetail from '@/pages/CardDetail';
+import Alerts from '@/pages/Alerts';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -42,6 +43,7 @@ const AuthenticatedApp = () => {
         <Route path="/valuate" element={<ValuateCard />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/card/:id" element={<CardDetail />} />
+        <Route path="/alerts" element={<Alerts />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
