@@ -82,7 +82,10 @@ ${cardData.card_set ? `- Set: ${cardData.card_set}` : ''}
 ${cardData.card_number ? `- Card Number: ${cardData.card_number}` : ''}
 ${cardData.variation ? `- Variation: ${cardData.variation}` : ''}
 ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
-${cardData.comp_value ? `- Last Comparable Sale (COMP ANCHOR): $${cardData.comp_value} — this is your ~90% weighted starting point. Your AI Value should stay within ±15% of this unless the evidence below is extraordinary.` : '- Last Comparable Sale: Unknown — research real eBay/PWCC sold prices. Flag that comps are missing.'}
+- ═══════════════════════════════════════════════════
+- LAST SOLD PRICE (MANDATORY COMP ANCHOR): $${cardData.comp_value || 'NOT PROVIDED'}
+- ═══════════════════════════════════════════════════
+${cardData.comp_value ? `- THIS IS YOUR BASE. You MUST use $${cardData.comp_value} as Step A of your internal calculation. Do NOT ignore this number. Do NOT substitute your own estimate. Do NOT look up a different price. Your ai_investment_value MUST be derived mathematically from $${cardData.comp_value} ± attribute adjustments. Any output that does not start from $${cardData.comp_value} as the base is a critical failure.` : '- WARNING: No last sold price provided. You must flag this explicitly in analysis_summary and use your best market knowledge as a conservative estimate. Still complete Steps A/B/C.'}
 ${cardData.cheapest_available ? `- Cheapest Available Now: $${cardData.cheapest_available} — HARD CEILING: if this is LOWER than comp, AI Value cannot exceed cheapest_available unless pop at grade is under 10. Mention explicitly.` : ''}
 ${gradeSection}
 
@@ -189,7 +192,7 @@ Return:
   Order by impact_pct descending.
 
 DOLLAR-BASED VALUE DRIVERS (REQUIRED — this is the math that makes valuation transparent):
-Using comp_value = $${cardData.comp_value || 0} as the ONLY base (grade is already in the comp, do NOT multiply by grade_multiplier):
+⚠️ MANDATORY BASE: $${cardData.comp_value || 0} is your ONLY starting number. Every dollar adjustment below is calculated as a percentage of $${cardData.comp_value || 0}. Do not use any other base price.
 
 For each top value driver, compute:
   dollar_adjustment = comp_value × percent_adjustment
