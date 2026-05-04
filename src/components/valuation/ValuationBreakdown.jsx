@@ -5,8 +5,9 @@ import { cn } from '@/lib/utils';
 // Parse a dollar string like "+$1,250" or "-$340" into a number
 function parseDollar(str) {
   if (!str) return 0;
-  const num = parseFloat(str.replace(/[^0-9.\-]/g, ''));
-  return str.trim().startsWith('-') ? -Math.abs(num) : Math.abs(num) * (str.includes('-') ? -1 : 1);
+  const clean = str.replace(/[^0-9.\-]/g, '');
+  const num = parseFloat(clean) || 0;
+  return str.includes('-') ? -Math.abs(num) : Math.abs(num);
 }
 
 export default function ValuationBreakdown({ compValue, attributeScores, aiValue, valueDrivers, holdersCompCalc }) {
@@ -17,9 +18,9 @@ export default function ValuationBreakdown({ compValue, attributeScores, aiValue
 
   if (hasAiData) {
     const top5 = valueDrivers.slice(0, 5);
-    const gradeDollars = parseDollar(holdersCompCalc.grade_multiplier_dollars);
     const supportingDollars = parseDollar(holdersCompCalc.supporting_factors_dollars);
     const finalComp = parseDollar(holdersCompCalc.final_holders_comp) || aiValue;
+    const gradeLabel = holdersCompCalc.grade_multiplier_label || holdersCompCalc.grade_multiplier_dollars || '';
 
     return (
       <div className="bg-card border border-border/50 rounded-2xl p-6">
@@ -40,24 +41,15 @@ export default function ValuationBreakdown({ compValue, attributeScores, aiValue
             <span className="text-lg font-mono font-bold text-foreground">${compValue.toLocaleString()}</span>
           </motion.div>
 
-          {/* Grade multiplier */}
-          <motion.div
-            initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
-            className="flex justify-between items-center p-3 bg-red-500/5 rounded-lg border border-red-500/20"
-          >
-            <div>
-              <div className="flex items-center gap-1.5">
-                <Minus className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-xs font-mono text-foreground">Grade Multiplier</span>
-              </div>
-              <p className="text-[9px] text-muted-foreground/60 mt-0.5 ml-5">
-                Grade discount applied to raw comp anchor
-              </p>
-            </div>
-            <span className="text-sm font-mono font-bold text-red-400">
-              {holdersCompCalc.grade_multiplier_dollars}
-            </span>
-          </motion.div>
+          {/* Grade info row */}
+          {gradeLabel && (
+            <motion.div
+              initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
+              className="flex items-center p-3 bg-blue-500/5 rounded-lg border border-blue-500/20 gap-2"
+            >
+              <span className="text-xs font-mono text-blue-600 flex-1">{gradeLabel}</span>
+            </motion.div>
+          )}
 
           {/* Top 5 drivers */}
           {top5.map((driver, i) => {

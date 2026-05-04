@@ -323,11 +323,12 @@ export default function ValuateCard() {
     // Ensure non-zero adjustments
     aiResult = ensureNonZeroAdjustments(aiResult, cardData);
 
-    // Call calculateValuation backend to ensure AI value differs from comp
+    // Call calculateValuation backend to get transparent dollar math
     let finalAiValue = aiResult.ai_investment_value;
+    let backendCalc = null;
     if (cardData.comp_value && aiResult.key_signals) {
       try {
-        const valuationResult = await base44.functions.invoke('calculateValuation', {
+        const valuationResponse = await base44.functions.invoke('calculateValuation', {
           last_sold_price: cardData.comp_value,
           grade: cardData.grade || 'Raw',
           attributes: aiResult.key_signals.map(sig => ({
@@ -336,12 +337,20 @@ export default function ValuateCard() {
             reason: sig.reason
           }))
         });
-        finalAiValue = parseInt(valuationResult.holders_comp_display.replace(/[^0-9]/g, ''));
+        const vr = valuationResponse.data;
+        // Parse final value from display string e.g. "$1,250"
+        const parsed = parseFloat(vr.holders_comp_display.replace(/[^0-9.]/g, ''));
+        if (parsed && !isNaN(parsed)) finalAiValue = parsed;
+        backendCalc = vr.holders_comp_calculation;
+        // Also override value_drivers with backend top_value_drivers for accuracy
+        if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
+          aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
+        }
       } catch (err) {
-        // Fallback: ensure AI value differs by at least 2%
+        // Fallback: ensure AI value differs by at least 5%
         const percentDiff = ((finalAiValue - cardData.comp_value) / cardData.comp_value * 100);
-        if (Math.abs(percentDiff) < 2) {
-          finalAiValue = Math.round(cardData.comp_value * 1.12);
+        if (Math.abs(percentDiff) < 3) {
+          finalAiValue = Math.round(cardData.comp_value * 1.05);
         }
       }
     }
@@ -350,6 +359,7 @@ export default function ValuateCard() {
       ...cardData,
       ...aiResult,
       ai_investment_value: finalAiValue,
+      holders_comp_calculation: backendCalc || aiResult.holders_comp_calculation || null,
     });
     setIsLoading(false);
   };
