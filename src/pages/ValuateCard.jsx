@@ -149,12 +149,13 @@ LIQUIDITY SCORE (always calculate separately):
 - Always show liquidity_score separately in the response and reference it in analysis_summary.
 
 VALUATION MODEL (ultra-conservative):
-  Base = comp_value (90% anchor)
-  grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0} (applied to comp)
-  attribute_adjustment = (weighted_avg_score - 50) / 50 × 0.15 (capped at ±15% standard, ±25% max for extraordinary evidence)
-  ai_investment_value = (comp × grade_multiplier) × (1 + attribute_adjustment)
-  
-  CRITICAL: AI Value MUST differ from comp. Minimum ±3% difference always. Never return comp as AI Value.
+  Base = comp_value (90% anchor) — THIS IS ALREADY A SALE AT THE STATED GRADE. DO NOT multiply by grade_multiplier again.
+  attribute_adjustment = sum of all signal adjustments as % of comp (capped at ±15% standard, ±25% max for extraordinary evidence)
+  ai_investment_value = comp_value × (1 + attribute_adjustment)
+
+  GRADE MULTIPLIER RULE: The grade multiplier (${gradeInfo ? gradeInfo.multiplier : 1.0}×) is ONLY informational context about how this grade compares to raw. Since comp_value is already a sale at this grade, you MUST NOT multiply comp by the grade multiplier. Doing so would double-count the grade premium and produce wildly inflated numbers.
+
+  CRITICAL: AI Value MUST differ from comp. Minimum ±8% difference always. Never return comp as AI Value.
   If cheapest_available < comp: AI Value must not exceed cheapest_available (unless pop at grade < 10).
 
 Score ALL ${allAttrs.length} attributes (0-100, or -1 for N/A):
@@ -182,7 +183,7 @@ Return:
   Order by impact_pct descending.
 
 DOLLAR-BASED VALUE DRIVERS (REQUIRED — this is the math that makes valuation transparent):
-Using comp_value = $${cardData.comp_value || 0} and grade_multiplier = ${gradeInfo ? gradeInfo.multiplier : 1.0}:
+Using comp_value = $${cardData.comp_value || 0} as the ONLY base (grade is already in the comp, do NOT multiply by grade_multiplier):
 
 For each top value driver, compute:
   dollar_adjustment = comp_value × percent_adjustment
@@ -397,7 +398,9 @@ export default function ValuateCard() {
           }))
         });
         const vr = valuationResponse.data;
-        const parsed = parseFloat((vr.holders_comp_display || '').replace(/[^0-9.]/g, ''));
+        const rawDisplay = vr.holders_comp_display || '';
+        const isNegDisplay = rawDisplay.includes('-');
+        const parsed = parseFloat(rawDisplay.replace(/[^0-9.]/g, '')) * (isNegDisplay ? -1 : 1);
         const backendValue = parsed && !isNaN(parsed) ? parsed : finalAiValue;
         // Always re-enforce after backend — backend can still return same-as-comp
         finalAiValue = enforceMinDiff(backendValue, compValue);

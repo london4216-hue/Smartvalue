@@ -4,8 +4,9 @@ import { cn } from '@/lib/utils';
 
 function parseDollar(str) {
   if (!str) return 0;
+  const isNeg = str.includes('-');
   const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
-  return str.includes('-') ? -num : num;
+  return isNeg ? -num : num;
 }
 
 function fmt(n) {
