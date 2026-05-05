@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 function parseUrlHints(url) {
   try {
     const u = new URL(url);
-    let skw = (u.searchParams.get('_skw') || '').trim();
+    let skw = (u.searchParams.get('_skw') || u.searchParams.get('_nkw') || '').trim();
     skw = skw.replace(/\+/g, ' ').replace(/%20/g, ' ');
     
     const imgHashMatch = url.match(/hash=item[^:]+:g:([A-Za-z0-9~_-]+)/);
@@ -109,9 +109,6 @@ Deno.serve(async (req) => {
     }
 
     const { itemId, skw, imageFromHash } = parseUrlHints(url);
-    
-    // Debug
-    const debugInfo = { itemId, skw, imageFromHash, inputUrl: url };
 
     // Try to fetch listing page
     let scrapedTitle = '';
@@ -149,7 +146,7 @@ Deno.serve(async (req) => {
     
     if (!result || !result.player_name) {
       return Response.json({
-        error: 'Could not identify the card. Please try a different URL or enter details manually.'
+        error: 'Could not identify the card from this URL. Try a URL with card keywords like the full eBay listing name.'
       }, { status: 422 });
     }
 
