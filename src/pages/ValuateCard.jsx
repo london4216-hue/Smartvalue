@@ -373,6 +373,7 @@ export default function ValuateCard() {
   const [compFetchResult, setCompFetchResult] = useState(null); // store what Phase 1 found
   const [result, setResult] = useState(null);
   const [cardInput, setCardInput] = useState(null);
+  const [prefillData, setPrefillData] = useState(null); // pre-fill form after wrong URL extraction
   const { toast } = useToast();
 
   const ensureNonZeroAdjustments = (aiResult, cardData) => {
@@ -436,6 +437,13 @@ export default function ValuateCard() {
   };
 
   const handleValuate = async (cardData) => {
+    // If user said "wrong card", pre-fill the form with extracted data for correction
+    if (cardData._needs_correction) {
+      const { _needs_correction, ...cleanData } = cardData;
+      setPrefillData(cleanData);
+      return;
+    }
+    setPrefillData(null);
     setIsLoading(true);
     setCardInput(cardData);
     setCompFetchResult(null);
@@ -606,6 +614,7 @@ export default function ValuateCard() {
   const handleReset = () => {
     setResult(null);
     setCardInput(null);
+    setPrefillData(null);
   };
 
   return (
@@ -644,8 +653,14 @@ export default function ValuateCard() {
       {!result && !isLoading && (
         <>
           <PasteUrlInput onCardExtracted={handleValuate} />
+          {prefillData && (
+            <div className="mb-4 px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-600 flex items-center gap-2">
+              <span>⚠️</span>
+              <span>The other card details were pre-filled from the URL — just fix the player name (and anything else wrong) below.</span>
+            </div>
+          )}
           <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
-            <CardInputForm onSubmit={handleValuate} isLoading={isLoading} />
+            <CardInputForm key={prefillData ? 'prefill' : 'empty'} onSubmit={handleValuate} isLoading={isLoading} initialData={prefillData} />
           </div>
         </>
       )}

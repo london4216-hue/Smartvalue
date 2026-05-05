@@ -72,32 +72,31 @@ function SectionLabel({ children }) {
   );
 }
 
-export default function CardInputForm({ onSubmit, isLoading }) {
+export default function CardInputForm({ onSubmit, isLoading, initialData }) {
   const [form, setForm] = useState({
-    player_name: '',
-    card_year: '',
-    card_set: '',
-    card_number: '',
-    variation: '',
-    serial_number: '',
-    grade: '',
-    comp_value: '',
-    cheapest_available: '',
+    player_name: initialData?.player_name || '',
+    card_year: initialData?.card_year || '',
+    card_set: initialData?.card_set || '',
+    card_number: initialData?.card_number || '',
+    variation: initialData?.variation || '',
+    serial_number: initialData?.serial_number || '',
+    grade: initialData?.grade || '',
+    comp_value: initialData?.comp_value ? String(initialData.comp_value) : '',
+    cheapest_available: initialData?.cheapest_available ? String(initialData.cheapest_available) : '',
     image_url: '',
-    // New signals
-    is_rookie_year: false,
-    color_matches_team: false,
+    is_rookie_year: initialData?.is_rookie_year || false,
+    color_matches_team: initialData?.color_matches_team || false,
     has_tv_show: false,
     tv_show_name: '',
-    player_popularity: '',   // "rising" | "peak" | "legend" | "declining"
+    player_popularity: initialData?.player_popularity || '',
     has_sneaker_deal: false,
     sneaker_brand: '',
     recent_viral_moment: false,
     viral_description: '',
-    has_autograph: false,
+    has_autograph: initialData?.has_autograph || false,
     is_sticker_auto: false,
-    ai_scan_quality: '',      // "flawless" | "excellent" | "good" | "fair" | "poor"
-    psa_alignment: false,     // Whether AI scan indicates PSA 10 potential
+    ai_scan_quality: '',
+    psa_alignment: false,
   });
   const [showScanner, setShowScanner] = useState(true);
   const [showSignals, setShowSignals] = useState(true);

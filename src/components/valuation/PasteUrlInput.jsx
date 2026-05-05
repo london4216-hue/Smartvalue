@@ -101,8 +101,13 @@ RETURN THIS JSON:
   };
 
   const handleCancel = () => {
+    // Pre-fill what was extracted but let user correct it via the manual form
+    if (extracted) {
+      onCardExtracted({ ...extracted, _needs_correction: true });
+    }
     setExtracted(null);
     setError('');
+    setUrl('');
   };
 
   const cardSummary = extracted ? [
@@ -190,11 +195,11 @@ RETURN THIS JSON:
                 <div className="flex gap-2 mt-3">
                   <Button size="sm" onClick={handleConfirm} className="flex-1 h-8 text-xs">
                     <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                    Yes, that's correct
+                    Yes, correct
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleCancel} className="h-8 text-xs px-3">
                     <X className="w-3 h-3 mr-1" />
-                    Wrong card
+                    Wrong — fix it below
                   </Button>
                 </div>
               </motion.div>
