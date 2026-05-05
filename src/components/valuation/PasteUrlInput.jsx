@@ -57,7 +57,8 @@ Return JSON with these fields:
 - card_year: string
 - card_set: string  
 - card_number: string
-- variation: string (include serial number if present, e.g. "/75", "1/1")
+- variation: string (parallel name only, e.g. "Electric Etch Orange RPA", "Silver", "Gold" — do NOT include the serial number here)
+- serial_number: string or null (the print run e.g. "75" for a /75 card, "10" for /10, "1" for 1/1 — just the number, no slash)
 - grade: string (e.g. "Raw", "PSA 9", "BGS 9.5")
 - comp_value: number or null (REAL last sold price from a completed transaction — NOT the listing price)
 - cheapest_available: number or null (current asking price on this listing)
@@ -74,6 +75,7 @@ Return JSON with these fields:
             card_set: { type: "string" },
             card_number: { type: "string" },
             variation: { type: "string" },
+            serial_number: { type: "string" },
             grade: { type: "string" },
             comp_value: { type: "number" },
             cheapest_available: { type: "number" },

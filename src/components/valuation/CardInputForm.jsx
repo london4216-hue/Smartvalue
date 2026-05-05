@@ -79,6 +79,7 @@ export default function CardInputForm({ onSubmit, isLoading }) {
     card_set: '',
     card_number: '',
     variation: '',
+    serial_number: '',
     grade: '',
     comp_value: '',
     cheapest_available: '',
@@ -108,14 +109,21 @@ export default function CardInputForm({ onSubmit, isLoading }) {
   const handleScanned = (extracted) => {
     setForm(prev => ({
       ...prev,
-      player_name: extracted.player_name || prev.player_name,
-      card_year:   extracted.card_year   || prev.card_year,
-      card_set:    extracted.card_set    || prev.card_set,
-      card_number: extracted.card_number || prev.card_number,
-      variation:   extracted.variation   || prev.variation,
-      grade:       extracted.grade       || prev.grade,
-      image_url:   extracted.image_url   || prev.image_url,
-      scan_notes:  extracted.scan_notes  || '',
+      player_name:   extracted.player_name   || prev.player_name,
+      card_year:     extracted.card_year     || prev.card_year,
+      card_set:      extracted.card_set      || prev.card_set,
+      card_number:   extracted.card_number   || prev.card_number,
+      variation:     extracted.variation     || prev.variation,
+      serial_number: extracted.serial_number || prev.serial_number || '',
+      grade:         extracted.grade         || prev.grade,
+      comp_value:    extracted.comp_value    ? String(extracted.comp_value)    : prev.comp_value,
+      cheapest_available: extracted.cheapest_available ? String(extracted.cheapest_available) : prev.cheapest_available,
+      image_url:     extracted.image_url     || prev.image_url,
+      scan_notes:    extracted.scan_notes    || '',
+      is_rookie_year:    extracted.is_rookie_year    ?? prev.is_rookie_year,
+      color_matches_team: extracted.color_matches_team ?? prev.color_matches_team,
+      has_autograph:     extracted.has_autograph     ?? prev.has_autograph,
+      player_popularity: extracted.player_popularity || prev.player_popularity,
     }));
   };
 
@@ -221,6 +229,18 @@ export default function CardInputForm({ onSubmit, isLoading }) {
             placeholder="Silver, Gold, Base..."
             value={form.variation}
             onChange={(e) => handleChange('variation', e.target.value)}
+            className="bg-secondary/50 border-border/50 rounded-xl"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Serial / Print Run <span className="text-primary/60 normal-case">— e.g. 75 for /75</span>
+          </Label>
+          <Input
+            placeholder="e.g. 75, 10, 25, 1"
+            value={form.serial_number}
+            onChange={(e) => handleChange('serial_number', e.target.value)}
             className="bg-secondary/50 border-border/50 rounded-xl"
           />
         </div>

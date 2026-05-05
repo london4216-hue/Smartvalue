@@ -7,6 +7,24 @@ import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 
+// Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
+function getPrintRunScore(serialNumber) {
+  const n = serialNumber ? parseInt(serialNumber, 10) : null;
+  if (!n || isNaN(n)) return null;
+  if (n === 1)   return 100;
+  if (n <= 5)    return 95;
+  if (n <= 10)   return 90;
+  if (n <= 25)   return 82;
+  if (n <= 49)   return 75;
+  if (n <= 75)   return 70;
+  if (n <= 99)   return 65;
+  if (n <= 149)  return 55;
+  if (n <= 199)  return 48;
+  if (n <= 249)  return 40;
+  if (n <= 499)  return 30;
+  return 20;
+}
+
 function buildPrompt(cardData) {
   const allAttrs = Object.values(ATTRIBUTE_CATEGORIES).flatMap(cat =>
     cat.attributes.map(a => `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
@@ -15,6 +33,9 @@ function buildPrompt(cardData) {
   const gradeInfo = cardData.grade && GRADE_WEIGHTS[cardData.grade]
     ? GRADE_WEIGHTS[cardData.grade]
     : null;
+
+  const serialNum = cardData.serial_number ? parseInt(cardData.serial_number, 10) : null;
+  const printRunScore = getPrintRunScore(cardData.serial_number);
 
   // AI SCANNER IMPACT — This is MASSIVE
   const aiScanSection = cardData.ai_scan_quality ? `
@@ -81,6 +102,7 @@ ${cardData.card_year ? `- Year: ${cardData.card_year}` : ''}
 ${cardData.card_set ? `- Set: ${cardData.card_set}` : ''}
 ${cardData.card_number ? `- Card Number: ${cardData.card_number}` : ''}
 ${cardData.variation ? `- Variation: ${cardData.variation}` : ''}
+${serialNum ? `- Serial Number / Print Run: /${serialNum} (this card is numbered out of ${serialNum} total copies)` : '- Serial Number: Not serialized or unknown'}
 ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
 - ═══════════════════════════════════════════════════
 - LAST SOLD PRICE (MANDATORY COMP ANCHOR): $${cardData.comp_value || 'NOT PROVIDED'}
@@ -131,10 +153,17 @@ CARD DNA SCORING:
 - "variation_desirability": Silver/Base = 60-70. Gold/Color parallels = 75-85. /10 or less = 90-100. Superfractor = 100.
 - "jersey_number_match": Card# = player jersey# = 90-100. No match = 0-10.
 
-SERIAL NUMBER:
-- "print_run_size": /1=100. /5=95. /10=90. /25=82. /49=75. /99=65. /149=55. /199=48. /249=40. /499+=25. Unnumbered=10.
-- "is_one_of_one": True 1/1 = 100. Not a 1/1 = 0.
-- "low_serial_number": #1=100. #2=95. #3-5=88. #6-10=78. #26+=20.
+SERIAL NUMBER — PRE-CALCULATED (USE THESE EXACT VALUES, DO NOT OVERRIDE):
+${serialNum ? `
+⚠️ THIS CARD IS NUMBERED /${serialNum}. There are exactly ${serialNum} copies of this card in existence.
+- "print_run_size" MUST be scored: ${printRunScore} (pre-calculated for /${serialNum})
+- "is_serialized" MUST be scored: 100 (card is serialized)
+- "is_one_of_one" MUST be scored: ${serialNum === 1 ? '100 — TRUE 1/1' : '0 — NOT a 1/1'}
+- Do NOT score print_run_size as if this were a /10 or /1 card. It is /${serialNum}.
+` : `
+- Card is NOT serialized (or serial unknown). Score "is_serialized": 10, "print_run_size": 10, "is_one_of_one": 0.
+`}
+- "low_serial_number": #1=100. #2=95. #3-5=88. #6-10=78. #26+=20. (only applies if the individual copy number is known)
 
 AUTOGRAPH:
 - "auto_type": On-card = 85-100. Sticker = 30-55. No auto = 0.
@@ -145,8 +174,10 @@ PATCH:
 - "rpa_designation": True RPA (RC+Patch+Auto) = 95-100. Base card = 0.
 
 POPULATION (INVERSE — lower pop = higher score):
+${serialNum ? `⚠️ SERIAL NUMBER CONSTRAINT: This card is /${serialNum}. The MAXIMUM possible total population is ${serialNum} copies. There can NEVER be more than ${serialNum} of these in existence. Do NOT score pop_report as if thousands exist. Score pop_report based on this hard ceiling of ${serialNum} total copies.` : ''}
 - "pop_count_at_grade": Pop 1=100. 2-5=92-96. 6-15=82-88. 16-30=72-78. 31-75=60-68. 76-150=45-55. 300+=18-28. 500+=5-15.
 - "pop_report": Under 50 total=90-100. Under 500=60-70. 2000-10000=20-35. 10000+=5-15.
+${serialNum ? `NOTE: For a /${serialNum} card, pop_report score MUST reflect that the total universe is max ${serialNum} copies. A /${serialNum} card cannot have a pop of 500+. Score accordingly (likely 90-100 for pop_report).` : ''}
 
 RETIRED PLAYER: Score career_trajectory and injury_risk as -1. Score goat_legacy_score, hall_of_fame_trajectory, cultural_icon_status, historical_appreciation: 80-100 for legends.
 
@@ -336,8 +367,10 @@ export default function ValuateCard() {
         psa_gem_potential: cardData.psa_alignment ? 92 : cardData.ai_scan_quality === 'flawless' ? 78 : 45,
         card_condition_psa_readiness: cardData.psa_alignment ? 90 : 50,
         
-        // Default for others
-        is_serialized: 55,
+        // Serial / Scarcity — use real print run if available
+        is_serialized: cardData.serial_number ? 100 : 10,
+        print_run_size: getPrintRunScore(cardData.serial_number) ?? 10,
+        is_one_of_one: cardData.serial_number === '1' ? 100 : 0,
         has_autograph: cardData.has_autograph ? 75 : 25,
         has_patch: cardData.has_autograph || cardData.color_matches_team ? 68 : 35,
         auto_quality: cardData.has_autograph ? 70 : 20,
