@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, CheckCircle2, Target, TrendingUp, Clock, Shield, Search, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
@@ -151,57 +151,67 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-      {/* Hero */}
+      {/* HERO — The value promise */}
       <motion.div
-        initial={{ opacity: 0, y: -16 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-10"
+        className="mb-16"
       >
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <Zap className="w-4 h-4 text-primary" />
-          <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Investment-Grade Intelligence</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Card Trading Intelligence</span>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-              Comp value doesn't define a card's worth.
-              <br />
-              <span className="text-primary">44 data points do.</span>
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-4 max-w-2xl leading-relaxed">
-              Collectors always knew the real drivers of value — but couldn't prove them. Serial number scarcity, auto type, PSA readiness, cultural momentum, set prestige, player trajectory, market velocity. We scored 44 factors to expose what a last sale never shows.
-            </p>
-            
-            {/* Data Points Examples */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
-              {[
-                'Serial scarcity',
-                'Auto type & grade',
-                'Set prestige tier',
-                'PSA gem potential',
-                'Pop report trends',
-                'Player momentum',
-                'Cultural catalyst',
-                'Sneaker deal power',
-                'Market velocity',
-                'Auction activity',
-                'Rookie status',
-                'Viral moments'
-              ].map((point, i) => (
-                <motion.div
-                  key={point}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.05 + i * 0.02 }}
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary/60 shrink-0" />
-                  <span>{point}</span>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-4">
+          Never overpay for a card again.
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-3xl leading-relaxed mb-8">
+          Compare asking prices against real market data. Get AI-driven fair value estimates based on 44 investment attributes. Find the best deals live on eBay, PWCC, Goldin & COMC. Alert you instantly when graded copies move.
+        </p>
 
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-12">
+          <Link to="/valuate" className="shrink-0">
+            <Button className="h-12 px-8 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold">
+              <Target className="w-5 h-5 mr-2" />
+              Start Valuating
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+          <Link to="/portfolio" className="shrink-0">
+            <Button variant="outline" className="h-12 px-8 rounded-xl border-border/50 text-base font-semibold">
+              <TrendingUp className="w-5 h-5 mr-2" />
+              View My Portfolio
+            </Button>
+          </Link>
+        </div>
+
+        {/* Feature Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { icon: Target, label: 'AI Fair Value', desc: '44-attribute appraisal in seconds' },
+            { icon: Search, label: 'Live Deal Search', desc: 'Find cheapest listings across all platforms' },
+            { icon: AlertCircle, label: 'Smart Alerts', desc: 'Notify when prices hit your thresholds' },
+            { icon: TrendingUp, label: 'Market Trends', desc: 'Track player momentum & scarcity data' },
+            { icon: Shield, label: 'Investment Score', desc: 'See why each card scores high or low' },
+            { icon: Clock, label: 'Instant Analysis', desc: 'Paste URL or upload image — 30 seconds' },
+          ].map((feature, i) => {
+            const Icon = feature.icon;
+            return (
+              <motion.div
+                key={feature.label}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 + i * 0.05 }}
+                className="bg-card border border-border/50 rounded-xl p-4 flex gap-3"
+              >
+                <Icon className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{feature.label}</p>
+                  <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </motion.div>
 
