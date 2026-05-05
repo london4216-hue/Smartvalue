@@ -8,6 +8,7 @@ import KeySignals from './KeySignals';
 import ContextualSignals from './ContextualSignals';
 import InvestmentThesis from './InvestmentThesis';
 import ValuationBreakdown from './ValuationBreakdown';
+import PlayerActivityInsights from './PlayerActivityInsights';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -67,6 +68,9 @@ export default function ValuationResult({ result, onSave, onReset }) {
         valueDrivers={result.value_drivers || []}
         holdersCompCalc={result.holders_comp_calculation || null}
       />
+
+      {/* Player Activity Intelligence — Real-time stats & news */}
+      <PlayerActivityInsights playerName={result.player_name} cardYear={result.card_year} />
 
       {/* Key Signals — GOTCHA attributes up top */}
        {result.key_signals && result.key_signals.length > 0 && (
