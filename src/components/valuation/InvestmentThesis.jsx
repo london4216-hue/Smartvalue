@@ -4,39 +4,39 @@ import { cn } from '@/lib/utils';
 
 const ACTION_CONFIG = {
   strong_buy: {
-    label: '🔥 STRONG BUY',
+    label: '🔥 BUY AT LAST SOLD — Strong Value',
     color: 'text-emerald-500',
     bg: 'bg-emerald-500/10 border-emerald-500/30',
     icon: ShoppingCart,
-    thesis: 'AI value is 20%+ above last sale. This card is underpriced based on 44 data-point analysis of scarcity, condition, player momentum, and market trends.'
+    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is 20%+ below that. At the last sold price, this is a strong buy. Do NOT pay more than last sold.`
   },
   buy: {
-    label: '✓ BUY IT',
+    label: '✓ BUY AT LAST SOLD — Good Entry',
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10 border-emerald-400/20',
     icon: ShoppingCart,
-    thesis: 'AI value is 8-20% above last sold. Attributes justify meaningful upside vs. last sold price — good entry relative to fundamentals.'
+    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is below that. Good entry if you can get it at or near last sold price. Do NOT pay more.`
   },
   hold: {
-    label: '⏳ HOLD / FAIR VALUE',
+    label: '⏳ FAIR VALUE — No Clear Edge',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10 border-amber-500/30',
     icon: Clock,
-    thesis: 'AI value is within 2% of last sale. Price appears fair. No clear edge yet — wait for better opportunity or hold if you own it.'
+    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is roughly in line. No clear edge at this price. Hold if you own it, wait for a dip to buy.`
   },
   sell: {
-    label: '📉 SELL',
+    label: '📉 CAUTION — Overpriced at Last Sale',
     color: 'text-orange-400',
     bg: 'bg-orange-500/10 border-orange-500/20',
     icon: DollarSign,
-    thesis: 'AI value is 10-25% below last sale. Attributes suggest overvaluation vs. current market trends. Consider selling or passing.'
+    thesis: (comp, ai) => `⚠️ AI values this card at $${ai?.toLocaleString()} — but it last sold for $${comp?.toLocaleString()}. The market paid more than it's worth. Avoid buying at or above last sold price.`
   },
   strong_sell: {
-    label: '⚠️ STRONG SELL',
+    label: '🚨 AVOID — Market Is Running Hot',
     color: 'text-red-500',
     bg: 'bg-red-500/10 border-red-500/20',
     icon: DollarSign,
-    thesis: 'AI value is 25%+ below last sale. Significant overvaluation signal based on pop trends, supply scarcity, and player momentum. Avoid or exit.'
+    thesis: (comp, ai) => `🚨 AI values this card at $${ai?.toLocaleString()} — but it last sold for $${comp?.toLocaleString()}. That's 25%+ above fair value. Strong signal the market is overheated. Do not buy at these prices.`
   }
 };
 
@@ -93,7 +93,7 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
               {config.label}
             </h3>
             <p className="text-sm text-foreground/80 mt-1 leading-relaxed">
-              {config.thesis}
+              {typeof config.thesis === 'function' ? config.thesis(compValue, aiValue) : config.thesis}
             </p>
           </div>
         </div>
