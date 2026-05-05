@@ -6,6 +6,7 @@ import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
+import MarketAlertsDashboard from '@/components/valuation/MarketAlertsDashboard';
 
 // Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
 function getPrintRunScore(serialNumber) {
@@ -660,7 +661,10 @@ export default function ValuateCard() {
 
       {/* Paste URL Input */}
       {!result && !isLoading && (
-        <PasteUrlInput onCardExtracted={handleValuate} />
+        <>
+          <PasteUrlInput onCardExtracted={handleValuate} />
+          <MarketAlertsDashboard />
+        </>
       )}
     </div>
   );
