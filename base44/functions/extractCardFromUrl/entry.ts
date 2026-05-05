@@ -244,65 +244,77 @@ Do NOT confuse brand names (Panini, Prizm) with player names. Return only the JS
       }, { status: 422 });
     }
 
-    // Init pricing with defaults
-    let pricingValidation = {
-      pricing: {
-        last_sold_price_amount: null,
-        last_sold_price_currency: "USD",
-        last_sold_price_date: null,
-        last_sold_price_source: "eBay",
-        last_sold_price_confidence: "low",
-        current_ask_price_amount: scrapedPrice || null,
-        current_ask_price_currency: "USD",
-        current_ask_source: "eBay",
-        current_ask_type: "buy_it_now",
-        current_ask_confidence: scrapedPrice ? "medium" : "low"
-      }
-    };
-
-    // Add pricing & image first
-    result.comp_value = pricingValidation.pricing.last_sold_price_amount;
-    result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
-    result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
-    result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
-    result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
-    result._ask_type = pricingValidation.pricing.current_ask_type;
+    // Add scraped pricing & image
+    result.comp_value = null;
+    result._comp_confidence = 'low';
+    result._comp_sale_date = null;
+    result.cheapest_available = scrapedPrice || null;
+    result._ask_confidence = scrapedPrice ? 'medium' : 'low';
+    result._ask_type = 'buy_it_now';
     result.image_url = scrapedImage || imageFromHash || null;
 
-    // Grade assessment only (pricing comes from scraping + findBestBuy backend)
+    // Grade assessment LLM (if we have image) — blocking for response
     let aiGradeAssessment = null;
-    
     if (result.image_url) {
-      // Fire off grade assessment but don't wait — return early
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Grade this sports card image using PSA/BGS/SGC standards.
+      try {
+        aiGradeAssessment = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Grade this sports card image using PSA/BGS/SGC standards.
 
 Card: ${result.player_name} ${result.card_year} ${result.card_set}
 
-Return JSON with: estimated_grade, confidence, key_observations (array), grade_range`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            estimated_grade: { type: "string" },
-            confidence: { type: "string" },
-            key_observations: { type: "array", items: { type: "string" } },
-            grade_range: { type: "string" },
-          }
-        },
-        file_urls: [result.image_url],
-        model: 'gemini_3_flash',
-      }).then(r => {
-        // Silently update if successful (not blocking response)
-        if (r) {
-          result.ai_grade_assessment = r;
-          result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee.';
-          const obsText = (r.key_observations || []).join(' ').toLowerCase();
-          const centeringScore = obsText.includes('excellent') || obsText.includes('perfect') ? 95 : obsText.includes('good') ? 80 : obsText.includes('noticeable') ? 55 : 70;
-          const cornerScore = obsText.includes('sharp') ? 95 : obsText.includes('minor') ? 80 : obsText.includes('wear') ? 55 : 70;
-          result.ai_eye_appeal_grade = (centeringScore >= 90 && cornerScore >= 90) ? 'A' : (centeringScore < 60 || cornerScore < 60) ? 'C' : 'B';
-          result.eye_appeal_reasoning = `Centering: ${centeringScore >= 90 ? 'excellent' : centeringScore >= 75 ? 'good' : 'noticeable drift'}. Corners: ${cornerScore >= 90 ? 'sharp' : cornerScore >= 75 ? 'minor wear' : 'visible wear'}.`;
-        }
-      }).catch(() => {});
+Return:
+- estimated_grade (e.g. "9" or "8.5")
+- confidence ("high", "medium", or "low")
+- key_observations (array of 2-3 observations)
+- grade_range (e.g. "8-9")`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              estimated_grade: { type: "string" },
+              confidence: { type: "string" },
+              key_observations: { type: "array", items: { type: "string" } },
+              grade_range: { type: "string" },
+            }
+          },
+          file_urls: [result.image_url],
+          model: 'gemini_3_flash',
+        });
+      } catch (_) {}
+    }
+
+    // Assign grade & eye appeal
+    if (aiGradeAssessment) {
+      result.ai_grade_assessment = aiGradeAssessment;
+      result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination and proprietary grader standards.';
+      
+      const obsText = (aiGradeAssessment.key_observations || []).join(' ').toLowerCase();
+      const centeringScore = (() => {
+        if (obsText.includes('excellent') || obsText.includes('very good') || obsText.includes('perfect')) return 95;
+        if (obsText.includes('good') || obsText.includes('slight') && !obsText.includes('noticeable')) return 80;
+        if (obsText.includes('noticeable') || obsText.includes('off')) return 55;
+        if (obsText.includes('poor') || obsText.includes('very off')) return 20;
+        return 70;
+      })();
+      
+      const cornerScore = (() => {
+        if (obsText.includes('sharp') || obsText.includes('very sharp') || (obsText.includes('corner') && obsText.includes('sharp'))) return 95;
+        if (obsText.includes('minor wear') || obsText.includes('light wear')) return 80;
+        if (obsText.includes('corner wear') || obsText.includes('wear') || obsText.includes('soft')) return 55;
+        if (obsText.includes('damaged') || obsText.includes('heavy wear')) return 20;
+        return 70;
+      })();
+      
+      let eyeAppealGrade = 'B';
+      if (centeringScore >= 90 && cornerScore >= 90) eyeAppealGrade = 'A';
+      else if (centeringScore < 60 || cornerScore < 60) eyeAppealGrade = 'C';
+      if (centeringScore < 40 && cornerScore < 40) eyeAppealGrade = 'D';
+      
+      result.ai_eye_appeal_grade = eyeAppealGrade;
+      const centeringComment = centeringScore >= 90 ? 'Centering is excellent—image is perfectly positioned within the border.' : 
+                               centeringScore >= 75 ? 'Centering is good—image sits well within the border with minimal drift.' : 
+                               centeringScore >= 55 ? 'Centering shows noticeable drift—image is noticeably off-center, affecting visual appeal.' : 
+                               'Centering is poor—image is significantly off-center, a major flaw for collectors.';
+      result.eye_appeal_reasoning = `${centeringComment} Corners: ${cornerScore >= 90 ? 'sharp and clean' : cornerScore >= 75 ? 'show minor wear' : cornerScore >= 55 ? 'show visible wear' : 'heavily damaged'}.`;
     }
 
 
