@@ -92,13 +92,13 @@ Return JSON with these fields:
 
       if (result.player_name) {
         onCardExtracted(result);
+        setUrl('');
       } else {
-        setError('Could not extract card details from this URL. Try a more specific listing page.');
+        setError("Can't read this URL — try a direct eBay item page (e.g. ebay.com/itm/...) or fill in the form manually below.");
       }
     } catch (err) {
-      setError('Failed to extract card details. Please try another URL.');
+      setError("Can't read this URL — try a direct eBay item page or fill in the form manually below.");
     } finally {
-      setUrl('');
       setIsLoading(false);
     }
   };
