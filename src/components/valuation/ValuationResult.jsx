@@ -87,16 +87,39 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
           <div className="space-y-3">
             {/* Last Sale */}
-             <div className={`rounded-xl p-3 ${compValue > 0 ? 'bg-secondary/50' : 'bg-amber-500/5 border border-amber-500/20'}`}>
-               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                 Last Sold Price
-               </p>
-               <p className={`text-lg font-mono font-bold ${compValue > 0 ? 'text-foreground' : 'text-amber-500'}`}>
-                 {compValue > 0 ? `$${compValue.toLocaleString()}` : 'Not provided'}
-               </p>
-               <p className="text-[9px] text-muted-foreground/60 mt-1">
-                 {compValue > 0 ? 'What someone actually paid for this card' : '⚠ No last sold price entered — AI Value based on market knowledge only'}
-               </p>
+             <div className={`rounded-xl p-3 border ${compValue > 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/30'}`}>
+               <div className="flex items-center justify-between mb-1">
+                 <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                   Last Sold (90% Anchor)
+                 </p>
+                 {compValue > 0 && (
+                   <span className={cn(
+                     "text-[9px] font-mono px-1.5 py-0.5 rounded border",
+                     result._comp_confidence === 'high' ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' :
+                     result._comp_confidence === 'user_provided' ? 'text-primary border-primary/30 bg-primary/10' :
+                     'text-amber-400 border-amber-400/30 bg-amber-400/10'
+                   )}>
+                     {result._comp_confidence === 'user_provided' ? '✓ User Entered' :
+                      result._comp_confidence === 'high' ? '✓ High Confidence' :
+                      result._comp_confidence === 'medium' ? '~ Medium Confidence' : '⚠ Low Confidence'}
+                   </span>
+                 )}
+               </div>
+               {compValue > 0 ? (
+                 <>
+                   <p className="text-2xl font-mono font-bold text-emerald-500">${compValue.toLocaleString()}</p>
+                   <p className="text-[9px] text-muted-foreground/70 mt-1">
+                     What someone actually paid · {result._comp_sale_date ? result._comp_sale_date : 'Most recent completed sale'}
+                   </p>
+                 </>
+               ) : (
+                 <>
+                   <p className="text-lg font-mono font-bold text-red-400">No comp found</p>
+                   <p className="text-[9px] text-red-400/70 mt-1">
+                     ⚠ AI searched but could not find a real completed sale. AI Value is estimated from market knowledge only — treat with caution.
+                   </p>
+                 </>
+               )}
              </div>
 
             {/* AI-Driven Projections */}

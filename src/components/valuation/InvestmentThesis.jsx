@@ -103,14 +103,19 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
           {/* Last Sale */}
           <div>
             <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-1">
-              Last Sale Price
+              Last Sold (90% Anchor)
             </p>
-            <p className="text-xl font-mono font-bold text-foreground">
-              ${(compValue || aiValue).toLocaleString()}
-            </p>
-            <p className="text-[10px] text-muted-foreground/60 mt-1">
-              What it sold for
-            </p>
+            {compValue > 0 ? (
+              <>
+                <p className="text-xl font-mono font-bold text-emerald-400">${compValue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">What someone actually paid</p>
+              </>
+            ) : (
+              <>
+                <p className="text-base font-mono font-bold text-red-400">No comp found</p>
+                <p className="text-[10px] text-red-400/60 mt-1">⚠ AI estimated from market data</p>
+              </>
+            )}
           </div>
 
           {/* AI Value */}

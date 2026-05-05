@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import CardInputForm from '@/components/valuation/CardInputForm';
 import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
+import { Search, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
 
 // Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
 function getPrintRunScore(serialNumber) {
@@ -319,8 +320,56 @@ function buildResponseSchema() {
   };
 }
 
+// Phase 1: Fetch real last-sold comp from the market before running valuation
+async function fetchRealComp(cardData) {
+  const { player_name, card_year, card_set, variation, serial_number, grade } = cardData;
+  const serialStr = serial_number ? `/${serial_number}` : '';
+  const cardDesc = [card_year, card_set, variation, serialStr, grade].filter(Boolean).join(' ');
+
+  const result = await base44.integrations.Core.InvokeLLM({
+    prompt: `You are a sports card market data specialist. Your ONLY job is to find the real last sold price for this exact card on eBay completed listings.
+
+CARD: ${player_name} ${cardDesc}
+
+MANDATORY STEPS:
+1. Search eBay completed/sold listings RIGHT NOW for: "${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr} ${grade || ''}"
+2. Also search: "${player_name} ${card_set || ''} ${variation || ''} ${serialStr} sold"
+3. Check 130point.com, cardladder.com, and PWCC for recent sales
+4. Find the MOST RECENT actual "hammer price" — what a buyer PAID, not an asking price
+
+RULES:
+- comp_value = price someone PAID in a completed transaction (not a listing)
+- cheapest_available = lowest current asking price on any active listing
+- These are almost always DIFFERENT numbers
+- If you find multiple recent sales, use the most recent one as comp_value and note others
+- sale_date = when the most recent sale happened (e.g. "3 days ago", "2 weeks ago", "April 2025")
+- sales_found = how many comparable sales you found
+- confidence = "high" (3+ recent comps), "medium" (1-2 comps), "low" (old or no comps found)
+- If truly NO sales exist for this specific card, set comp_value to null and explain in notes
+
+Return ONLY a JSON object. No explanation text.`,
+    response_json_schema: {
+      type: "object",
+      properties: {
+        comp_value: { type: "number" },
+        cheapest_available: { type: "number" },
+        sale_date: { type: "string" },
+        sales_found: { type: "number" },
+        confidence: { type: "string" },
+        notes: { type: "string" },
+      }
+    },
+    add_context_from_internet: true,
+    model: 'gemini_3_1_pro',
+  });
+
+  return result;
+}
+
 export default function ValuateCard() {
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(null); // 'fetching_comp' | 'valuing'
+  const [compFetchResult, setCompFetchResult] = useState(null); // store what Phase 1 found
   const [result, setResult] = useState(null);
   const [cardInput, setCardInput] = useState(null);
   const { toast } = useToast();
@@ -388,8 +437,39 @@ export default function ValuateCard() {
   const handleValuate = async (cardData) => {
     setIsLoading(true);
     setCardInput(cardData);
+    setCompFetchResult(null);
 
-    const prompt = buildPrompt(cardData);
+    // ── PHASE 1: Fetch real last-sold comp if not already provided ──────────
+    let enrichedCardData = { ...cardData };
+
+    if (!cardData.comp_value || parseFloat(cardData.comp_value) <= 0) {
+      setLoadingPhase('fetching_comp');
+      try {
+        const compData = await fetchRealComp(cardData);
+        setCompFetchResult(compData);
+
+        if (compData.comp_value && compData.comp_value > 0) {
+          enrichedCardData = {
+            ...enrichedCardData,
+            comp_value: compData.comp_value,
+            cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
+            _comp_sale_date: compData.sale_date || null,
+            _comp_confidence: compData.confidence || 'medium',
+            _comp_notes: compData.notes || '',
+          };
+        }
+        // If still null — proceed, but the valuation prompt will flag it
+      } catch {
+        // Phase 1 failed silently — proceed to valuation anyway
+      }
+    } else {
+      enrichedCardData._comp_confidence = 'user_provided';
+    }
+
+    // ── PHASE 2: Full valuation ──────────────────────────────────────────────
+    setLoadingPhase('valuing');
+
+    const prompt = buildPrompt(enrichedCardData);
     const schema = buildResponseSchema();
 
     let aiResult = await base44.integrations.Core.InvokeLLM({
@@ -399,9 +479,9 @@ export default function ValuateCard() {
     });
 
     // Ensure non-zero adjustments
-    aiResult = ensureNonZeroAdjustments(aiResult, cardData);
+    aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
 
-    const compValue = parseFloat(cardData.comp_value) || 0;
+    const compValue = parseFloat(enrichedCardData.comp_value) || 0;
     let finalAiValue = parseFloat(aiResult.ai_investment_value) || 0;
     let backendCalc = null;
 
@@ -464,20 +544,23 @@ export default function ValuateCard() {
     }
 
     const finalResult = {
-      ...cardData,
+      ...enrichedCardData,
       comp_value: compValue || null,
       ...aiResult,
       ai_investment_value: finalAiValue,
       holders_comp_calculation: backendCalc || aiResult.holders_comp_calculation || null,
+      _comp_sale_date: enrichedCardData._comp_sale_date || null,
+      _comp_confidence: enrichedCardData._comp_confidence || null,
+      _comp_notes: enrichedCardData._comp_notes || '',
     };
 
     // Check alerts — fire-and-forget, never block the result
     if (compValue > 0) {
       base44.functions.invoke('checkAlerts', {
-        player_name: cardData.player_name,
-        card_set: cardData.card_set || '',
-        grade: cardData.grade || '',
-        variation: cardData.variation || '',
+        player_name: enrichedCardData.player_name,
+        card_set: enrichedCardData.card_set || '',
+        grade: enrichedCardData.grade || '',
+        variation: enrichedCardData.variation || '',
         last_sold_price: compValue,
       }).then(res => {
         const matches = res?.data?.matches || [];
@@ -492,6 +575,7 @@ export default function ValuateCard() {
 
     setResult(finalResult);
     setIsLoading(false);
+    setLoadingPhase(null);
   };
 
   const handleSave = async () => {
@@ -502,7 +586,7 @@ export default function ValuateCard() {
       card_number: result.card_number || '',
       variation: result.variation || '',
       grade: result.grade || '',
-      comp_value: result.comp_value || 0,
+      comp_value: result.comp_value || null,
       cheapest_available: result.cheapest_available || null,
       ai_investment_value: result.ai_investment_value || 0,
       overall_score: result.overall_score || 0,
@@ -542,16 +626,74 @@ export default function ValuateCard() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-card border border-border/50 rounded-2xl p-8 text-center"
+          className="bg-card border border-border/50 rounded-2xl p-8"
         >
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          {/* Phase Steps */}
+          <div className="space-y-4 mb-6">
+            {/* Step 1 — Fetch Comp */}
+            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+              loadingPhase === 'fetching_comp'
+                ? 'bg-primary/5 border-primary/30'
+                : compFetchResult
+                ? 'bg-emerald-500/5 border-emerald-500/20'
+                : 'bg-secondary/30 border-border/20 opacity-50'
+            }`}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                {loadingPhase === 'fetching_comp' ? (
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                ) : compFetchResult ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                ) : (
+                  <Search className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${loadingPhase === 'fetching_comp' ? 'text-primary' : compFetchResult ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                  {loadingPhase === 'fetching_comp' ? 'Searching eBay completed listings...' : compFetchResult ? 'Last sold price found' : 'Step 1: Fetch last sold comp'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {loadingPhase === 'fetching_comp'
+                    ? 'Scanning eBay, 130point, CardLadder for real hammer prices'
+                    : compFetchResult?.comp_value
+                    ? `$${compFetchResult.comp_value.toLocaleString()} · ${compFetchResult.sale_date || 'recent'} · ${compFetchResult.confidence || 'medium'} confidence`
+                    : 'Live market price lookup'}
+                </p>
+              </div>
+              {compFetchResult?.comp_value && (
+                <div className="text-right shrink-0">
+                  <p className="text-lg font-mono font-bold text-emerald-500">${compFetchResult.comp_value.toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Step 2 — Run Valuation */}
+            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+              loadingPhase === 'valuing'
+                ? 'bg-primary/5 border-primary/30'
+                : result
+                ? 'bg-emerald-500/5 border-emerald-500/20'
+                : 'bg-secondary/30 border-border/20 opacity-50'
+            }`}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                {loadingPhase === 'valuing' ? (
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                ) : (
+                  <TrendingUp className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${loadingPhase === 'valuing' ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {loadingPhase === 'valuing' ? 'Running 44-attribute investment model...' : 'Step 2: AI valuation analysis'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Scoring serial number, auto type, patch quality, pop data & player thesis
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-sm font-medium text-foreground">Running predictive investment index...</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Scoring card DNA, serial number, auto type, patch quality, pop data & market signals
-          </p>
-          <div className="flex justify-center gap-1 mt-4">
+
+          {/* Pulse dots */}
+          <div className="flex justify-center gap-1">
             {[0, 1, 2, 3, 4].map(i => (
               <motion.div
                 key={i}
