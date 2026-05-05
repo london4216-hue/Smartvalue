@@ -223,6 +223,7 @@ Return:
       result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination and proprietary grader standards.';
       
       // Compute AI Eye-Appeal Grade (A/B/C/D) based on centering + corners
+      // ALWAYS COMMENT ON CENTERING: Card centering is one of the most critical visual factors
       const obsText = (aiGradeAssessment.key_observations || []).join(' ').toLowerCase();
       const centeringScore = (() => {
         if (obsText.includes('excellent') || obsText.includes('very good') || obsText.includes('perfect')) return 95;
@@ -247,7 +248,12 @@ Return:
       if (centeringScore < 40 && cornerScore < 40) eyeAppealGrade = 'D';
       
       result.ai_eye_appeal_grade = eyeAppealGrade;
-      result.eye_appeal_reasoning = `Centering: ${centeringScore >= 90 ? 'excellent' : centeringScore >= 75 ? 'good' : centeringScore >= 55 ? 'noticeable issues' : 'poor'}. Corners: ${cornerScore >= 90 ? 'sharp' : cornerScore >= 75 ? 'minor wear' : cornerScore >= 55 ? 'visible wear' : 'damaged'}.`;
+      // ALWAYS include centering comment as a rule - it's critical for collector appeal
+      const centeringComment = centeringScore >= 90 ? 'Centering is excellent—image is perfectly positioned within the border.' : 
+                               centeringScore >= 75 ? 'Centering is good—image sits well within the border with minimal drift.' : 
+                               centeringScore >= 55 ? 'Centering shows noticeable drift—image is noticeably off-center, affecting visual appeal.' : 
+                               'Centering is poor—image is significantly off-center, a major flaw for collectors.';
+      result.eye_appeal_reasoning = `${centeringComment} Corners: ${cornerScore >= 90 ? 'sharp and clean' : cornerScore >= 75 ? 'show minor wear' : cornerScore >= 55 ? 'show visible wear' : 'heavily damaged'}.`;
     }
 
     return Response.json(result);
