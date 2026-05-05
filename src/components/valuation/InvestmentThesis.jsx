@@ -155,46 +155,7 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
             </div>
           </div>
 
-          {/* ── VERDICT 1: Should I buy at the asking price? ── */}
-          {cheapestAvailable && aiValue > 0 && (() => {
-            const askVsAi = ((cheapestAvailable - aiValue) / aiValue * 100);
-            const pct = askVsAi.toFixed(1);
-            const isOverpriced = askVsAi > 5;
-            const isFair = Math.abs(askVsAi) <= 5;
-            const isDeal = askVsAi < -5;
-            return (
-              <div className={cn(
-                'rounded-xl p-4 border',
-                isOverpriced ? 'bg-red-500/10 border-red-500/40' :
-                isDeal ? 'bg-emerald-500/10 border-emerald-500/40' :
-                'bg-amber-500/10 border-amber-500/30'
-              )}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className={cn('text-xs font-mono uppercase tracking-wider mb-1',
-                       isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
-                     )}>
-                       Current Asking Price vs Fair Value
-                     </p>
-                     <p className={cn('text-sm font-bold leading-snug',
-                       isOverpriced ? 'text-red-300' : isDeal ? 'text-emerald-300' : 'text-amber-300'
-                     )}>
-                       {isOverpriced
-                         ? `Too High — Seller is asking more than this card is worth. Look for a lower price.`
-                         : isDeal
-                         ? `Good Deal — The asking price is lower than what this card should cost. This is a good opportunity.`
-                         : `Fair Price — The asking price is about right. Not a huge bargain or a ripoff.`}
-                     </p>
-                  </div>
-                  <span className={cn('text-2xl font-mono font-bold shrink-0',
-                    isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
-                  )}>
-                    {parseFloat(pct) >= 0 ? '+' : ''}{pct}%
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+
 
           {/* ── VERDICT 2: Is the card itself fairly valued by the market? ── */}
           {valueDiff !== null && (() => {
