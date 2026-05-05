@@ -128,7 +128,9 @@ Deno.serve(async (req) => {
             if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
             const priceMatch = html.match(/"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/)
-              || html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i);
+              || html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i)
+              || html.match(/"price"\s*:\s*"([0-9,.]+)"/i)
+              || html.match(/\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i);
             if (priceMatch) scrapedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
 
             const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
@@ -148,7 +150,7 @@ Deno.serve(async (req) => {
     if ((!result || !result.player_name) && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Search for eBay item ${itemId} and tell me what basketball card this listing is selling, plus the asking price. Return player name, year, set, grade if visible, and asking_price as a number.`,
+          prompt: `Search eBay for item ${itemId}. Extract: player name, card year, card set, grade, and the current Buy It Now asking price in dollars.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
