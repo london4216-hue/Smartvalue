@@ -245,26 +245,23 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
                   {/* Pricing + Ask/Comp Delta Warning */}
                   {(extracted.comp_value || extracted.cheapest_available) && (
-                    <div className="p-2.5 bg-secondary/50 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <p className="text-xs text-muted-foreground">
-                            {extracted.comp_value ? `💰 Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
-                            {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
-                            {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
-                          </p>
-                        </div>
-                        {extracted.comp_value && extracted.cheapest_available && Math.abs(extracted.cheapest_available - extracted.comp_value) > 10 && (
-                          <span className={cn(
-                            "text-[10px] font-semibold px-2 py-1 rounded-full whitespace-nowrap",
-                            extracted.cheapest_available > extracted.comp_value
-                              ? 'bg-red-500/20 text-red-600'
-                              : 'bg-emerald-500/20 text-emerald-600'
-                          )}>
-                            {extracted.cheapest_available > extracted.comp_value ? '⚠️ Higher' : '✓ Lower'}
-                          </span>
-                        )}
+                    <div className="space-y-2">
+                      <div className="p-2.5 bg-secondary/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground">
+                          {extracted.comp_value ? `💰 Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
+                          {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
+                          {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
+                        </p>
                       </div>
+                      {extracted.comp_value && extracted.cheapest_available && extracted.cheapest_available > extracted.comp_value && extracted.cheapest_available - extracted.comp_value > 10 && (
+                        <div className="flex items-start gap-2 p-2.5 bg-red-500/15 border border-red-500/40 rounded-lg">
+                          <span className="text-lg shrink-0">🚨</span>
+                          <div>
+                            <p className="text-xs font-bold text-red-600">Warning</p>
+                            <p className="text-[10px] text-red-600/80 leading-tight">Asking price much higher than last sold or AI value</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
