@@ -100,7 +100,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-6 bg-primary/5 border border-primary/20 rounded-xl p-4"
+      className="mb-3 bg-primary/5 border border-primary/20 rounded-xl p-4"
     >
       <div className="flex items-start gap-3">
         <LinkIcon className="w-5 h-5 text-primary mt-1 shrink-0" />
