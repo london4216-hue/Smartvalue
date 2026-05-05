@@ -116,34 +116,48 @@ Deno.serve(async (req) => {
     let scrapedImage = '';
 
     if (itemId) {
-      try {
+     try {
         const res = await fetch(`https://www.ebay.com/itm/${itemId}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0' }
-        });
-        if (res.ok) {
-          const html = await res.text();
-          if (!html.includes('Access Denied') && html.length > 500) {
-            const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
-              || html.match(/<title>([^<]+)<\/title>/i);
-            if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
+         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0' }
+       });
+       if (res.ok) {
+         const html = await res.text();
+         if (!html.includes('Access Denied') && html.length > 500) {
+           const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
+             || html.match(/<title>([^<]+)<\/title>/i);
+           if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
-            const priceMatch = html.match(/"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/)
-              || html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i)
-              || html.match(/"price"\s*:\s*"([0-9,.]+)"/i)
-              || html.match(/\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i);
-            if (priceMatch) {
-              const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
-              // Validate price is reasonable (above $10, below $100k)
-              if (parsed >= 10 && parsed <= 100000) {
-                scrapedPrice = parsed;
-              }
-            }
+           // Enhanced price extraction with multiple fallback patterns
+           const pricePatterns = [
+             /"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
+             /"currentPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
+             /"buyItNowPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
+             /itemprop="price"[^>]+content="([0-9,.]+)"/i,
+             /"price"\s*:\s*"([0-9,.]+)"/i,
+             /\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i,
+             /"priceListing"\s*:\s*"([0-9,.]+)"/i,
+             /"bidAmount"\s*:\s*"([0-9,.]+)"/i
+           ];
 
-            const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
-            if (imgMatch) scrapedImage = imgMatch[0];
-          }
-        }
-      } catch (_) {}
+           let priceMatch = null;
+           for (const pattern of pricePatterns) {
+             priceMatch = html.match(pattern);
+             if (priceMatch) break;
+           }
+
+           if (priceMatch) {
+             const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
+             // Validate price is reasonable (above $1, below $100k)
+             if (parsed >= 1 && parsed <= 100000) {
+               scrapedPrice = parsed;
+             }
+           }
+
+           const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
+           if (imgMatch) scrapedImage = imgMatch[0];
+         }
+       }
+     } catch (_) {}
     }
 
     // Use scraped title or keywords
@@ -157,12 +171,14 @@ Deno.serve(async (req) => {
     
     // If no success, suspicious parse, or bare link (no keywords), always try web search
     const isBareLink = itemId && !skw;
-    if (((!result || !result.player_name) || isSuspiciousParse || isBareLink) && itemId) {
+    const noValidPrice = !scrapedPrice || scrapedPrice === 0;
+    
+    if (((!result || !result.player_name) || isSuspiciousParse || isBareLink || noValidPrice) && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: `Fetch the eBay listing at ebay.com/itm/${itemId}. Extract:
 1. Full listing title
-2. Current asking price (BIN or auction price)
+2. Current asking price (BIN or auction price) - MUST be a number, look carefully at the page
 3. Basketball player name
 4. Card year (e.g., 2023)
 5. Card set name (e.g., Prizm, Optic, Select)
@@ -186,7 +202,7 @@ Be precise—this is a sports card. Return as JSON.`,
         if (searchResult?.player_name && searchResult.player_name !== 'Unknown') {
           dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
           result = parseCardFromKeywords(dataToAnalyze);
-          if (searchResult?.asking_price && searchResult.asking_price >= 10 && searchResult.asking_price <= 100000) {
+          if (searchResult?.asking_price && searchResult.asking_price >= 1 && searchResult.asking_price <= 100000) {
             scrapedPrice = searchResult.asking_price;
           }
         }
