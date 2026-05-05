@@ -305,41 +305,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
         </div>
       </div>
 
-      {/* Where to Buy */}
-      <div className="bg-card border border-border/50 rounded-2xl p-6">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
-          🛍️ Where to Buy
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <a
-            href={`https://www.ebay.com/sch/i.html?_nkw=${result.player_name}+${result.card_year}+${result.card_set}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
-          >
-            <span className="text-sm font-semibold text-foreground">eBay</span>
-            <ExternalLink className="w-3 h-3 text-muted-foreground" />
-          </a>
-          <a
-            href={`https://www.pwccauctions.com/Search?searchType=0&searchQuery=${result.player_name}+${result.card_year}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
-          >
-            <span className="text-sm font-semibold text-foreground">PWCC Auctions</span>
-            <ExternalLink className="w-3 h-3 text-muted-foreground" />
-          </a>
-          <a
-            href={`https://www.comc.com/Cards/Search?CardName=${result.player_name}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border/30 hover:border-primary/50 transition-all"
-          >
-            <span className="text-sm font-semibold text-foreground">COMC</span>
-            <ExternalLink className="w-3 h-3 text-muted-foreground" />
-          </a>
-        </div>
-      </div>
+
 
       {/* GEM ALERT: Value 100%+ over comp */}
       {isGem && (
