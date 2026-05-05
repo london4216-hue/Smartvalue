@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink, Gem, AlertTriangle, Zap, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink, Gem, AlertTriangle, Zap, Clock, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
+import BestBuyModal from './BestBuyModal';
 import AttributeBreakdown from './AttributeBreakdown';
 import AttributeImpactView from './AttributeImpactView';
 import KeySignals from './KeySignals';
@@ -22,6 +24,7 @@ const RECOMMENDATION_CONFIG = {
 };
 
 export default function ValuationResult({ result, onSave, onReset }) {
+  const [showBestBuy, setShowBestBuy] = useState(false);
   const rec = RECOMMENDATION_CONFIG[result.flip_vs_hold] || RECOMMENDATION_CONFIG.hold;
   const RecIcon = rec.icon;
 
@@ -416,6 +419,14 @@ export default function ValuationResult({ result, onSave, onReset }) {
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
+          onClick={() => setShowBestBuy(true)}
+          variant="outline"
+          className="flex-1 h-12 rounded-xl border-border/50"
+        >
+          <Search className="w-4 h-4 mr-2" />
+          Find Best Buy
+        </Button>
+        <Button
           onClick={onSave}
           className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
         >
@@ -431,6 +442,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
           Valuate Another Card
         </Button>
       </div>
+
+      <BestBuyModal
+        isOpen={showBestBuy}
+        onClose={() => setShowBestBuy(false)}
+        cardData={result}
+        aiValue={result.ai_investment_value}
+      />
     </motion.div>
   );
 }
