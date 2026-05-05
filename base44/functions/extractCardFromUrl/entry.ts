@@ -127,34 +127,6 @@ Deno.serve(async (req) => {
              || html.match(/<title>([^<]+)<\/title>/i);
            if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
-           // Enhanced price extraction with multiple fallback patterns
-           const pricePatterns = [
-             /"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
-             /"currentPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
-             /"buyItNowPrice"\s*:\s*\{"value":"([0-9,.]+)"/,
-             /itemprop="price"[^>]+content="([0-9,.]+)"/i,
-             /"price"\s*:\s*"([0-9,.]+)"/i,
-             /\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i,
-             /"priceListing"\s*:\s*"([0-9,.]+)"/i,
-             /"bidAmount"\s*:\s*"([0-9,.]+)"/i,
-             />\s*\$([0-9,.]+)\s*</,  // Catch $X.XX in HTML text
-             /"currentBidAmount"\s*:\s*"([0-9,.]+)"/,
-             /"minimumThumbnailPrice"\s*:\s*"([0-9,.]+)"/
-           ];
-
-           let priceMatch = null;
-           for (const pattern of pricePatterns) {
-             priceMatch = html.match(pattern);
-             if (priceMatch) {
-               const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
-               // Validate price is reasonable (above $1, below $100k)
-               if (parsed >= 1 && parsed <= 100000) {
-                 scrapedPrice = parsed;
-                 break;
-               }
-             }
-           }
-
            const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
            if (imgMatch) scrapedImage = imgMatch[0];
          }
