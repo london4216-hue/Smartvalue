@@ -234,6 +234,64 @@ RULES:
       } catch (_) {}
     }
     
+    // Fallback: If scraping got a bare title with no card info, use LLM web search
+    if (!result && itemId && scrapedTitle && scrapedTitle.length > 0) {
+      try {
+        const webSearchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `You have an eBay listing title: "${scrapedTitle}"
+
+Search the web if needed to understand what card this might be. Extract:
+- player (real person name)
+- set (Prizm, Optic, Select, etc)
+- year
+- parallel (if any color variant mentioned)
+- card_number
+- rookie (true/false/null)
+- grade_company (PSA, BGS, SGC, CGC if graded)
+- grade_value
+- serial_number
+
+If the title doesn't clearly indicate a card, return null for player and stop.
+Return JSON only.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              player: { type: ["string", "null"] },
+              set: { type: ["string", "null"] },
+              year: { type: ["string", "null"] },
+              parallel: { type: ["string", "null"] },
+              card_number: { type: ["string", "null"] },
+              rookie: { type: ["boolean", "null"] },
+              grade_company: { type: ["string", "null"] },
+              grade_value: { type: ["string", "null"] },
+              serial_number: { type: ["string", "null"] }
+            }
+          },
+          model: 'gemini_3_1_pro'
+        });
+
+        if (webSearchResult?.player) {
+          result = {
+            player_name: webSearchResult.player,
+            card_year: webSearchResult.year || null,
+            card_set: webSearchResult.set || null,
+            card_number: webSearchResult.card_number || null,
+            variation: webSearchResult.parallel || null,
+            serial_number: webSearchResult.serial_number || null,
+            grade: webSearchResult.grade_company && webSearchResult.grade_value 
+              ? `${webSearchResult.grade_company} ${webSearchResult.grade_value}` 
+              : null,
+            is_rookie_year: webSearchResult.rookie || false,
+            color_matches_team: !!webSearchResult.parallel,
+            has_autograph: false,
+            has_patch: false,
+            player_popularity: null,
+          };
+        }
+      } catch (_) {}
+    }
+    
     if (!result || !result.player_name) {
       return Response.json({
         error: 'Could not identify the card from this URL. Try a URL with card keywords or enter details manually.'
