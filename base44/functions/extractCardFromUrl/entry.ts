@@ -1,18 +1,98 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+/**
+ * Parse ALL known eBay URL formats:
+ *
+ * Web browser (address bar):
+ *   https://www.ebay.com/itm/123456789
+ *   https://www.ebay.com/itm/123456789?_skw=prizm+silver+wemby&...
+ *   https://www.ebay.com/itm/Title-Slug-Here-123456789           ← old SEO slug, title in path
+ *   https://www.ebay.com/itm/123456789?epid=101705645&hash=item...
+ *   https://ebay.com/itm/123456789                               ← no www
+ *
+ * Mobile browser:
+ *   https://m.ebay.com/itm/123456789
+ *   https://m.ebay.com/itm/123456789?...
+ *
+ * eBay app (iOS/Android Share sheet):
+ *   https://ebay.us/XXXXXX                                       ← short link, needs redirect follow
+ *   https://www.ebay.com/itm/123456789                           ← app sometimes gives bare URL
+ *
+ * Affiliate / rover redirect:
+ *   https://rover.ebay.com/rover/1/.../...?mpre=https%3A%2F%2Fwww.ebay.com%2Fitm%2F123456789...
+ *
+ * Product catalog page (no specific seller):
+ *   https://www.ebay.com/p/123456789
+ */
 function parseUrlHints(url) {
   try {
     const u = new URL(url);
-    const skw  = (u.searchParams.get('_skw') || '').replace(/\+/g, ' ');
+
+    // ── Pull standard query params ──────────────────────────────────────────
+    const skw  = (u.searchParams.get('_skw') || '').replace(/\+/g, ' ').trim();
     const epid = u.searchParams.get('epid') || '';
-    const itemMatch = url.match(/(?:\/itm\/|itemId=|item=)(\d{10,13})/i);
-    const itemId = itemMatch ? itemMatch[1] : null;
-    // Extract image ID from hash e.g. hash=item3721193073:g:KwMAAeSwI3Zp7LTO
+
+    // ── Extract image hash ──────────────────────────────────────────────────
     const imgHashMatch = url.match(/hash=item[^:]+:g:([A-Za-z0-9~_-]+)/);
     const imgHash = imgHashMatch ? imgHashMatch[1] : null;
-    return { itemId, skw, epid, imgHash };
+
+    // ── Item ID: handle ALL path formats ───────────────────────────────────
+    // Format A: /itm/123456789  (bare or with query string)
+    // Format B: /itm/Title-Slug-Here-123456789  (SEO slug ending in item ID)
+    // Also: itemId= or item= query param fallback
+    let itemId = null;
+    const itmPathMatch = u.pathname.match(/\/itm\/([^?#]+)/i);
+    if (itmPathMatch) {
+      const segment = itmPathMatch[1];
+      // If segment is all digits — it's a bare item ID
+      if (/^\d{8,13}$/.test(segment)) {
+        itemId = segment;
+      } else {
+        // SEO slug: last hyphen-separated token that is 8-13 digits
+        const parts = segment.split('-');
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (/^\d{8,13}$/.test(parts[i])) {
+            itemId = parts[i];
+            break;
+          }
+        }
+      }
+    }
+
+    // Fallback: rover mpre param (affiliate links embed real URL)
+    if (!itemId && u.hostname.includes('rover.ebay.com')) {
+      const mpre = u.searchParams.get('mpre') || '';
+      if (mpre) {
+        const decoded = decodeURIComponent(mpre);
+        const roverMatch = decoded.match(/\/itm\/(?:[^?#-]*-)?(\d{8,13})/i)
+          || decoded.match(/[?&](?:itemId|item)=(\d{8,13})/i);
+        if (roverMatch) itemId = roverMatch[1];
+      }
+    }
+
+    // Fallback: query params itemId= / item=
+    if (!itemId) {
+      const qMatch = url.match(/[?&](?:itemId|item)=(\d{8,13})/i);
+      if (qMatch) itemId = qMatch[1];
+    }
+
+    // ── Extract title slug (if present in path) as bonus keyword context ───
+    // e.g. /itm/2023-Prizm-Victor-Wembanyama-Silver-PSA-10-136-123456789
+    let slugKeywords = '';
+    if (itmPathMatch && itemId) {
+      const slug = itmPathMatch[1];
+      if (slug !== itemId) {
+        // Remove item ID from the end and clean dashes
+        slugKeywords = slug.replace(/-?\d{8,13}$/, '').replace(/-/g, ' ').trim();
+      }
+    }
+
+    // ── ebay.us short links — flag for caller to follow redirect ───────────
+    const isShortLink = u.hostname === 'ebay.us';
+
+    return { itemId, skw, epid, imgHash, slugKeywords, isShortLink };
   } catch (_) {
-    return { itemId: null, skw: '', epid: '', imgHash: null };
+    return { itemId: null, skw: '', epid: '', imgHash: null, slugKeywords: '', isShortLink: false };
   }
 }
 
@@ -22,10 +102,29 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { url } = await req.json();
+    let { url } = await req.json();
     if (!url) return Response.json({ error: 'URL is required' }, { status: 400 });
 
-    const { itemId, skw, epid, imgHash } = parseUrlHints(url);
+    url = url.trim();
+
+    // ── Follow ebay.us short links (iOS/Android app share) ──────────────────
+    // These are redirect links — follow them to get the real URL with item ID
+    if (url.includes('ebay.us/') || url.includes('ebay.com/sl/')) {
+      try {
+        const redirectRes = await fetch(url, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
+        });
+        if (redirectRes.url && redirectRes.url !== url) {
+          url = redirectRes.url; // Replace with resolved URL
+        }
+      } catch (_) {
+        // Proceed with original URL if redirect fails
+      }
+    }
+
+    const { itemId, skw, epid, imgHash, slugKeywords } = parseUrlHints(url);
 
     // Build the best possible image URL from the hash we extracted
     const imageFromHash = imgHash
@@ -36,10 +135,14 @@ Deno.serve(async (req) => {
     let fetchedTitle = null;
     let fetchedPrice = null;
     let fetchedImage = null;
+
+    // Collect all keyword hints for the AI
+    const allKeywordHints = [skw, slugKeywords].filter(Boolean).join(' ').trim();
+
     if (itemId) {
       // Try multiple fetch strategies to get past eBay's bot detection
       const fetchStrategies = [
-        // Strategy 1: Mobile user agent (often less restricted)
+        // Strategy 1: Mobile Safari (often least restricted)
         () => fetch(`https://www.ebay.com/itm/${itemId}`, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
@@ -55,10 +158,17 @@ Deno.serve(async (req) => {
             'Accept-Language': 'en-US,en;q=0.5',
           }
         }),
-        // Strategy 3: eBay mobile site
+        // Strategy 3: m.ebay.com (mobile site — different bot filters)
         () => fetch(`https://m.ebay.com/itm/${itemId}`, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            'Accept': 'text/html',
+          }
+        }),
+        // Strategy 4: eBay Open Graph via og-tags endpoint
+        () => fetch(`https://www.ebay.com/itm/${itemId}?format=json`, {
+          headers: {
+            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
             'Accept': 'text/html',
           }
         }),
@@ -72,19 +182,26 @@ Deno.serve(async (req) => {
           const isBlocked = html.includes('Access Denied') || html.includes('Robot Check') || html.includes('g-recaptcha') || html.length < 2000;
           if (isBlocked) continue;
 
+          // Try og:title first (most reliable), then <title>
           const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"'<]+)["'][^>]+property=["']og:title["']/i)
             || html.match(/<title>([^<]+)<\/title>/i);
           if (ogTitleMatch) {
             const t = ogTitleMatch[1].replace(/ \| eBay.*$/i, '').trim();
-            if (t && t.length > 5 && !t.toLowerCase().includes('access denied')) fetchedTitle = t;
+            if (t && t.length > 5 && !t.toLowerCase().includes('access denied') && !t.toLowerCase().includes('robot check')) {
+              fetchedTitle = t;
+            }
           }
 
+          // Price extraction — multiple patterns
           const priceMatch = html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i)
             || html.match(/"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/)
             || html.match(/"binPrice"\s*:\s*"US \$([0-9,]+(?:\.[0-9]+)?)"/)
+            || html.match(/"displayPrice"\s*:\s*"US \$([0-9,]+(?:\.[0-9]+)?)"/)
             || html.match(/"price"\s*[":]\s*"?\$?\s*([0-9,]+(?:\.[0-9]{2})?)"/);
           if (priceMatch) fetchedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
 
+          // Image extraction
           const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
           if (imgMatch) fetchedImage = imgMatch[0];
         } catch (_) {
@@ -98,9 +215,9 @@ Deno.serve(async (req) => {
 EBAY LISTING:
 - URL: ${url}
 ${itemId ? `- Item ID: ${itemId}` : ''}
-${skw ? `- Search keywords embedded in URL: "${skw}"` : ''}
+${allKeywordHints ? `- Keywords extracted from URL: "${allKeywordHints}"` : ''}
 ${epid ? `- eBay Product ID (epid): ${epid}` : ''}
-${fetchedTitle ? `- ✅ ACTUAL LISTING TITLE (scraped directly): "${fetchedTitle}"` : ''}
+${fetchedTitle ? `- ✅ ACTUAL LISTING TITLE (scraped directly from eBay): "${fetchedTitle}"` : ''}
 ${fetchedPrice ? `- ✅ ACTUAL LISTING PRICE (scraped directly): $${fetchedPrice}` : ''}
 ${fetchedImage ? `- ✅ ACTUAL LISTING IMAGE: ${fetchedImage}` : ''}
 
@@ -108,16 +225,15 @@ STEP 1 — IDENTIFY THE EXACT LISTING:
 ${fetchedTitle
   ? `The listing title was scraped directly: "${fetchedTitle}". Use this as the PRIMARY source of truth for all card details.`
   : itemId
-    ? `eBay blocked direct page access. You MUST find the listing by searching the web RIGHT NOW:
-  • Search: "${itemId} ebay"
+    ? `eBay blocked direct page access. You MUST find the listing by searching the web RIGHT NOW using these searches:
   • Search: "ebay.com/itm/${itemId}"
-  • Search: "ebay item ${itemId} basketball card"
-  • Search: "${itemId} sports card PSA graded"
-  The eBay listing title appears in Google search results and Google cache. Find it and extract the exact card details from it.
+  • Search: "${itemId} ebay sports card"
+  • Search: "${itemId} ebay basketball card PSA graded"
+  ${allKeywordHints ? `• Search: "${allKeywordHints} ebay sold"` : ''}
+  The eBay listing title frequently appears in Google search results and Google cache. Find it and extract exact card details.
   ⚠️ DO NOT invent or hallucinate any card details. If you truly cannot find the listing, return all fields as null.`
-    : `Parse what you can from the URL and keywords.`
+    : `Parse what you can from the URL keywords.`
 }
-${skw ? `- URL keywords for additional context: "${skw}"` : ''}
 
 From the listing title, extract:
 - player_name: Full player name. "wemby" = "Victor Wembanyama". ONLY from actual title found.

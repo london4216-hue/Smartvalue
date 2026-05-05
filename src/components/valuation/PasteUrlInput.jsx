@@ -5,9 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Link as LinkIcon, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Detect eBay "share" links — bare item ID with no keywords
-function isBareEbayShareLink(url) {
-  return /^https?:\/\/(www\.)?ebay\.com\/itm\/\d+\s*$/.test(url.trim());
+// Detect eBay short links from iOS/Android app Share sheet
+function isEbayShortLink(url) {
+  return /^https?:\/\/ebay\.us\//i.test(url.trim());
+}
+
+// Detect bare eBay item links — no slug, no keywords (web Share button or copy from app)
+function isBareEbayItemLink(url) {
+  const t = url.trim();
+  // bare: /itm/DIGITS only (no slug, no query string with real keywords)
+  if (!/\/itm\/\d+/.test(t)) return false;
+  // Has a keyword-rich query string? Not bare.
+  if (/_skw=/.test(t) || /[?&]q=/.test(t)) return false;
+  // Has a title slug in the path? Not bare.
+  const pathMatch = t.match(/\/itm\/([^?#]+)/);
+  if (pathMatch && pathMatch[1].includes('-')) return false; // slug present = keywords in path
+  return true;
 }
 
 export default function PasteUrlInput({ onCardExtracted }) {
@@ -15,7 +28,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [extracted, setExtracted] = useState(null);
-  const [bareShareWarning, setBareShareWarning] = useState(false);
+  const [urlWarning, setUrlWarning] = useState(null); // null | 'bare' | 'short'
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -33,8 +46,10 @@ export default function PasteUrlInput({ onCardExtracted }) {
       const result = response.data;
 
       if (result?.error) {
-        if (isBareEbayShareLink(url)) {
-          setError("eBay's short share links don't include enough info. Open the listing in your browser and copy the full URL from the address bar — it will have extra details after the item number.");
+        if (isEbayShortLink(url)) {
+          setError("Couldn't follow this short link. Open the listing in your browser and copy the full URL from the address bar.");
+        } else if (isBareEbayItemLink(url)) {
+          setError("Couldn't identify the card from this bare link. Open the listing in your browser — the address bar URL has extra keywords that help us identify the card.");
         } else {
           setError("Couldn't read this listing. Try the full URL from your browser's address bar, or enter card details manually below.");
         }
@@ -44,8 +59,8 @@ export default function PasteUrlInput({ onCardExtracted }) {
       if (result?.player_name && result.player_name !== 'Unknown') {
         setExtracted(result);
       } else {
-        if (isBareEbayShareLink(url)) {
-          setError("Short eBay share links don't contain enough card info. Open the listing in your browser and copy the full URL from the address bar.");
+        if (isEbayShortLink(url) || isBareEbayItemLink(url)) {
+          setError("Couldn't identify the card from this link. Open the listing in your browser and copy the full URL from the address bar — it usually contains the card name and keywords.");
         } else {
           setError("Couldn't identify the card. Try the full URL from your browser's address bar, or enter card details manually below.");
         }
@@ -101,10 +116,13 @@ export default function PasteUrlInput({ onCardExtracted }) {
               placeholder="https://www.ebay.com/itm/... or https://www.pwccauctions.com/..."
               value={url}
               onChange={(e) => {
-                setUrl(e.target.value);
+                const v = e.target.value;
+                setUrl(v);
                 setError('');
                 setExtracted(null);
-                setBareShareWarning(isBareEbayShareLink(e.target.value));
+                if (isEbayShortLink(v)) setUrlWarning('short');
+                else if (isBareEbayItemLink(v)) setUrlWarning('bare');
+                else setUrlWarning(null);
               }}
               onKeyDown={(e) => e.key === 'Enter' && !extracted && !isLoading && handleExtract()}
               disabled={isLoading}
@@ -123,15 +141,24 @@ export default function PasteUrlInput({ onCardExtracted }) {
             </Button>
           </div>
 
-          {/* Bare share link warning */}
-          {bareShareWarning && !isLoading && !extracted && (
+          {/* URL warning banners */}
+          {urlWarning && !isLoading && !extracted && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600"
             >
-              <p className="font-semibold mb-0.5">⚠️ eBay Share link detected</p>
-              <p>Short share links often don't work. For best results, open the eBay listing in your browser and copy the full URL from the address bar — it should contain extra keywords after the item number.</p>
+              {urlWarning === 'short' ? (
+                <>
+                  <p className="font-semibold mb-0.5">📱 eBay app short link</p>
+                  <p>We'll try to follow this link automatically. If it fails, open the listing in your browser and copy the full address-bar URL instead.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold mb-0.5">⚠️ Bare eBay item link</p>
+                  <p>This link has no card details embedded. It may still work — we'll search the web for the listing. For best results, copy the URL directly from your browser's address bar, which usually includes extra keywords.</p>
+                </>
+              )}
             </motion.div>
           )}
 
