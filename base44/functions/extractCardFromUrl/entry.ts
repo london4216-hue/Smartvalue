@@ -146,15 +146,19 @@ Deno.serve(async (req) => {
     // Parse manually
     let result = parseCardFromKeywords(dataToAnalyze);
     
-    // If no success and we have an item ID, try web search as fallback
-    if ((!result || !result.player_name) && itemId) {
+    // Check if parse looks suspicious (e.g. "sticky" in player name from bad _skw tag)
+    const isSuspiciousParse = result && result.player_name && result.player_name.toLowerCase().includes('sticky');
+    
+    // If no success or suspicious parse, and we have an item ID, try web search as fallback
+    if (((!result || !result.player_name) || isSuspiciousParse) && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Search eBay for item ${itemId}. Extract: player name, card year, card set, grade, and the current Buy It Now asking price in dollars.`,
+          prompt: `Go directly to ebay.com/itm/${itemId} and extract the listing title and current price. From the title, identify: basketball player name, card year, card set name, grade (if any). Return all as JSON.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
             properties: {
+              title: { type: "string" },
               player_name: { type: "string" },
               card_year: { type: "string" },
               card_set: { type: "string" },
@@ -163,7 +167,7 @@ Deno.serve(async (req) => {
             }
           }
         });
-        if (searchResult?.player_name) {
+        if (searchResult?.player_name && searchResult.player_name !== 'Unknown') {
           dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
           result = parseCardFromKeywords(dataToAnalyze);
           if (searchResult?.asking_price && searchResult.asking_price > 0) {
