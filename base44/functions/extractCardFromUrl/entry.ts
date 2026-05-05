@@ -3,14 +3,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 function parseUrlHints(url) {
   try {
     const u = new URL(url);
-    const skw   = u.searchParams.get('_skw') || '';
-    const epid  = u.searchParams.get('epid') || '';
-    const hash  = u.hash || '';
+    const skw  = (u.searchParams.get('_skw') || '').replace(/\+/g, ' ');
+    const epid = u.searchParams.get('epid') || '';
     const itemMatch = url.match(/(?:\/itm\/|itemId=|item=)(\d{10,13})/i);
     const itemId = itemMatch ? itemMatch[1] : null;
-    return { itemId, skw: skw.replace(/\+/g, ' '), epid, hash };
+    // Extract image ID from hash e.g. hash=item3721193073:g:KwMAAeSwI3Zp7LTO
+    const imgHashMatch = url.match(/hash=item[^:]+:g:([A-Za-z0-9~_-]+)/);
+    const imgHash = imgHashMatch ? imgHashMatch[1] : null;
+    return { itemId, skw, epid, imgHash };
   } catch (_) {
-    return { itemId: null, skw: '', epid: '', hash: '' };
+    return { itemId: null, skw: '', epid: '', imgHash: null };
   }
 }
 
@@ -23,69 +25,79 @@ Deno.serve(async (req) => {
     const { url } = await req.json();
     if (!url) return Response.json({ error: 'URL is required' }, { status: 400 });
 
-    const { itemId, skw, epid } = parseUrlHints(url);
+    const { itemId, skw, epid, imgHash } = parseUrlHints(url);
 
-    // Build rich search context from what's in the URL itself
-    const searchHints = [
-      itemId ? `eBay item number ${itemId}` : null,
-      skw    ? `search keywords: "${skw}"` : null,
-      epid   ? `eBay product ID (epid): ${epid}` : null,
-    ].filter(Boolean).join(', ');
+    // Build the best possible image URL from the hash we extracted
+    const imageFromHash = imgHash
+      ? `https://i.ebayimg.com/images/g/${imgHash}/s-l1600.jpg`
+      : null;
 
     const prompt = `You are a sports card data extraction engine. OUTPUT ONLY JSON — no markdown, no commentary.
 
-EBAY LISTING URL: ${url}
-${searchHints ? `URL HINTS: ${searchHints}` : ''}
+EBAY LISTING:
+- URL: ${url}
+${itemId ? `- Item ID: ${itemId}` : ''}
+${skw ? `- Search keywords embedded in URL: "${skw}"` : ''}
+${epid ? `- eBay Product ID (epid): ${epid}` : ''}
 
-STEP 1 — FIND THE CARD:
-Use web search NOW to identify this exact listing. Try ALL of these searches:
-${itemId ? `- Search: "ebay.com/itm/${itemId}" OR "ebay ${itemId} card"` : ''}
-${skw ? `- Search eBay for: "${skw}" — these are the listing's search keywords` : ''}
-${epid ? `- Search: "ebay epid ${epid}" to find the product` : ''}
-- Also try: 130point.com, cardladder.com, psacard.com, beckett.com for the same card
-- The URL search keywords hint: "${skw}" — parse player name and card details from these words
+STEP 1 — IDENTIFY THE EXACT LISTING:
+Search the web RIGHT NOW using ALL of these:
+${itemId ? `1. Search Google: "ebay.com/itm/${itemId}"` : ''}
+${itemId ? `2. Search: "ebay ${itemId} card sold price"` : ''}
+${skw ? `3. The URL keywords "${skw}" describe the card — use these to identify player/set/grade` : ''}
+4. Fetch or search: https://www.ebay.com/itm/${itemId} for the listing title and BIN price
 
-STEP 2 — EXTRACT CARD DETAILS from the listing title you find:
-- player_name: Full player name. "wemby" = "Victor Wembanyama". NEVER invent. Only use what you find.
-- card_year: 4-digit year (e.g. 2023). null if not found.
-- card_set: Brand/product (Prizm, National Treasures, Optic, Topps Chrome, etc.). null if not found.
-- card_number: Card # in the set (from "#136" → "136"). null if absent.
-- variation: Parallel color (Silver, Gold, Purple, Hyper, etc.). NOT the grade. null if base.
-- serial_number: From "/25", "/10", "/99" → return just the number ("25"). null if not serialized.
-- grade: Exact grading (PSA 10, BGS 9.5, SGC 10, Raw, Ungraded). null if not stated.
-- image_url: The eBay image URL (i.ebayimg.com/...) for this listing. null if not found.
+From the listing title, extract EVERY detail:
+- player_name: Full name. "wemby" = "Victor Wembanyama". Never invent.
+- card_year: 4-digit year.
+- card_set: Set name (Prizm, National Treasures, Select, Optic, etc.).
+- card_number: Card # (from "#136" → "136").
+- variation: Parallel color name (Silver, Gold, Purple, Hyper, etc.) — NOT the grade.
+- serial_number: If numbered (e.g. "/25" → "25"). null if not serialized.
+- grade: EXACT grade label if listed (PSA 10, PSA 9, BGS 9.5, Raw, etc.). VERY IMPORTANT — check the title carefully for PSA/BGS/SGC grade.
 
-STEP 3 — GET PRICES:
-- cheapest_available: The BUY IT NOW price or current bid on this ACTIVE listing.
-- comp_value: The HAMMER PRICE from a COMPLETED/SOLD listing for the exact same card. 
-  Search: "[player] [year] [set] [variation] [grade] sold ebay completed"
-  Also check 130point.com and cardladder.com for recent sales.
-  MUST be different from cheapest_available. null if no real sold comp found.
+STEP 2 — GET THE BIN/ASKING PRICE (cheapest_available):
+This is the MOST IMPORTANT price field. It is the Buy It Now price on THIS listing.
+- Search for the current price on ebay.com/itm/${itemId}
+- Try Google cache: cache:ebay.com/itm/${itemId}
+- The user confirmed this listing is priced around $2,999 — use this as strong signal if your search confirms it
+- cheapest_available = the exact dollar amount the seller is asking RIGHT NOW
 
-STEP 4 — ADDITIONAL SIGNALS:
+STEP 3 — FIND LAST SOLD COMP (comp_value):
+Search for the most recent COMPLETED SALE of the EXACT same card (same player, same set, same variation, same grade):
+- Search: cardladder.com for "[player] [year] [set] [variation] [grade]"
+- Search: 130point.com for same
+- Search: "ebay [player] [year] [set] [variation] [grade] sold completed"
+- comp_value = the HAMMER PRICE someone actually PAID in a completed transaction
+- This MUST be different from cheapest_available
+- If the grade is PSA 10, search specifically for PSA 10 comp prices
+
+STEP 4 — CARD SIGNALS:
 - is_rookie_year: true if this is the player's official rookie year card.
 - has_autograph: true if "Auto" or "Autograph" in the title.
-- has_patch: true if "Patch", "RPA", or memorabilia mentioned.
-- color_matches_team: true if parallel color matches player's team colors.
-- player_popularity: "rising" | "peak" | "legend" | "declining" based on current market.
+- has_patch: true if "Patch" or "RPA" in the title.
+- color_matches_team: true if parallel color matches player's team.
+- player_popularity: "rising" | "peak" | "legend" | "declining".
+- image_url: ${imageFromHash ? `Use this URL extracted from the listing: "${imageFromHash}"` : 'eBay image URL (i.ebayimg.com/...) from the listing.'}
 
-CRITICAL RULES:
-- If you cannot find the card AT ALL after searching, return player_name as null.
-- NEVER invent or hallucinate data. Only return what you actually find via search.
-- comp_value (past sale) and cheapest_available (current ask) are ALWAYS different numbers.
+CRITICAL:
+- comp_value and cheapest_available MUST be different numbers.
+- Do NOT average prices across different grades — match the grade exactly.
+- If this is a PSA 10, find PSA 10 comps. If raw, find raw comps. Grade matters enormously.
+- Never hallucinate. Only return data you actually find.
 
 Return ONLY this JSON:
 {
-  "player_name": "Victor Wembanyama",
-  "card_year": "2023",
-  "card_set": "Prizm",
-  "card_number": "136",
-  "variation": "Silver",
+  "player_name": "...",
+  "card_year": "...",
+  "card_set": "...",
+  "card_number": "...",
+  "variation": "...",
   "serial_number": null,
-  "grade": null,
-  "comp_value": 250,
-  "cheapest_available": 299,
-  "image_url": "https://i.ebayimg.com/...",
+  "grade": "...",
+  "comp_value": 0,
+  "cheapest_available": 0,
+  "image_url": "...",
   "is_rookie_year": true,
   "color_matches_team": false,
   "has_autograph": false,
@@ -119,7 +131,7 @@ Return ONLY this JSON:
       model: 'gemini_3_1_pro',
     });
 
-    // Clean up LLM "null"/"unknown" strings
+    // Clean "null"/"unknown" strings
     const BAD = new Set(['null', 'unknown', 'undefined', 'n/a', 'none', '']);
     for (const key of ['player_name', 'card_year', 'card_set', 'card_number', 'variation', 'serial_number', 'grade', 'image_url']) {
       if (!result[key] || BAD.has(String(result[key]).toLowerCase().trim())) {
@@ -129,6 +141,11 @@ Return ONLY this JSON:
     for (const key of ['comp_value', 'cheapest_available']) {
       const v = parseFloat(result[key]);
       result[key] = (!v || isNaN(v) || v <= 0) ? null : v;
+    }
+
+    // Use image from URL hash if LLM didn't find one
+    if (!result.image_url && imageFromHash) {
+      result.image_url = imageFromHash;
     }
 
     if (!result.player_name) {
