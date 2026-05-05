@@ -59,21 +59,27 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
   const base = compValue > 0 ? compValue : 0;
 
   // Always compute dollar adjustments ourselves from percent_adjustment × compValue
-  // Never trust the AI's dollar_adjustment field — it hallucinates bad numbers
+  // Clamp each driver to ±25% of base to prevent hallucinated huge numbers
   const drivers = hasDriverData
-    ? valueDrivers.map(d => ({
-        label: d.label,
-        dollars: base > 0 ? Math.round(parsePct(d.percent_adjustment) * base) : 0,
-        reason: d.reason,
-      }))
+    ? valueDrivers.map(d => {
+        const rawPct = parsePct(d.percent_adjustment);
+        const clampedPct = Math.max(-0.25, Math.min(0.25, rawPct));
+        return {
+          label: d.label,
+          dollars: base > 0 ? Math.round(clampedPct * base) : 0,
+          reason: d.reason,
+        };
+      })
     : [];
 
   // Sum of displayed drivers
   const driverTotal = drivers.reduce((sum, d) => sum + d.dollars, 0);
 
-  // Supporting factors = whatever gap remains between driverTotal and the actual diff
+  // Supporting factors = gap between drivers and actual diff
+  // Hide if absurdly large (more than 2× the base) — means AI math is broken
   const actualDiff = base > 0 ? (aiValue || 0) - base : 0;
-  const supportingDollars = drivers.length > 0 ? actualDiff - driverTotal : 0;
+  const rawSupportingDollars = drivers.length > 0 ? actualDiff - driverTotal : 0;
+  const supportingDollars = base > 0 && Math.abs(rawSupportingDollars) > base * 2 ? 0 : rawSupportingDollars;
 
   // True final AI value for the = row
   const finalValue = aiValue || 0;
