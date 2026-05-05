@@ -62,6 +62,49 @@ export default function ValuationResult({ result, onSave, onReset }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Price Comparison Banner — Always visible at top */}
+      {cheapestAvailable && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }} 
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            "border rounded-2xl p-5 flex items-center justify-between gap-4",
+            cheapestAvailable > aiValue 
+              ? "bg-red-500/10 border-red-500/40" 
+              : "bg-emerald-500/10 border-emerald-500/30"
+          )}
+        >
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
+              Current Asking Price
+            </p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-mono font-bold text-foreground">
+                ${cheapestAvailable.toLocaleString()}
+              </p>
+              <p className={cn(
+                "text-sm font-mono font-bold",
+                cheapestAvailable > aiValue ? "text-red-500" : "text-emerald-500"
+              )}>
+                {cheapestAvailable > aiValue ? '+' : ''}{cheapestVsAi.toFixed(1)}% vs AI value
+              </p>
+            </div>
+          </div>
+          {cheapestAvailable > aiValue && (
+            <div className="text-right shrink-0">
+              <p className="text-lg font-bold text-red-500">⚠️ Overpriced</p>
+              <p className="text-xs text-red-600/80 mt-0.5">Above fair value</p>
+            </div>
+          )}
+          {cheapestAvailable <= aiValue && (
+            <div className="text-right shrink-0">
+              <p className="text-lg font-bold text-emerald-500">✓ Good Deal</p>
+              <p className="text-xs text-emerald-600/80 mt-0.5">Below AI value</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Overpriced Warning — At the top */}
       {overpricedWarning && (
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
