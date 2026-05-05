@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, Shopping
 import { Button } from '@/components/ui/button';
 import ScoreGauge from './ScoreGauge';
 import AttributeBreakdown from './AttributeBreakdown';
+import AttributeImpactView from './AttributeImpactView';
 import KeySignals from './KeySignals';
 import ContextualSignals from './ContextualSignals';
 import InvestmentThesis from './InvestmentThesis';
@@ -401,10 +402,10 @@ export default function ValuationResult({ result, onSave, onReset }) {
         </div>
       )}
 
-      {/* Full Attribute Breakdown */}
-      <div className="bg-card border border-border/50 rounded-2xl p-6">
-        <AttributeBreakdown scores={result.attribute_scores || {}} />
-      </div>
+      {/* Attribute Impact View — Why This Price? */}
+      {result.attribute_impact_view?.categories && (
+        <AttributeImpactView categories={result.attribute_impact_view.categories} />
+      )}
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
