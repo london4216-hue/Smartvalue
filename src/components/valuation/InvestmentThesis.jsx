@@ -18,11 +18,11 @@ const ACTION_CONFIG = {
     thesis: (comp, ai) => `This card is slightly undervalued. The last sale price is a decent entry point. Look for similar prices before buying.`
   },
   hold: {
-    label: '⏳ Fairly Priced',
+    label: '⏳ Hold',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10 border-amber-500/30',
     icon: Clock,
-    thesis: (comp, ai) => `This card is priced fairly. No major advantage to buy or sell right now. Wait for a better price if you're thinking about buying.`
+    thesis: (comp, ai) => `Pricing is in fair range. Monitor for clearer signals before deciding.`
   },
   sell: {
     label: '⚠️ Overpriced',
