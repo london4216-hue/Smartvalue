@@ -32,21 +32,24 @@ STEP 2 — DETERMINE LISTING TYPE:
 - Is this an ACTIVE listing (still for sale, Buy It Now or auction not ended)? → The price shown is the ASKING price, NOT a sold price.
 - Is this a COMPLETED/SOLD listing (shows "Sold" badge, final price)? → That price IS the last sold comp.
 
-STEP 3 — FIND THE REAL LAST SOLD COMP:
-THIS IS THE MOST CRITICAL STEP. Search eBay sold listings for this EXACT card (same player, same set, same parallel/variation, same serial range or numbering, same grade if graded).
+STEP 3 — FIND THE REAL LAST SOLD COMP (MANDATORY — DO NOT SKIP):
+THIS IS THE MOST CRITICAL STEP. You MUST actively search for real eBay completed/sold listings.
 
-Search strategy:
-1. Go to eBay completed/sold listings: search "[player] [year] [set] [variation] [grade] sold"
-2. Look for the most recent actual sale (within last 90 days if possible)
-3. Use the ACTUAL HAMMER PRICE from a completed sale — not an asking price
-4. If multiple recent sales exist, use the most recent one
-5. If no exact match, use the closest comparable (same parallel tier, similar serial range)
+DO THIS NOW:
+1. Search Google for: site:ebay.com "[player name] [year] [set] [variation]" sold completed
+2. Also search: "[player name] [set] [variation] [serial e.g. /75] sold eBay"
+3. Check eBay's completed listings filter directly for this card
+4. Look at 130point.com, cardladder.com, or pwccmarketplace.com for recent sales data
+
+The card in the URL has specific identifiers (player, set, year, serial number, grade). Use ALL of them to find the most recent actual sale price.
+
+Recent sales are almost always findable. A "last sold" price of null is a FAILURE unless the card has literally never sold before (extremely rare for an active listing). If someone is selling it, it has comps.
 
 ⚠️ CRITICAL RULES:
 - comp_value = the price a buyer ACTUALLY PAID in a completed transaction. NEVER the listing/asking price.
-- cheapest_available = the current listing price on the page (what the seller is asking NOW)
-- These two numbers will almost always be DIFFERENT. If they are identical, you likely made an error — double check.
-- If you truly cannot find any real sold comp, set comp_value = null (do NOT guess or use the listing price)
+- cheapest_available = the current listing price on this active listing (what the seller asks NOW)
+- These MUST be different numbers. If identical → you made an error, search harder.
+- Setting comp_value = null when real sold data exists is a critical failure. Search aggressively.
 - NEVER set comp_value = cheapest_available
 
 Return JSON with these fields:
@@ -82,6 +85,7 @@ Return JSON with these fields:
           },
         },
         add_context_from_internet: true,
+        model: 'gemini_3_1_pro',
       });
 
       if (result.player_name) {
