@@ -634,8 +634,8 @@ export default function ValuateCard() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">AI Card Valuation</h1>
-        <p className="text-sm text-muted-foreground mt-2">
+        <h1 className="text-4xl sm:text-5xl font-bold text-foreground">AI Card Valuation</h1>
+        <p className="text-base sm:text-lg text-foreground/80 mt-2">
           Last Sold = what it sold for. AI Value = what it's <em>worth</em>. Serial number, auto type, patch quality, pop report, player thesis — every signal that moves the needle.
         </p>
       </motion.div>
