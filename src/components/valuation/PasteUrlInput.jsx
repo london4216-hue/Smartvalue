@@ -9,7 +9,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [extracted, setExtracted] = useState(null); // pending confirmation
+  const [extracted, setExtracted] = useState(null);
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -22,70 +22,19 @@ export default function PasteUrlInput({ onCardExtracted }) {
     setExtracted(null);
 
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `TASK: Extract sports card details from this listing URL and find the last sold comp price.
+      // Use backend function — it fetches the real page HTML then runs LLM
+      const response = await base44.functions.invoke('extractCardFromUrl', { url: url.trim() });
+      const result = response.data;
 
-URL: ${url}
+      if (result?.error) {
+        setError("Couldn't read this listing. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
+        return;
+      }
 
-YOU MUST DO ALL THREE STEPS:
-
-STEP 1 — VISIT THIS URL RIGHT NOW AND READ IT:
-Open: ${url}
-Read the full page title and item description. The title will contain the player name, year, set, parallel/variation, serial number (like /75 or /10), and grade. Extract ALL of it.
-
-STEP 2 — GET THE LISTING PRICE:
-The price shown on the active listing = cheapest_available (what the seller is asking).
-
-STEP 3 — FIND REAL SOLD COMPS:
-Search for: [player name] [year] [set] [variation] [serial] [grade] sold eBay completed
-Also search 130point.com and cardladder.com.
-comp_value = the price a BUYER PAID in a completed transaction. Must differ from cheapest_available.
-
-RETURN THIS JSON:
-{
-  "player_name": "Full Player Name",
-  "card_year": "2021",
-  "card_set": "Prizm",
-  "card_number": "123",
-  "variation": "Silver Prizm",
-  "serial_number": "75" (just the number, no slash — null if not serialized),
-  "grade": "PSA 10" or "Raw",
-  "comp_value": 250 (last sold price — number, not string),
-  "cheapest_available": 299 (current asking price — number, not string),
-  "is_rookie_year": true/false,
-  "color_matches_team": true/false,
-  "has_autograph": true/false,
-  "has_patch": true/false,
-  "player_popularity": "rising" or "peak" or "legend" or "declining"
-}`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            player_name: { type: "string" },
-            card_year: { type: "string" },
-            card_set: { type: "string" },
-            card_number: { type: "string" },
-            variation: { type: "string" },
-            serial_number: { type: "string" },
-            grade: { type: "string" },
-            comp_value: { type: "number" },
-            cheapest_available: { type: "number" },
-            is_rookie_year: { type: "boolean" },
-            color_matches_team: { type: "boolean" },
-            has_autograph: { type: "boolean" },
-            has_patch: { type: "boolean" },
-            player_popularity: { type: "string" },
-          },
-        },
-        add_context_from_internet: true,
-        model: 'gemini_3_1_pro',
-      });
-
-      if (result.player_name && result.player_name !== 'Unknown') {
-        // Show confirmation step instead of immediately proceeding
+      if (result?.player_name && result.player_name !== 'Unknown') {
         setExtracted(result);
       } else {
-        setError("Couldn't read this listing. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
+        setError("Couldn't identify the card. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
       }
     } catch (err) {
       setError("Couldn't read this listing. Try copying the full eBay item URL or enter the card details manually below.");
@@ -100,8 +49,7 @@ RETURN THIS JSON:
     setExtracted(null);
   };
 
-  const handleCancel = () => {
-    // Pre-fill what was extracted but let user correct it via the manual form
+  const handleWrongCard = () => {
     if (extracted) {
       onCardExtracted({ ...extracted, _needs_correction: true });
     }
@@ -143,7 +91,7 @@ RETURN THIS JSON:
                 setError('');
                 setExtracted(null);
               }}
-              onKeyPress={(e) => e.key === 'Enter' && !extracted && handleExtract()}
+              onKeyDown={(e) => e.key === 'Enter' && !extracted && !isLoading && handleExtract()}
               disabled={isLoading}
               className="text-sm"
             />
@@ -159,6 +107,12 @@ RETURN THIS JSON:
               )}
             </Button>
           </div>
+
+          {isLoading && (
+            <p className="text-[11px] text-muted-foreground mt-2 animate-pulse">
+              Fetching listing & searching for sold comps…
+            </p>
+          )}
 
           {/* Error */}
           {error && (
@@ -197,7 +151,7 @@ RETURN THIS JSON:
                     <CheckCircle2 className="w-3 h-3 mr-1.5" />
                     Yes, correct
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleCancel} className="h-8 text-xs px-3">
+                  <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-8 text-xs px-3">
                     <X className="w-3 h-3 mr-1" />
                     Wrong — fix it below
                   </Button>
