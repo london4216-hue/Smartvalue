@@ -7,7 +7,7 @@ const IMPORTANCE_CONFIG = {
   low: { bg: 'bg-muted/50 border-muted/30', text: 'text-muted-foreground', badge: 'Minor' }
 };
 
-export default function AttributeImpactView({ categories }) {
+export default function AttributeImpactView({ categories, imageUrl, eyeAppealGrade, eyeAppealReasoning, aiGradeAssessment }) {
   if (!categories || categories.length === 0) return null;
 
   return (
@@ -16,6 +16,67 @@ export default function AttributeImpactView({ categories }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Card Image & Eye Appeal Grade */}
+      {(imageUrl || eyeAppealGrade) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-border/50 rounded-xl p-5 space-y-4"
+        >
+          {/* Image */}
+          {imageUrl && (
+            <div className="w-full bg-secondary/30 flex items-center justify-center p-4 rounded-lg">
+              <img
+                src={imageUrl}
+                alt="Card"
+                className="max-h-64 w-auto object-contain rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+
+          {/* Eye Appeal Grade & Reasoning */}
+          <div className="space-y-3">
+            {eyeAppealGrade && (
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "flex items-center justify-center rounded-full w-16 h-16 text-2xl font-bold border-2",
+                  eyeAppealGrade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
+                  eyeAppealGrade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
+                  eyeAppealGrade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
+                  'bg-red-500/10 border-red-500 text-red-500'
+                )}>
+                  {eyeAppealGrade}
+                </div>
+                <div>
+                  <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                    Eye Appeal Grade
+                  </p>
+                  {eyeAppealReasoning && (
+                    <p className="text-xs text-foreground/80 leading-snug">
+                      {eyeAppealReasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {aiGradeAssessment?.key_observations && aiGradeAssessment.key_observations.length > 0 && (
+              <div className="bg-secondary/30 rounded-lg p-3">
+                <p className="text-xs font-semibold text-foreground mb-2">Key Observations:</p>
+                <ul className="text-xs text-foreground/70 space-y-1 list-disc list-inside">
+                  {aiGradeAssessment.key_observations.map((obs, idx) => (
+                    <li key={idx}>{obs}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    
       {categories.map((category, catIdx) => {
         const netDir = category.net_direction === 'up' ? '↑' : category.net_direction === 'down' ? '↓' : '•';
         const netColor = category.net_direction === 'up' ? 'text-emerald-400' : category.net_direction === 'down' ? 'text-red-400' : 'text-muted-foreground';

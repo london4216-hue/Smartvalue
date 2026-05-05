@@ -404,7 +404,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
       {/* Attribute Impact View — Why This Price? */}
       {result.attribute_impact_view?.categories && (
-        <AttributeImpactView categories={result.attribute_impact_view.categories} />
+        <AttributeImpactView 
+          categories={result.attribute_impact_view.categories}
+          imageUrl={result.image_url}
+          eyeAppealGrade={result.ai_eye_appeal_grade}
+          eyeAppealReasoning={result.eye_appeal_reasoning}
+          aiGradeAssessment={result.ai_grade_assessment}
+        />
       )}
 
       {/* Actions */}
