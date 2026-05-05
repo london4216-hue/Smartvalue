@@ -57,6 +57,26 @@ export default function ValuationResult({ result, onSave, onReset }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Overpriced Warning — At the top */}
+      {overpricedWarning && (
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+          className={`border rounded-2xl p-5 flex gap-4 items-start ${overpricedWarning.bg}`}>
+          <span className="text-xl shrink-0 mt-0.5">{overpricedWarning.icon}</span>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <p className={`text-sm font-bold ${overpricedWarning.color}`}>{overpricedWarning.label}</p>
+              <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-full border ${overpricedWarning.bg} ${overpricedWarning.color}`}>
+                +{cheapestVsAi.toFixed(1)}% above AI value
+              </span>
+            </div>
+            <p className="text-xs text-foreground/70 leading-relaxed">{overpricedWarning.tip}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Asking ${cheapestAvailable.toLocaleString()} · AI Fair Value ${aiValue.toLocaleString()}
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Investment Thesis — Last Sale vs AI Value */}
       <InvestmentThesis
         compValue={compValue}
@@ -341,26 +361,6 @@ export default function ValuationResult({ result, onSave, onReset }) {
             </p>
             <p className="text-[10px] text-muted-foreground mt-2 font-mono">
               Last Sale: ${compValue.toLocaleString()} → Current Ask: ${cheapestAvailable.toLocaleString()} ({cheapestVsComp}%)
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Overpriced Warning */}
-      {overpricedWarning && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className={`border rounded-2xl p-5 flex gap-4 items-start ${overpricedWarning.bg}`}>
-          <span className="text-xl shrink-0 mt-0.5">{overpricedWarning.icon}</span>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <p className={`text-sm font-bold ${overpricedWarning.color}`}>{overpricedWarning.label}</p>
-              <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-full border ${overpricedWarning.bg} ${overpricedWarning.color}`}>
-                +{cheapestVsAi.toFixed(1)}% above AI value
-              </span>
-            </div>
-            <p className="text-xs text-foreground/70 leading-relaxed">{overpricedWarning.tip}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Asking ${cheapestAvailable.toLocaleString()} · AI Fair Value ${aiValue.toLocaleString()}
             </p>
           </div>
         </motion.div>
