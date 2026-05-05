@@ -168,74 +168,70 @@ Deno.serve(async (req) => {
      } catch (_) {}
     }
 
-    // Parse keywords first (most reliable for eBay _skw)
+    // STRICT CARD IDENTIFICATION — Use LLM to parse scraped title ONLY
     let result = null;
-    if (skw) {
-      result = parseCardFromKeywords(skw);
-      // Extra validation: player name should not be a single brand name
-      const badNames = ['panini', 'prizm', 'optic', 'select', 'mosaic', 'topps', 'donruss', 'hoops'];
-      if (result && result.player_name && badNames.includes(result.player_name.toLowerCase())) {
-        result = null;
-      }
-    }
     
-    // If keyword parsing failed, try web search as fallback
-    if (!result && itemId) {
+    if (scrapedTitle) {
       try {
-        const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Visit https://www.ebay.com/itm/${itemId} and extract these fields exactly as shown:
-- player_name: Basketball player name (a real person, e.g., "Victor Wembanyama")
-- card_year: Year (e.g., "2023")
-- card_set: Card set (e.g., "Prizm")
-- variation: Variant (e.g., "Silver", "Cracked Ice")
-- grade: Grade if shown
-- asking_price: Current price (numeric, 1-100000)
+        const identificationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Extract card info from this eBay listing title ONLY. Ignore any URL, keywords, or external context.
 
-Do NOT confuse brand names (Panini, Prizm) with player names. Return only the JSON.`,
-          add_context_from_internet: true,
+TITLE: "${scrapedTitle}"
+
+RULES:
+1. Extract ONLY what's literally in the title
+2. player = real person name (not brand)
+3. If missing, set to null
+4. Do NOT guess or infer
+5. Return JSON only
+
+{
+  "player": "...",
+  "set": "...",
+  "year": "...",
+  "parallel": "...",
+  "card_number": "...",
+  "rookie": true|false|null,
+  "grade_company": "...",
+  "grade_value": "...",
+  "serial_number": "..."
+}`,
           response_json_schema: {
             type: "object",
             properties: {
-              player_name: { type: ["string", "null"] },
-              card_year: { type: ["string", "null"] },
-              card_set: { type: ["string", "null"] },
-              variation: { type: ["string", "null"] },
-              grade: { type: ["string", "null"] },
-              asking_price: { type: ["number", "null"] }
+              player: { type: ["string", "null"] },
+              set: { type: ["string", "null"] },
+              year: { type: ["string", "null"] },
+              parallel: { type: ["string", "null"] },
+              card_number: { type: ["string", "null"] },
+              rookie: { type: ["boolean", "null"] },
+              grade_company: { type: ["string", "null"] },
+              grade_value: { type: ["string", "null"] },
+              serial_number: { type: ["string", "null"] }
             }
           },
-          model: 'gemini_3_1_pro'
+          model: 'gemini_3_flash'
         });
-        
-        const badNames = ['panini', 'prizm', 'optic', 'select', 'mosaic', 'topps'];
-        const isValidPlayer = searchResult?.player_name && 
-          !badNames.some(b => searchResult.player_name.toLowerCase().includes(b));
-        
-        if (isValidPlayer) {
+
+        if (identificationResult?.player) {
           result = {
-            player_name: searchResult.player_name,
-            card_year: searchResult.card_year || null,
-            card_set: searchResult.card_set || null,
-            card_number: null,
-            variation: searchResult.variation || null,
-            serial_number: null,
-            grade: searchResult.grade || null,
-            is_rookie_year: /2023|rookie|rc/i.test(searchResult.card_year || ''),
-            color_matches_team: !!searchResult.variation,
+            player_name: identificationResult.player,
+            card_year: identificationResult.year || null,
+            card_set: identificationResult.set || null,
+            card_number: identificationResult.card_number || null,
+            variation: identificationResult.parallel || null,
+            serial_number: identificationResult.serial_number || null,
+            grade: identificationResult.grade_company && identificationResult.grade_value 
+              ? `${identificationResult.grade_company} ${identificationResult.grade_value}` 
+              : null,
+            is_rookie_year: identificationResult.rookie || false,
+            color_matches_team: !!identificationResult.parallel,
             has_autograph: false,
             has_patch: false,
             player_popularity: null,
           };
-          if (searchResult.asking_price && searchResult.asking_price > 0) {
-            scrapedPrice = searchResult.asking_price;
-          }
         }
       } catch (_) {}
-    }
-    
-    // Fallback to title parsing if still no result
-    if (!result && scrapedTitle) {
-      result = parseCardFromKeywords(scrapedTitle);
     }
     
     if (!result || !result.player_name) {
