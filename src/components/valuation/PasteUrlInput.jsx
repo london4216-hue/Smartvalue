@@ -21,52 +21,41 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a sports card data extractor. Your job is to extract card details AND find the real last sold price.
+        prompt: `TASK: Extract sports card details from this listing URL and find the last sold comp price.
 
-LISTING URL: ${url}
+URL: ${url}
 
-STEP 1 — READ THE LISTING PAGE:
-Visit the URL above. Extract all card details (player, year, set, card number, variation, grade, serial number, listing price).
+YOU MUST DO ALL THREE STEPS:
 
-STEP 2 — DETERMINE LISTING TYPE:
-- Is this an ACTIVE listing (still for sale, Buy It Now or auction not ended)? → The price shown is the ASKING price, NOT a sold price.
-- Is this a COMPLETED/SOLD listing (shows "Sold" badge, final price)? → That price IS the last sold comp.
+STEP 1 — VISIT THIS URL RIGHT NOW AND READ IT:
+Open: ${url}
+Read the full page title and item description. The title will contain the player name, year, set, parallel/variation, serial number (like /75 or /10), and grade. Extract ALL of it.
 
-STEP 3 — FIND THE REAL LAST SOLD COMP (MANDATORY — DO NOT SKIP):
-THIS IS THE MOST CRITICAL STEP. You MUST actively search for real eBay completed/sold listings.
+STEP 2 — GET THE LISTING PRICE:
+The price shown on the active listing = cheapest_available (what the seller is asking).
 
-DO THIS NOW:
-1. Search Google for: site:ebay.com "[player name] [year] [set] [variation]" sold completed
-2. Also search: "[player name] [set] [variation] [serial e.g. /75] sold eBay"
-3. Check eBay's completed listings filter directly for this card
-4. Look at 130point.com, cardladder.com, or pwccmarketplace.com for recent sales data
+STEP 3 — FIND REAL SOLD COMPS:
+Search for: [player name] [year] [set] [variation] [serial] [grade] sold eBay completed
+Also search 130point.com and cardladder.com.
+comp_value = the price a BUYER PAID in a completed transaction. Must differ from cheapest_available.
 
-The card in the URL has specific identifiers (player, set, year, serial number, grade). Use ALL of them to find the most recent actual sale price.
-
-Recent sales are almost always findable. A "last sold" price of null is a FAILURE unless the card has literally never sold before (extremely rare for an active listing). If someone is selling it, it has comps.
-
-⚠️ CRITICAL RULES:
-- comp_value = the price a buyer ACTUALLY PAID in a completed transaction. NEVER the listing/asking price.
-- cheapest_available = the current listing price on this active listing (what the seller asks NOW)
-- These MUST be different numbers. If identical → you made an error, search harder.
-- Setting comp_value = null when real sold data exists is a critical failure. Search aggressively.
-- NEVER set comp_value = cheapest_available
-
-Return JSON with these fields:
-- player_name: string (full name)
-- card_year: string
-- card_set: string  
-- card_number: string
-- variation: string (parallel name only, e.g. "Electric Etch Orange RPA", "Silver", "Gold" — do NOT include the serial number here)
-- serial_number: string or null (the print run e.g. "75" for a /75 card, "10" for /10, "1" for 1/1 — just the number, no slash)
-- grade: string (e.g. "Raw", "PSA 9", "BGS 9.5")
-- comp_value: number or null (REAL last sold price from a completed transaction — NOT the listing price)
-- cheapest_available: number or null (current asking price on this listing)
-- is_rookie_year: boolean
-- color_matches_team: boolean
-- has_autograph: boolean
-- has_patch: boolean
-- player_popularity: string ("rising" | "peak" | "legend" | "declining")`,
+RETURN THIS JSON:
+{
+  "player_name": "Full Player Name",
+  "card_year": "2021",
+  "card_set": "Prizm",
+  "card_number": "123",
+  "variation": "Silver Prizm",
+  "serial_number": "75" (just the number, no slash — null if not serialized),
+  "grade": "PSA 10" or "Raw",
+  "comp_value": 250 (last sold price — number, not string),
+  "cheapest_available": 299 (current asking price — number, not string),
+  "is_rookie_year": true/false,
+  "color_matches_team": true/false,
+  "has_autograph": true/false,
+  "has_patch": true/false,
+  "player_popularity": "rising" or "peak" or "legend" or "declining"
+}`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -90,14 +79,14 @@ Return JSON with these fields:
         model: 'gemini_3_1_pro',
       });
 
-      if (result.player_name) {
+      if (result.player_name && result.player_name !== 'Unknown') {
         onCardExtracted(result);
         setUrl('');
       } else {
-        setError("Can't read this URL — try a direct eBay item page (e.g. ebay.com/itm/...) or fill in the form manually below.");
+        setError("Couldn't read this listing. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
       }
     } catch (err) {
-      setError("Can't read this URL — try a direct eBay item page or fill in the form manually below.");
+      setError("Couldn't read this listing. Try copying the full eBay item URL or enter the card details manually below.");
     } finally {
       setIsLoading(false);
     }
