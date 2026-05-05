@@ -204,18 +204,23 @@ export default function PasteUrlInput({ onCardExtracted }) {
                     <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
                   </div>
 
-                  {/* AI Grade Assessment */}
+                  {/* AI Centering & Cornering Feedback */}
                   {extracted.ai_grade_assessment && (
                     <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-primary text-sm">📊 AI Grade Projection</p>
-                        <span className="font-mono font-bold text-primary text-2xl">{extracted.ai_grade_assessment.estimated_grade}</span>
-                      </div>
+                      <p className="font-semibold text-primary text-sm mb-2">📐 Centering & Cornering</p>
+                      {extracted.eye_appeal_reasoning && (
+                        <p className={cn(
+                          "text-sm font-medium leading-snug mb-3",
+                          extracted.eye_appeal_reasoning.includes('excellent') || extracted.eye_appeal_reasoning.includes('sharp') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                        )}>
+                          {extracted.eye_appeal_reasoning}
+                        </p>
+                      )}
                       {extracted.ai_eye_appeal_grade && (
-                        <div className="mb-2">
-                          <p className="text-xs text-foreground font-semibold mb-1">Eye Appeal Grade</p>
+                        <div className="inline-flex items-center gap-2 mb-2">
+                          <span className="text-xs text-muted-foreground">Appeal Grade:</span>
                           <div className={cn(
-                            "inline-flex items-center justify-center rounded-full w-16 h-16 text-2xl font-bold border-2",
+                            "inline-flex items-center justify-center rounded-full w-12 h-12 text-xl font-bold border-2",
                             extracted.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
                             extracted.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
                             extracted.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
@@ -225,28 +230,15 @@ export default function PasteUrlInput({ onCardExtracted }) {
                           </div>
                         </div>
                       )}
-                      <p className="text-muted-foreground text-xs mb-2 leading-snug">
-                        {extracted.ai_grade_disclosure}
-                      </p>
-                      {extracted.eye_appeal_reasoning && (
-                        <p className={cn(
-                          "text-sm font-medium leading-snug mb-2",
-                          extracted.eye_appeal_reasoning.includes('excellent') || extracted.eye_appeal_reasoning.includes('sharp') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                        )}>
-                          {extracted.eye_appeal_reasoning}
-                        </p>
-                      )}
                       {extracted.ai_grade_assessment.key_observations && extracted.ai_grade_assessment.key_observations.length > 0 && (
-                        <ul className="text-xs text-foreground/80 space-y-0.5 ml-3 list-disc mb-2">
-                          {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
-                            <li key={idx}>{obs}</li>
-                          ))}
-                        </ul>
-                      )}
-                      {extracted.ai_grade_assessment.confidence && (
-                        <p className="text-xs text-muted-foreground/70 italic">
-                          Confidence: {extracted.ai_grade_assessment.confidence}
-                        </p>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1.5 font-semibold">Observations:</p>
+                          <ul className="text-xs text-foreground/80 space-y-0.5 ml-3 list-disc">
+                            {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
+                              <li key={idx}>{obs}</li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
                     </div>
                   )}
