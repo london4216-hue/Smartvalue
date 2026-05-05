@@ -217,9 +217,114 @@ Be precise—this is a sports card. Return as JSON.`,
       }, { status: 422 });
     }
 
+    // Hard-lock pricing validation with LLM
+    let pricingValidation = {
+      pricing: {
+        last_sold_price_amount: null,
+        last_sold_price_currency: "USD",
+        last_sold_price_date: null,
+        last_sold_price_source: "eBay",
+        last_sold_price_confidence: "low",
+        current_ask_price_amount: scrapedPrice || null,
+        current_ask_price_currency: "USD",
+        current_ask_source: "eBay",
+        current_ask_type: "buy_it_now",
+        current_ask_confidence: scrapedPrice ? "medium" : "low"
+      }
+    };
+
+    if (itemId && result?.player_name) {
+      try {
+        const pricingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `SYSTEM INSTRUCTION — FOLLOW EXACTLY.
+OUTPUT JSON ONLY.
+NO MARKDOWN.
+NO COMMENTARY.
+
+Card Details:
+- Player: ${result.player_name}
+- Set: ${result.card_set || 'Unknown'}
+- Grade: ${result.grade || 'Unknown'}
+- Year: ${result.card_year || 'Unknown'}
+
+URL: ebay.com/itm/${itemId}
+
+Your #1 priority is to correctly identify:
+1) The most recent clean sale price for this exact card (Last Sale Price)
+2) The current listing price from the URL (Current Ask Price)
+
+RULES FOR LAST SALE PRICE:
+- Must be the most recent completed sale
+- Same player, same set, same parallel, same grade (or closest equivalent)
+- From a real marketplace (eBay, Goldin, PWCC, etc.)
+- Return: last_sold_price_amount, last_sold_price_currency, last_sold_price_date, last_sold_price_source
+- If NOT confident: set last_sold_price_confidence = "low"
+
+RULES FOR CURRENT ASK PRICE:
+- Must come from the listing tied to the URL
+- NOT from a comp
+- NOT from another card
+- Return: current_ask_price_amount, current_ask_price_currency, current_ask_source, current_ask_type
+- If missing: set current_ask_price_amount = null and current_ask_confidence = "low"
+
+SANITY CHECKS:
+- If price <= 0 → treat as missing; set confidence = "low"
+- NEVER copy last_sold into current_ask or vice versa
+- NEVER use AI Value as either price
+
+Return ONLY this JSON structure:
+{
+  "pricing": {
+    "last_sold_price_amount": null or number,
+    "last_sold_price_currency": "USD",
+    "last_sold_price_date": "YYYY-MM-DD" or null,
+    "last_sold_price_source": "eBay" or other,
+    "last_sold_price_confidence": "high" or "medium" or "low",
+    "current_ask_price_amount": null or number,
+    "current_ask_price_currency": "USD",
+    "current_ask_source": "eBay",
+    "current_ask_type": "auction" or "buy_it_now" or "best_offer",
+    "current_ask_confidence": "high" or "medium" or "low"
+  }
+}`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              pricing: {
+                type: "object",
+                properties: {
+                  last_sold_price_amount: { type: ["number", "null"] },
+                  last_sold_price_currency: { type: "string" },
+                  last_sold_price_date: { type: ["string", "null"] },
+                  last_sold_price_source: { type: "string" },
+                  last_sold_price_confidence: { type: "string" },
+                  current_ask_price_amount: { type: ["number", "null"] },
+                  current_ask_price_currency: { type: "string" },
+                  current_ask_source: { type: "string" },
+                  current_ask_type: { type: "string" },
+                  current_ask_confidence: { type: "string" }
+                }
+              }
+            }
+          },
+          model: 'gemini_3_1_pro'
+        });
+        if (pricingResult?.pricing) {
+          pricingValidation = pricingResult;
+        }
+      } catch (_) {
+        // Fallback to scraped data if LLM fails
+      }
+    }
+
     // Add pricing & image
-    result.comp_value = null;
-    result.cheapest_available = scrapedPrice || null;
+    result.comp_value = pricingValidation.pricing.last_sold_price_amount;
+    result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
+    result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
+    result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
+    result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
+    result._ask_type = pricingValidation.pricing.current_ask_type;
     result.image_url = scrapedImage || imageFromHash || null;
 
     // AI Grade Assessment from image
