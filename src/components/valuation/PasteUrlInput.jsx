@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Link as LinkIcon, AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Loader2, Link as LinkIcon, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PasteUrlInput({ onCardExtracted }) {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [extracted, setExtracted] = useState(null); // pending confirmation
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -18,6 +19,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
     setIsLoading(true);
     setError('');
+    setExtracted(null);
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
@@ -80,8 +82,8 @@ RETURN THIS JSON:
       });
 
       if (result.player_name && result.player_name !== 'Unknown') {
-        onCardExtracted(result);
-        setUrl('');
+        // Show confirmation step instead of immediately proceeding
+        setExtracted(result);
       } else {
         setError("Couldn't read this listing. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
       }
@@ -91,6 +93,26 @@ RETURN THIS JSON:
       setIsLoading(false);
     }
   };
+
+  const handleConfirm = () => {
+    onCardExtracted(extracted);
+    setUrl('');
+    setExtracted(null);
+  };
+
+  const handleCancel = () => {
+    setExtracted(null);
+    setError('');
+  };
+
+  const cardSummary = extracted ? [
+    extracted.player_name,
+    extracted.card_year,
+    extracted.card_set,
+    extracted.variation,
+    extracted.serial_number ? `/${extracted.serial_number}` : null,
+    extracted.grade,
+  ].filter(Boolean).join(' · ') : '';
 
   return (
     <motion.div
@@ -105,6 +127,8 @@ RETURN THIS JSON:
           <p className="text-xs text-muted-foreground mb-3">
             Paste a card listing URL from eBay, PWCC, Goldin, or any card site to auto-fill details.
           </p>
+
+          {/* URL Input */}
           <div className="flex gap-2">
             <Input
               placeholder="https://www.ebay.com/itm/... or https://www.pwccauctions.com/..."
@@ -112,8 +136,9 @@ RETURN THIS JSON:
               onChange={(e) => {
                 setUrl(e.target.value);
                 setError('');
+                setExtracted(null);
               }}
-              onKeyPress={(e) => e.key === 'Enter' && handleExtract()}
+              onKeyPress={(e) => e.key === 'Enter' && !extracted && handleExtract()}
               disabled={isLoading}
               className="text-sm"
             />
@@ -129,6 +154,8 @@ RETURN THIS JSON:
               )}
             </Button>
           </div>
+
+          {/* Error */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
@@ -139,6 +166,40 @@ RETURN THIS JSON:
               {error}
             </motion.div>
           )}
+
+          {/* Confirmation step */}
+          <AnimatePresence>
+            {extracted && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="mt-3 bg-card border border-border rounded-xl p-3"
+              >
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                  ✦ AI identified this card — is this correct?
+                </p>
+                <p className="text-sm font-semibold text-foreground leading-snug">{cardSummary}</p>
+                {(extracted.comp_value || extracted.cheapest_available) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {extracted.comp_value ? `Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
+                    {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
+                    {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
+                  </p>
+                )}
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" onClick={handleConfirm} className="flex-1 h-8 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                    Yes, that's correct
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleCancel} className="h-8 text-xs px-3">
+                    <X className="w-3 h-3 mr-1" />
+                    Wrong card
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>
