@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { ATTRIBUTE_CATEGORIES } from './AttributeCategories';
 
@@ -18,12 +18,12 @@ function getScoreLabel(score) {
  */
 function calculateAttributeImpact(score, baseValue, weight = 1) {
   if (score === -1 || score === null || score === undefined) return 0;
-  
+
   // Normalize score to -50% to +50% range
   const normalizedScore = (score - 50) / 100; // -0.5 to 0.5
   const impactPercentage = normalizedScore * weight;
   const impact = Math.round(baseValue * impactPercentage);
-  
+
   return impact;
 }
 
@@ -113,7 +113,7 @@ function CategorySection({ categoryKey, categoryDef, scores, baseValue, startDel
   const catScores = categoryDef.attributes
     .map(attr => ({ score: scores[attr.key], weight: attr.weight }))
     .filter(s => s.score !== undefined && s.score !== null && s.score !== -1);
-  
+
   const avgScore = catScores.length > 0
     ? Math.round(catScores.reduce((a, b) => a + b.score, 0) / catScores.length)
     : 0;
@@ -183,10 +183,25 @@ function CategorySection({ categoryKey, categoryDef, scores, baseValue, startDel
 
 /**
  * AttributeBreakdown - Displays attributes as a ledger showing impact on valuation
- * Shows how each attribute adds or subtracts from the base AI investment value
+ * Shows how each attribute adds or subtracts from the comp price baseline
  */
 export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
   let runningDelay = 0;
+
+  // Validate baseValue
+  if (!baseValue || baseValue <= 0) {
+    return (
+      <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+        <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Cannot calculate attribute impact</p>
+          <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">
+            No valid comp price available. Ensure card has recent comparable sales.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const totalAttributeImpact = Object.entries(ATTRIBUTE_CATEGORIES).reduce((sum, [_, catDef]) => {
     return sum + catDef.attributes.reduce((catSum, attr) => {
@@ -196,25 +211,29 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
     }, 0);
   }, 0);
 
+  const impactPercentage = (totalAttributeImpact / baseValue) * 100;
+  const aiEstimatedValue = baseValue + totalAttributeImpact;
+
   return (
     <div className="space-y-4">
       <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
         Valuation Ledger ({Object.values(ATTRIBUTE_CATEGORIES).reduce((s, c) => s + c.attributes.length, 0)} Factors)
       </h3>
 
-      {/* Ledger Header */}
+      {/* Ledger Header with Impact Summary */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4"
       >
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 mb-1">Base Value</p>
-          <p className="text-xl font-mono font-bold text-primary">
+        <div className="bg-secondary/50 border border-border/50 rounded-lg p-3">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Comp Baseline</p>
+          <p className="text-lg font-mono font-bold text-foreground">
             ${baseValue.toLocaleString()}
           </p>
         </div>
+
         <div className={cn(
           "rounded-lg p-3 border",
           totalAttributeImpact >= 0
@@ -225,13 +244,29 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
             "text-[10px] font-mono uppercase tracking-wider mb-1",
             totalAttributeImpact >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'
           )}>
-            Total Attribute Impact
+            Attribute Adjustments
           </p>
           <p className={cn(
-            "text-xl font-mono font-bold",
+            "text-lg font-mono font-bold",
             totalAttributeImpact >= 0 ? 'text-emerald-400' : 'text-red-400'
           )}>
-            {totalAttributeImpact >= 0 ? '+' : ''}{(totalAttributeImpact / 1000).toFixed(1)}K ({((totalAttributeImpact / baseValue) * 100).toFixed(1)}%)
+            {totalAttributeImpact >= 0 ? '+' : ''}{(totalAttributeImpact / 1000).toFixed(1)}K
+          </p>
+          <p className={cn(
+            "text-[10px] font-mono mt-1",
+            totalAttributeImpact >= 0 ? 'text-emerald-400/60' : 'text-red-400/60'
+          )}>
+            {impactPercentage >= 0 ? '+' : ''}{impactPercentage.toFixed(1)}%
+          </p>
+        </div>
+
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 mb-1">Est. AI Value</p>
+          <p className="text-lg font-mono font-bold text-primary">
+            ${aiEstimatedValue.toLocaleString()}
+          </p>
+          <p className="text-[10px] font-mono text-primary/60 mt-1">
+            (from attributes alone)
           </p>
         </div>
       </motion.div>
@@ -262,7 +297,7 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
         className="bg-accent/30 border border-border/30 rounded-lg p-3 mt-4"
       >
         <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-          <span className="font-semibold">How it works:</span> Each attribute is scored 0-100. Scores above 50 increase value (green), scores below 50 decrease value (red). Impact is weighted by importance.
+          <span className="font-semibold">How the ledger works:</span> Comp value is the baseline (average of last 3 sales). Each attribute is scored 0-100. Scores above 50 add value (green), below 50 subtract (red). The "Est. AI Value" shows what attributes alone would suggest. Compare this to the actual AI Investment Value to see if AI aligned with fundamental factors.
         </p>
       </motion.div>
     </div>
