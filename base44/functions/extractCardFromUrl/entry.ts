@@ -38,28 +38,45 @@ function parseUrlHints(url) {
 function parseCardFromKeywords(keywordStr) {
   if (!keywordStr || keywordStr.length < 3) return null;
   
-  const str = keywordStr.replace(/\+/g, ' ').replace(/%20/g, ' ').toLowerCase().trim();
+  // Decode URL-encoded characters
+  const str = decodeURIComponent(keywordStr)
+    .replace(/\+/g, ' ')
+    .replace(/%20/g, ' ')
+    .toLowerCase()
+    .trim();
+  
   const words = str.split(/\s+/).filter(w => w.length > 0);
   
   if (words.length === 0) return null;
   
-  // Find player name (first 1-2 words that aren't common card terms)
-  const cardTerms = ['prizm', 'optic', 'select', 'mosaic', 'donruss', 'topps', 'hoops', 'psa', 'bgspsa', 'graded', 'raw', 'rookie', 'rc', 'auto', 'patch'];
-  const playerWords = words.filter(w => !cardTerms.some(ct => w.includes(ct)) && !/^\d+$/.test(w));
+  // Find player name (first 1-2 words that aren't common card terms, brands, or years)
+  const cardTerms = ['panini', 'prizm', 'optic', 'select', 'mosaic', 'donruss', 'topps', 'hoops', 'psa', 'bgspsa', 'graded', 'raw', 'rookie', 'rc', 'auto', 'patch', 'silver', 'gold', 'cracked', 'ice', 'sp', 'card', '#'];
+  const playerWords = words.filter(w => 
+    !cardTerms.includes(w) && 
+    !/^\d+(-\d+)?$/.test(w) && // exclude years like "2023" or "2023-24"
+    !/^\d+$/.test(w) && 
+    w.length > 2
+  );
   let playerName = playerWords.slice(0, 2).join(' ').trim();
-  if (!playerName) playerName = words[0]; // fallback to first word
+  if (!playerName) playerName = words.find(w => !/(^\d+|^\d+-\d+$)/.test(w) && w.length > 2) || words[0]; // fallback
   
-  // Find year
-  const yearMatch = str.match(/\b(19|20)\d{2}\b/);
+  // Find year (2023 or 2023-24 format)
+  const yearMatch = str.match(/\b(19|20)\d{2}(?:-\d{2})?\b/);
   const cardYear = yearMatch ? yearMatch[0] : null;
   
   // Find set
   const sets = ['prizm', 'optic', 'select', 'mosaic', 'donruss', 'topps', 'hoops', 'fleer', 'crown royale', 'national treasures'];
   const cardSet = sets.find(s => str.includes(s)) ? sets.find(s => str.includes(s)).split(' ')[0] : null;
   
-  // Find variation
-  const variations = ['silver', 'gold', 'purple', 'blue', 'red', 'pink', 'orange', 'green', 'white', 'black', 'hyper', 'base'];
-  const variation = variations.find(v => str.includes(v)) || null;
+  // Find variation — include "cracked ice" as a variation
+  const variations = ['silver', 'gold', 'purple', 'blue', 'red', 'pink', 'orange', 'green', 'white', 'black', 'hyper', 'base', 'cracked ice'];
+  let variation = null;
+  for (const v of variations) {
+    if (str.includes(v)) {
+      variation = v;
+      break;
+    }
+  }
   
   // Find grade
   const gradeMatch = str.match(/psa\s*(\d+(?:\.\d)?)|bgspsa\s*(\d+(?:\.\d)?)|raw|graded/i);
@@ -70,11 +87,11 @@ function parseCardFromKeywords(keywordStr) {
   }
   
   return {
-    player_name: playerName.charAt(0).toUpperCase() + playerName.slice(1),
+    player_name: playerName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
     card_year: cardYear,
     card_set: cardSet ? cardSet.charAt(0).toUpperCase() + cardSet.slice(1) : null,
     card_number: null,
-    variation: variation ? variation.charAt(0).toUpperCase() + variation.slice(1) : null,
+    variation: variation ? variation.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : null,
     serial_number: null,
     grade: grade,
     is_rookie_year: str.includes('rookie') || str.includes('rc'),
@@ -127,6 +144,23 @@ Deno.serve(async (req) => {
              || html.match(/<title>([^<]+)<\/title>/i);
            if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
+           // Try multiple patterns to extract current price
+           const pricePatterns = [
+             /["']convertedCurrentPrice["']\s*:\s*["']?\$?([\d,]+(?:\.\d{2})?)/i,
+             /["']currentPrice["']\s*:\s*["']?([\d,]+(?:\.\d{2})?)/i,
+             /[\$£€]([\d,]+(?:\.\d{2})?)\s*(?:or|buy|offer)/i,
+             />[\$]([\d,]+(?:\.\d{2})?)<\/span>/i,
+             /Current price[^$]*\$\s*([\d,]+(?:\.\d{2})?)/i
+           ];
+           
+           for (const pattern of pricePatterns) {
+             const priceMatch = html.match(pattern);
+             if (priceMatch) {
+               scrapedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
+               if (scrapedPrice > 0) break;
+             }
+           }
+
            const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
            if (imgMatch) scrapedImage = imgMatch[0];
          }
@@ -134,55 +168,74 @@ Deno.serve(async (req) => {
      } catch (_) {}
     }
 
-    // Use scraped title or keywords
-    let dataToAnalyze = scrapedTitle || skw || '';
+    // Parse keywords first (most reliable for eBay _skw)
+    let result = null;
+    if (skw) {
+      result = parseCardFromKeywords(skw);
+      // Extra validation: player name should not be a single brand name
+      const badNames = ['panini', 'prizm', 'optic', 'select', 'mosaic', 'topps', 'donruss', 'hoops'];
+      if (result && result.player_name && badNames.includes(result.player_name.toLowerCase())) {
+        result = null;
+      }
+    }
     
-    // Parse manually
-    let result = parseCardFromKeywords(dataToAnalyze);
-    
-    // Check if parse looks suspicious (e.g. "sticky" in player name from bad _skw tag)
-    const isSuspiciousParse = result && result.player_name && result.player_name.toLowerCase().includes('sticky');
-    
-    // If no success, suspicious parse, or bare link (no keywords), always try web search
-    const isBareLink = itemId && !skw;
-    const noValidPrice = !scrapedPrice || scrapedPrice === 0;
-    
-    if (((!result || !result.player_name) || isSuspiciousParse || isBareLink || noValidPrice) && itemId) {
+    // If keyword parsing failed, try web search as fallback
+    if (!result && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Fetch the eBay listing at ebay.com/itm/${itemId}. Extract:
-1. Full listing title
-2. Current asking price (BIN or auction price) - MUST be a number, look carefully at the page
-3. Basketball player name
-4. Card year (e.g., 2023)
-5. Card set name (e.g., Prizm, Optic, Select)
-6. Grade if shown (e.g., PSA 9, BGS 10, Raw)
+          prompt: `Visit https://www.ebay.com/itm/${itemId} and extract these fields exactly as shown:
+- player_name: Basketball player name (a real person, e.g., "Victor Wembanyama")
+- card_year: Year (e.g., "2023")
+- card_set: Card set (e.g., "Prizm")
+- variation: Variant (e.g., "Silver", "Cracked Ice")
+- grade: Grade if shown
+- asking_price: Current price (numeric, 1-100000)
 
-Be precise—this is a sports card. Return as JSON.`,
+Do NOT confuse brand names (Panini, Prizm) with player names. Return only the JSON.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
             properties: {
-              title: { type: "string" },
-              player_name: { type: "string" },
-              card_year: { type: "string" },
-              card_set: { type: "string" },
-              grade: { type: "string" },
-              asking_price: { type: "number" }
+              player_name: { type: ["string", "null"] },
+              card_year: { type: ["string", "null"] },
+              card_set: { type: ["string", "null"] },
+              variation: { type: ["string", "null"] },
+              grade: { type: ["string", "null"] },
+              asking_price: { type: ["number", "null"] }
             }
           },
           model: 'gemini_3_1_pro'
         });
-        if (searchResult?.player_name && searchResult.player_name !== 'Unknown') {
-          dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
-          result = parseCardFromKeywords(dataToAnalyze);
-          if (searchResult?.asking_price && searchResult.asking_price >= 1 && searchResult.asking_price <= 100000) {
+        
+        const badNames = ['panini', 'prizm', 'optic', 'select', 'mosaic', 'topps'];
+        const isValidPlayer = searchResult?.player_name && 
+          !badNames.some(b => searchResult.player_name.toLowerCase().includes(b));
+        
+        if (isValidPlayer) {
+          result = {
+            player_name: searchResult.player_name,
+            card_year: searchResult.card_year || null,
+            card_set: searchResult.card_set || null,
+            card_number: null,
+            variation: searchResult.variation || null,
+            serial_number: null,
+            grade: searchResult.grade || null,
+            is_rookie_year: /2023|rookie|rc/i.test(searchResult.card_year || ''),
+            color_matches_team: !!searchResult.variation,
+            has_autograph: false,
+            has_patch: false,
+            player_popularity: null,
+          };
+          if (searchResult.asking_price && searchResult.asking_price > 0) {
             scrapedPrice = searchResult.asking_price;
           }
         }
-      } catch (err) {
-        // Web search failed silently—continue with manual parse
-      }
+      } catch (_) {}
+    }
+    
+    // Fallback to title parsing if still no result
+    if (!result && scrapedTitle) {
+      result = parseCardFromKeywords(scrapedTitle);
     }
     
     if (!result || !result.player_name) {
@@ -219,80 +272,24 @@ Be precise—this is a sports card. Return as JSON.`,
     // Parallelize pricing validation + grade assessment
     const promises = [];
 
-    // Pricing LLM (if we have itemId)
+    // Pricing LLM (if we have itemId) — ask for current asking price + comps
     if (itemId && result?.player_name) {
       promises.push(
         base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `SYSTEM INSTRUCTION — FOLLOW EXACTLY.
-OUTPUT JSON ONLY.
-NO MARKDOWN.
-NO COMMENTARY.
+          prompt: `Go to https://www.ebay.com/itm/${itemId} and extract:
+1. Current asking price (the price shown on this eBay listing right now)
+2. Price type (buy_it_now or auction)
+3. Most recent comparable sale price for the same card
 
-Card Details:
-- Player: ${result.player_name}
-- Set: ${result.card_set || 'Unknown'}
-- Grade: ${result.grade || 'Unknown'}
-- Year: ${result.card_year || 'Unknown'}
-
-URL: ebay.com/itm/${itemId}
-
-Your #1 priority is to correctly identify:
-1) The most recent clean sale price for this exact card (Last Sale Price)
-2) The current listing price from the URL (Current Ask Price)
-
-RULES FOR LAST SALE PRICE:
-- Must be the most recent completed sale
-- Same player, same set, same parallel, same grade (or closest equivalent)
-- From a real marketplace (eBay, Goldin, PWCC, etc.)
-- Return: last_sold_price_amount, last_sold_price_currency, last_sold_price_date, last_sold_price_source
-- If NOT confident: set last_sold_price_confidence = "low"
-
-RULES FOR CURRENT ASK PRICE:
-- Must come from the listing tied to the URL
-- NOT from a comp
-- NOT from another card
-- Return: current_ask_price_amount, current_ask_price_currency, current_ask_source, current_ask_type
-- If missing: set current_ask_price_amount = null and current_ask_confidence = "low"
-
-SANITY CHECKS:
-- If price <= 0 → treat as missing; set confidence = "low"
-- NEVER copy last_sold into current_ask or vice versa
-- NEVER use AI Value as either price
-
-Return ONLY this JSON structure:
-{
-  "pricing": {
-    "last_sold_price_amount": null or number,
-    "last_sold_price_currency": "USD",
-    "last_sold_price_date": "YYYY-MM-DD" or null,
-    "last_sold_price_source": "eBay" or other,
-    "last_sold_price_confidence": "high" or "medium" or "low",
-    "current_ask_price_amount": null or number,
-    "current_ask_price_currency": "USD",
-    "current_ask_source": "eBay",
-    "current_ask_type": "auction" or "buy_it_now" or "best_offer",
-    "current_ask_confidence": "high" or "medium" or "low"
-  }
-}`,
+Card: ${result.player_name} ${result.card_year || ''} ${result.card_set || ''} ${result.variation || ''} ${result.grade || ''}`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
             properties: {
-              pricing: {
-                type: "object",
-                properties: {
-                  last_sold_price_amount: { type: ["number", "null"] },
-                  last_sold_price_currency: { type: "string" },
-                  last_sold_price_date: { type: ["string", "null"] },
-                  last_sold_price_source: { type: "string" },
-                  last_sold_price_confidence: { type: "string" },
-                  current_ask_price_amount: { type: ["number", "null"] },
-                  current_ask_price_currency: { type: "string" },
-                  current_ask_source: { type: "string" },
-                  current_ask_type: { type: "string" },
-                  current_ask_confidence: { type: "string" }
-                }
-              }
+              current_ask_price_amount: { type: ["number", "null"] },
+              current_ask_type: { type: ["string", "null"] },
+              last_sold_price_amount: { type: ["number", "null"] },
+              last_sold_price_date: { type: ["string", "null"] }
             }
           },
           model: 'gemini_3_1_pro'
@@ -301,7 +298,6 @@ Return ONLY this JSON structure:
     }
 
     // Grade assessment LLM (if we have image)
-    let aiGradeAssessment = null;
     if (result.image_url) {
       promises.push(
         base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -330,27 +326,27 @@ Return:
     }
 
     // Wait for all LLM calls in parallel
-    const results = await Promise.all(promises);
+    const llmResults = await Promise.all(promises);
     let resultIdx = 0;
 
-    // Assign pricing result
-    if (itemId && result?.player_name && results[resultIdx]) {
-      const pricingResult = results[resultIdx];
-      if (pricingResult?.pricing) {
-        pricingValidation = pricingResult;
-        result.comp_value = pricingValidation.pricing.last_sold_price_amount;
-        result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
-        result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
-        result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
-        result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
-        result._ask_type = pricingValidation.pricing.current_ask_type;
+    // Assign pricing result — prefer LLM result, fallback to scraped price
+    if (itemId && result?.player_name && llmResults[resultIdx]) {
+      const pricingResult = llmResults[resultIdx];
+      if (pricingResult) {
+        result.comp_value = pricingResult.last_sold_price_amount;
+        result._comp_confidence = pricingResult.last_sold_price_amount ? 'medium' : 'low';
+        result._comp_sale_date = pricingResult.last_sold_price_date;
+        result.cheapest_available = pricingResult.current_ask_price_amount || scrapedPrice || null;
+        result._ask_confidence = (pricingResult.current_ask_price_amount || scrapedPrice) ? 'high' : 'low';
+        result._ask_type = pricingResult.current_ask_type || 'buy_it_now';
       }
       resultIdx++;
     }
 
     // Assign grade result
-    if (result.image_url && results[resultIdx]) {
-      aiGradeAssessment = results[resultIdx];
+    let aiGradeAssessment = null;
+    if (result.image_url && llmResults[resultIdx]) {
+      aiGradeAssessment = llmResults[resultIdx];
     }
 
     if (aiGradeAssessment) {
