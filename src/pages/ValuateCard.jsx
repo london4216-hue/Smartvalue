@@ -323,30 +323,49 @@ function buildResponseSchema() {
 async function fetchRealComp(cardData) {
   const { player_name, card_year, card_set, variation, serial_number, grade } = cardData;
   const serialStr = serial_number ? `/${serial_number}` : '';
-  const cardDesc = [card_year, card_set, variation, serialStr, grade].filter(Boolean).join(' ');
+  
+  // Build multiple search queries for fallback strategies
+  const primarySearch = `${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr} ${grade || ''}`.trim();
+  const setSearch = `${player_name} ${card_set || ''} ${grade || ''}`.trim();
+  const playerSearch = `${player_name} ${card_year || ''} ${card_set || ''}`.trim();
 
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a sports card market data specialist. Your ONLY job is to find the real last sold price for this exact card on eBay completed listings.
+    prompt: `You are an expert sports card appraiser with deep knowledge of market pricing. Your ONLY job is to find REAL, ACTUAL last-sold prices for this card. NO ASKING PRICES. Only what people ACTUALLY PAID.
 
-CARD: ${player_name} ${cardDesc}
+CARD TO VALUE: ${player_name} (${card_year}) ${card_set} ${variation || ''} ${serialStr}${grade ? ' - ' + grade : ''}
 
-MANDATORY STEPS:
-1. Search eBay completed/sold listings RIGHT NOW for: "${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr} ${grade || ''}"
-2. Also search: "${player_name} ${card_set || ''} ${variation || ''} ${serialStr} sold"
-3. Check 130point.com, cardladder.com, and PWCC for recent sales
-4. Find the MOST RECENT actual "hammer price" — what a buyer PAID, not an asking price
+CRITICAL INSTRUCTIONS:
+1. Go directly to eBay.com RIGHT NOW and search for SOLD/COMPLETED listings only
+2. Search queries to try (in order):
+   - "${primarySearch} sold"
+   - "${setSearch} sold last 90 days"
+   - "${playerSearch} sold last 6 months"
+3. Look ONLY at completed auctions or "Buy It Now" sales that show "SOLD" status
+4. Extract the FINAL PRICE the buyer paid (hammer price), not asking price
+5. Also check:
+   - 130point.com recent sales
+   - cardladder.com comps
+   - PWCC Auctions completed lots
+   - Heritage Auctions sold lots
+6. If multiple sales exist, prioritize the most recent within the last 6 months
 
-RULES:
-- comp_value = price someone PAID in a completed transaction (not a listing)
-- cheapest_available = lowest current asking price on any active listing
-- These are almost always DIFFERENT numbers
-- If you find multiple recent sales, use the most recent one as comp_value and note others
-- sale_date = when the most recent sale happened (e.g. "3 days ago", "2 weeks ago", "April 2025")
-- sales_found = how many comparable sales you found
-- confidence = "high" (3+ recent comps), "medium" (1-2 comps), "low" (old or no comps found)
-- If truly NO sales exist for this specific card, set comp_value to null and explain in notes
+DATA YOU MUST RETURN:
+- comp_value: The actual sold price ($). If exact match not found, use closest grade/variation/year match. REQUIRED - never null unless truly no comparable sales exist in 6+ months.
+- cheapest_available: Current lowest asking price on active listings (optional)
+- sale_date: When sold (e.g. "2 weeks ago", "April 15, 2026")
+- sales_found: Count of comps you found (e.g. 1, 2, 5)
+- confidence: "high" (3+ recent comps within 90 days), "medium" (1-2 recent comps or older), "low" (1 old comp or partial match)
+- notes: List other comparable prices if found, explain any grade/variation adjustments made
 
-Return ONLY a JSON object. No explanation text.`,
+CRITICAL RULES:
+- NEVER return an asking price as comp_value
+- NEVER guess or estimate - only use REAL completed sales data
+- If you find 0 exact matches, search for closest grade/variation and note the adjustment
+- If card is serial numbered (/x or 1/1), it's rarer - look for similar serialized versions
+- Err on the side of MULTIPLE searches rather than giving up
+- If truly no sales in 6 months, set comp_value to null and explain
+
+Return ONLY valid JSON. No extra text.`,
     response_json_schema: {
       type: "object",
       properties: {
