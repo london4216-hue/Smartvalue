@@ -627,6 +627,7 @@ export default function ValuateCard() {
         <ValuationLoadingScreen
           loadingPhase={loadingPhase}
           compFetchResult={compFetchResult}
+          cardData={cardInput}
         />
       )}
 

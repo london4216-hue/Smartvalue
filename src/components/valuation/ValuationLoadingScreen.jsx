@@ -68,7 +68,7 @@ function Step({ step, state, delay }) {
   );
 }
 
-export default function ValuationLoadingScreen({ loadingPhase, compFetchResult }) {
+export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, cardData }) {
   const [activeStep, setActiveStep] = useState(0);
 
   const steps = loadingPhase === 'fetching_comp' ? PHASE_1_STEPS : PHASE_2_STEPS;
@@ -104,6 +104,16 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult }
       exit={{ opacity: 0 }}
       className="bg-card border border-border/50 rounded-2xl overflow-hidden"
     >
+      {/* Card identity banner */}
+      {cardData?.player_name && (
+        <div className="px-6 py-4 border-b border-border/30 bg-secondary/40">
+          <p className="text-base font-bold text-foreground">{cardData.player_name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {[cardData.card_year, cardData.card_set, cardData.variation, cardData.serial_number ? `/${cardData.serial_number}` : null, cardData.grade].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      )}
+
       {/* Header bar */}
       <div className="px-6 py-5 border-b border-border/30 bg-primary/5">
         <div className="flex items-center gap-3">
