@@ -6,7 +6,8 @@ import CardInputForm from '@/components/valuation/CardInputForm';
 import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
-import { Search, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
 
 // Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
 function getPrintRunScore(serialNumber) {
@@ -623,87 +624,10 @@ export default function ValuateCard() {
 
       {/* Loading State */}
       {isLoading && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-card border border-border/50 rounded-2xl p-8"
-        >
-          {/* Phase Steps */}
-          <div className="space-y-4 mb-6">
-            {/* Step 1 — Fetch Comp */}
-            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-              loadingPhase === 'fetching_comp'
-                ? 'bg-primary/5 border-primary/30'
-                : compFetchResult
-                ? 'bg-emerald-500/5 border-emerald-500/20'
-                : 'bg-secondary/30 border-border/20 opacity-50'
-            }`}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                {loadingPhase === 'fetching_comp' ? (
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                ) : compFetchResult ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                ) : (
-                  <Search className="w-5 h-5 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold ${loadingPhase === 'fetching_comp' ? 'text-primary' : compFetchResult ? 'text-emerald-500' : 'text-muted-foreground'}`}>
-                  {loadingPhase === 'fetching_comp' ? 'Searching eBay completed listings...' : compFetchResult ? 'Last sold price found' : 'Step 1: Fetch last sold comp'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {loadingPhase === 'fetching_comp'
-                    ? 'Scanning eBay, 130point, CardLadder for real hammer prices'
-                    : compFetchResult?.comp_value
-                    ? `$${compFetchResult.comp_value.toLocaleString()} · ${compFetchResult.sale_date || 'recent'} · ${compFetchResult.confidence || 'medium'} confidence`
-                    : 'Live market price lookup'}
-                </p>
-              </div>
-              {compFetchResult?.comp_value && (
-                <div className="text-right shrink-0">
-                  <p className="text-lg font-mono font-bold text-emerald-500">${compFetchResult.comp_value.toLocaleString()}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Step 2 — Run Valuation */}
-            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-              loadingPhase === 'valuing'
-                ? 'bg-primary/5 border-primary/30'
-                : result
-                ? 'bg-emerald-500/5 border-emerald-500/20'
-                : 'bg-secondary/30 border-border/20 opacity-50'
-            }`}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                {loadingPhase === 'valuing' ? (
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                ) : (
-                  <TrendingUp className="w-5 h-5 text-muted-foreground" />
-                )}
-              </div>
-              <div>
-                <p className={`text-sm font-semibold ${loadingPhase === 'valuing' ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {loadingPhase === 'valuing' ? 'Running 44-attribute investment model...' : 'Step 2: AI valuation analysis'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Scoring serial number, auto type, patch quality, pop data & player thesis
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Pulse dots */}
-          <div className="flex justify-center gap-1">
-            {[0, 1, 2, 3, 4].map(i => (
-              <motion.div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full bg-primary"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-              />
-            ))}
-          </div>
-        </motion.div>
+        <ValuationLoadingScreen
+          loadingPhase={loadingPhase}
+          compFetchResult={compFetchResult}
+        />
       )}
 
       {/* Result */}
