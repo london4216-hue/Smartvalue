@@ -136,20 +136,22 @@ Deno.serve(async (req) => {
              /"price"\s*:\s*"([0-9,.]+)"/i,
              /\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i,
              /"priceListing"\s*:\s*"([0-9,.]+)"/i,
-             /"bidAmount"\s*:\s*"([0-9,.]+)"/i
+             /"bidAmount"\s*:\s*"([0-9,.]+)"/i,
+             />\s*\$([0-9,.]+)\s*</,  // Catch $X.XX in HTML text
+             /"currentBidAmount"\s*:\s*"([0-9,.]+)"/,
+             /"minimumThumbnailPrice"\s*:\s*"([0-9,.]+)"/
            ];
 
            let priceMatch = null;
            for (const pattern of pricePatterns) {
              priceMatch = html.match(pattern);
-             if (priceMatch) break;
-           }
-
-           if (priceMatch) {
-             const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
-             // Validate price is reasonable (above $1, below $100k)
-             if (parsed >= 1 && parsed <= 100000) {
-               scrapedPrice = parsed;
+             if (priceMatch) {
+               const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
+               // Validate price is reasonable (above $1, below $100k)
+               if (parsed >= 1 && parsed <= 100000) {
+                 scrapedPrice = parsed;
+                 break;
+               }
              }
            }
 
