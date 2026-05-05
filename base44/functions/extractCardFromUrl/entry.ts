@@ -191,7 +191,7 @@ Be precise—this is a sports card. Return as JSON.`,
       }, { status: 422 });
     }
 
-    // Hard-lock pricing validation with LLM
+    // Init pricing with defaults
     let pricingValidation = {
       pricing: {
         last_sold_price_amount: null,
@@ -207,9 +207,22 @@ Be precise—this is a sports card. Return as JSON.`,
       }
     };
 
+    // Add pricing & image first
+    result.comp_value = pricingValidation.pricing.last_sold_price_amount;
+    result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
+    result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
+    result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
+    result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
+    result._ask_type = pricingValidation.pricing.current_ask_type;
+    result.image_url = scrapedImage || imageFromHash || null;
+
+    // Parallelize pricing validation + grade assessment
+    const promises = [];
+
+    // Pricing LLM (if we have itemId)
     if (itemId && result?.player_name) {
-      try {
-        const pricingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      promises.push(
+        base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: `SYSTEM INSTRUCTION — FOLLOW EXACTLY.
 OUTPUT JSON ONLY.
 NO MARKDOWN.
@@ -283,29 +296,15 @@ Return ONLY this JSON structure:
             }
           },
           model: 'gemini_3_1_pro'
-        });
-        if (pricingResult?.pricing) {
-          pricingValidation = pricingResult;
-        }
-      } catch (_) {
-        // Fallback to scraped data if LLM fails
-      }
+        }).catch(() => null)
+      );
     }
 
-    // Add pricing & image
-    result.comp_value = pricingValidation.pricing.last_sold_price_amount;
-    result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
-    result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
-    result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
-    result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
-    result._ask_type = pricingValidation.pricing.current_ask_type;
-    result.image_url = scrapedImage || imageFromHash || null;
-
-    // AI Grade Assessment from image
+    // Grade assessment LLM (if we have image)
     let aiGradeAssessment = null;
     if (result.image_url) {
-      try {
-        const gradeResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      promises.push(
+        base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: `Grade this sports card image using PSA/BGS/SGC standards.
 
 Card: ${result.player_name} ${result.card_year} ${result.card_set}
@@ -326,9 +325,32 @@ Return:
           },
           file_urls: [result.image_url],
           model: 'gemini_3_1_pro',
-        });
-        aiGradeAssessment = gradeResult;
-      } catch (_) {}
+        }).catch(() => null)
+      );
+    }
+
+    // Wait for all LLM calls in parallel
+    const results = await Promise.all(promises);
+    let resultIdx = 0;
+
+    // Assign pricing result
+    if (itemId && result?.player_name && results[resultIdx]) {
+      const pricingResult = results[resultIdx];
+      if (pricingResult?.pricing) {
+        pricingValidation = pricingResult;
+        result.comp_value = pricingValidation.pricing.last_sold_price_amount;
+        result._comp_confidence = pricingValidation.pricing.last_sold_price_confidence;
+        result._comp_sale_date = pricingValidation.pricing.last_sold_price_date;
+        result.cheapest_available = pricingValidation.pricing.current_ask_price_amount;
+        result._ask_confidence = pricingValidation.pricing.current_ask_confidence;
+        result._ask_type = pricingValidation.pricing.current_ask_type;
+      }
+      resultIdx++;
+    }
+
+    // Assign grade result
+    if (result.image_url && results[resultIdx]) {
+      aiGradeAssessment = results[resultIdx];
     }
 
     if (aiGradeAssessment) {
