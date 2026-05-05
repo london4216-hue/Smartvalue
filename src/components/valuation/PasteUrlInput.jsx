@@ -5,11 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Link as LinkIcon, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Detect eBay "share" links — bare item ID with no keywords
+function isBareEbayShareLink(url) {
+  return /^https?:\/\/(www\.)?ebay\.com\/itm\/\d+\s*$/.test(url.trim());
+}
+
 export default function PasteUrlInput({ onCardExtracted }) {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [extracted, setExtracted] = useState(null);
+  const [bareShareWarning, setBareShareWarning] = useState(false);
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -27,17 +33,25 @@ export default function PasteUrlInput({ onCardExtracted }) {
       const result = response.data;
 
       if (result?.error) {
-        setError("Couldn't read this listing. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
+        if (isBareEbayShareLink(url)) {
+          setError("eBay's short share links don't include enough info. Open the listing in your browser and copy the full URL from the address bar — it will have extra details after the item number.");
+        } else {
+          setError("Couldn't read this listing. Try the full URL from your browser's address bar, or enter card details manually below.");
+        }
         return;
       }
 
       if (result?.player_name && result.player_name !== 'Unknown') {
         setExtracted(result);
       } else {
-        setError("Couldn't identify the card. Try copying the full eBay item URL (ebay.com/itm/...) or enter the card details manually below.");
+        if (isBareEbayShareLink(url)) {
+          setError("Short eBay share links don't contain enough card info. Open the listing in your browser and copy the full URL from the address bar.");
+        } else {
+          setError("Couldn't identify the card. Try the full URL from your browser's address bar, or enter card details manually below.");
+        }
       }
     } catch (err) {
-      setError("Couldn't read this listing. Try copying the full eBay item URL or enter the card details manually below.");
+      setError("Couldn't read this listing. Try the full URL from your browser's address bar, or enter card details manually below.");
     } finally {
       setIsLoading(false);
     }
@@ -90,6 +104,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
                 setUrl(e.target.value);
                 setError('');
                 setExtracted(null);
+                setBareShareWarning(isBareEbayShareLink(e.target.value));
               }}
               onKeyDown={(e) => e.key === 'Enter' && !extracted && !isLoading && handleExtract()}
               disabled={isLoading}
@@ -107,6 +122,18 @@ export default function PasteUrlInput({ onCardExtracted }) {
               )}
             </Button>
           </div>
+
+          {/* Bare share link warning */}
+          {bareShareWarning && !isLoading && !extracted && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600"
+            >
+              <p className="font-semibold mb-0.5">⚠️ eBay Share link detected</p>
+              <p>Short share links often don't work. For best results, open the eBay listing in your browser and copy the full URL from the address bar — it should contain extra keywords after the item number.</p>
+            </motion.div>
+          )}
 
           {isLoading && (
             <p className="text-[11px] text-muted-foreground mt-2 animate-pulse">

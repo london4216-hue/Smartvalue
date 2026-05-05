@@ -32,6 +32,67 @@ Deno.serve(async (req) => {
       ? `https://i.ebayimg.com/images/g/${imgHash}/s-l1600.jpg`
       : null;
 
+    // ── Attempt to fetch the eBay page to extract title + price ─────────────
+    let fetchedTitle = null;
+    let fetchedPrice = null;
+    let fetchedImage = null;
+    if (itemId) {
+      // Try multiple fetch strategies to get past eBay's bot detection
+      const fetchStrategies = [
+        // Strategy 1: Mobile user agent (often less restricted)
+        () => fetch(`https://www.ebay.com/itm/${itemId}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9',
+          }
+        }),
+        // Strategy 2: Desktop Chrome
+        () => fetch(`https://www.ebay.com/itm/${itemId}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+          }
+        }),
+        // Strategy 3: eBay mobile site
+        () => fetch(`https://m.ebay.com/itm/${itemId}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            'Accept': 'text/html',
+          }
+        }),
+      ];
+
+      for (const strategy of fetchStrategies) {
+        if (fetchedTitle) break;
+        try {
+          const fetchRes = await strategy();
+          const html = await fetchRes.text();
+          const isBlocked = html.includes('Access Denied') || html.includes('Robot Check') || html.includes('g-recaptcha') || html.length < 2000;
+          if (isBlocked) continue;
+
+          const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
+            || html.match(/<title>([^<]+)<\/title>/i);
+          if (ogTitleMatch) {
+            const t = ogTitleMatch[1].replace(/ \| eBay.*$/i, '').trim();
+            if (t && t.length > 5 && !t.toLowerCase().includes('access denied')) fetchedTitle = t;
+          }
+
+          const priceMatch = html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i)
+            || html.match(/"convertedCurrentPrice"\s*:\s*\{"value":"([0-9,.]+)"/)
+            || html.match(/"binPrice"\s*:\s*"US \$([0-9,]+(?:\.[0-9]+)?)"/)
+            || html.match(/"price"\s*[":]\s*"?\$?\s*([0-9,]+(?:\.[0-9]{2})?)"/);
+          if (priceMatch) fetchedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
+
+          const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
+          if (imgMatch) fetchedImage = imgMatch[0];
+        } catch (_) {
+          // Try next strategy
+        }
+      }
+    }
+
     const prompt = `You are a sports card data extraction engine. OUTPUT ONLY JSON — no markdown, no commentary.
 
 EBAY LISTING:
@@ -39,29 +100,39 @@ EBAY LISTING:
 ${itemId ? `- Item ID: ${itemId}` : ''}
 ${skw ? `- Search keywords embedded in URL: "${skw}"` : ''}
 ${epid ? `- eBay Product ID (epid): ${epid}` : ''}
+${fetchedTitle ? `- ✅ ACTUAL LISTING TITLE (scraped directly): "${fetchedTitle}"` : ''}
+${fetchedPrice ? `- ✅ ACTUAL LISTING PRICE (scraped directly): $${fetchedPrice}` : ''}
+${fetchedImage ? `- ✅ ACTUAL LISTING IMAGE: ${fetchedImage}` : ''}
 
 STEP 1 — IDENTIFY THE EXACT LISTING:
-Search the web RIGHT NOW using ALL of these:
-${itemId ? `1. Search Google: "ebay.com/itm/${itemId}"` : ''}
-${itemId ? `2. Search: "ebay ${itemId} card sold price"` : ''}
-${skw ? `3. The URL keywords "${skw}" describe the card — use these to identify player/set/grade` : ''}
-4. Fetch or search: https://www.ebay.com/itm/${itemId} for the listing title and BIN price
+${fetchedTitle
+  ? `The listing title was scraped directly: "${fetchedTitle}". Use this as the PRIMARY source of truth for all card details.`
+  : itemId
+    ? `eBay blocked direct page access. You MUST find the listing by searching the web RIGHT NOW:
+  • Search: "${itemId} ebay"
+  • Search: "ebay.com/itm/${itemId}"
+  • Search: "ebay item ${itemId} basketball card"
+  • Search: "${itemId} sports card PSA graded"
+  The eBay listing title appears in Google search results and Google cache. Find it and extract the exact card details from it.
+  ⚠️ DO NOT invent or hallucinate any card details. If you truly cannot find the listing, return all fields as null.`
+    : `Parse what you can from the URL and keywords.`
+}
+${skw ? `- URL keywords for additional context: "${skw}"` : ''}
 
-From the listing title, extract EVERY detail:
-- player_name: Full name. "wemby" = "Victor Wembanyama". Never invent.
+From the listing title, extract:
+- player_name: Full player name. "wemby" = "Victor Wembanyama". ONLY from actual title found.
 - card_year: 4-digit year.
 - card_set: Set name (Prizm, National Treasures, Select, Optic, etc.).
 - card_number: Card # (from "#136" → "136").
 - variation: Parallel color name (Silver, Gold, Purple, Hyper, etc.) — NOT the grade.
 - serial_number: If numbered (e.g. "/25" → "25"). null if not serialized.
-- grade: EXACT grade label if listed (PSA 10, PSA 9, BGS 9.5, Raw, etc.). VERY IMPORTANT — check the title carefully for PSA/BGS/SGC grade.
+- grade: EXACT grade label if listed (PSA 10, PSA 9, BGS 9.5, Raw, etc.). Check title carefully for PSA/BGS/SGC.
 
 STEP 2 — GET THE BIN/ASKING PRICE (cheapest_available):
-This is the MOST IMPORTANT price field. It is the Buy It Now price on THIS listing.
-- Search for the current price on ebay.com/itm/${itemId}
-- Try Google cache: cache:ebay.com/itm/${itemId}
-- The user confirmed this listing is priced around $2,999 — use this as strong signal if your search confirms it
-- cheapest_available = the exact dollar amount the seller is asking RIGHT NOW
+${fetchedPrice
+  ? `✅ The BIN price was scraped directly from the listing: $${fetchedPrice}. Use this as cheapest_available.`
+  : `Search Google for the current asking price on ebay.com/itm/${itemId}. cheapest_available = the exact dollar amount the seller is asking RIGHT NOW.`
+}
 
 STEP 3 — FIND LAST SOLD COMP (comp_value):
 Search for the most recent COMPLETED SALE of the EXACT same card (same player, same set, same variation, same grade):
@@ -143,8 +214,10 @@ Return ONLY this JSON:
       result[key] = (!v || isNaN(v) || v <= 0) ? null : v;
     }
 
-    // Use image from URL hash if LLM didn't find one
-    if (!result.image_url && imageFromHash) {
+    // Use scraped/hash image if LLM didn't find one
+    if (!result.image_url && fetchedImage) {
+      result.image_url = fetchedImage;
+    } else if (!result.image_url && imageFromHash) {
       result.image_url = imageFromHash;
     }
 
