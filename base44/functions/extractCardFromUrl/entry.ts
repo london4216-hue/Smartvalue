@@ -140,24 +140,51 @@ Deno.serve(async (req) => {
        if (res.ok) {
          const html = await res.text();
          if (!html.includes('Access Denied') && html.length > 500) {
+           // Try multiple title sources
            const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
+             || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+             || html.match(/"title"\s*:\s*"([^"]+)"/i)
              || html.match(/<title>([^<]+)<\/title>/i);
            if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
-           // Try multiple patterns to extract current price
+           // Extract description which often has set/year/details
+           const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"'<]+)["']/i);
+           const description = descMatch ? descMatch[1].trim() : '';
+           
+           // Combine title + description for better LLM context
+           if (description && !scrapedTitle.toLowerCase().includes(description.toLowerCase().split(' ')[0])) {
+             scrapedTitle = scrapedTitle + ' ' + description.substring(0, 200);
+           }
+
+           // Try multiple patterns to extract asking price
            const pricePatterns = [
+             /["']currentPrice["']\s*:\s*["']?\$?([\d,]+(?:\.\d{2})?)/i,
              /["']convertedCurrentPrice["']\s*:\s*["']?\$?([\d,]+(?:\.\d{2})?)/i,
-             /["']currentPrice["']\s*:\s*["']?([\d,]+(?:\.\d{2})?)/i,
-             /[\$£€]([\d,]+(?:\.\d{2})?)\s*(?:or|buy|offer)/i,
-             />[\$]([\d,]+(?:\.\d{2})?)<\/span>/i,
-             /Current price[^$]*\$\s*([\d,]+(?:\.\d{2})?)/i
+             /\$\s*([\d,]+(?:\.\d{2})?)\s*<span[^>]*>current price/i,
+             /Current price[^$]*?\$\s*([\d,]+(?:\.\d{2})?)/i,
+             /Price:\s*\$\s*([\d,]+(?:\.\d{2})?)/i,
+             /"price"\s*:\s*"?\$?([\d,]+(?:\.\d{2})?)"/i,
+             /\$\s*([\d,]+(?:\.\d{2})?)</i
            ];
            
            for (const pattern of pricePatterns) {
              const priceMatch = html.match(pattern);
              if (priceMatch) {
-               scrapedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
-               if (scrapedPrice > 0) break;
+               const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+               if (price > 0 && price < 1000000) { // sanity check
+                 scrapedPrice = price;
+                 break;
+               }
+             }
+           }
+
+           // Try to find sold prices / comps
+           const soldMatch = html.match(/sold for\s*\$?\s*([\d,]+(?:\.\d{2})?)/i)
+             || html.match(/sold\s+\$\s*([\d,]+(?:\.\d{2})?)/i);
+           if (soldMatch) {
+             const soldPrice = parseFloat(soldMatch[1].replace(/,/g, ''));
+             if (soldPrice > 0) {
+               scrapedPrice = soldPrice; // If we find a sold price, use it for asking
              }
            }
 
@@ -180,16 +207,26 @@ Deno.serve(async (req) => {
     if (scrapedTitle) {
       try {
         const identificationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Extract card info from this eBay listing title ONLY. Ignore any URL, keywords, or external context.
+          prompt: `Extract card info from this eBay listing text. Be thorough but accurate.
 
-TITLE: "${scrapedTitle}"
+LISTING TEXT: "${scrapedTitle}"
 
-RULES:
-1. Extract ONLY what's literally in the title
-2. player = real person name (not brand)
-3. If missing, set to null
-4. Do NOT guess or infer
-5. Return JSON only
+Extract:
+- player: Real player name (not brand/set name) — required
+- set: Card set (Prizm, Optic, Select, Mosaic, etc)
+- year: Card year (2023, 2023-24, etc)
+- parallel: Color/variant (Silver, Green, Gold, Red, Cracked Ice, etc)
+- card_number: Card # if present
+- rookie: true if rookie or RC mentioned, false otherwise, null if unknown
+- grade_company: PSA, BGS, SGC, CGC (if card is graded)
+- grade_value: Grade number (10, 9.5, 8, etc)
+- serial_number: Serial # if present
+
+Rules:
+1. Extract what's clearly stated
+2. Player is REQUIRED — if no clear player name, return null for player
+3. Do NOT infer or guess
+4. Return JSON only, no markdown
 
 {
   "player": "...",
