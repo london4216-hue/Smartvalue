@@ -102,8 +102,26 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
         {/* Score + Values Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center justify-center gap-4">
             <ScoreGauge score={result.overall_score} label="Investment Score" />
+
+            {/* Eye Appeal Grade Badge */}
+            {result.ai_eye_appeal_grade && (
+              <div className="flex flex-col items-center gap-2">
+                <div className={cn(
+                  "flex items-center justify-center rounded-full w-20 h-20 text-4xl font-bold border-2",
+                  result.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
+                  result.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
+                  result.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
+                  'bg-red-500/10 border-red-500 text-red-500'
+                )}>
+                  {result.ai_eye_appeal_grade}
+                </div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Eye Appeal Grade
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
