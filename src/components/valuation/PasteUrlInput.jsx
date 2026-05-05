@@ -21,29 +21,43 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a sports card data extractor. Extract basketball card details from this listing URL: ${url}
+        prompt: `You are a sports card data extractor. Your job is to extract card details AND find the real last sold price.
 
-CRITICAL INSTRUCTIONS:
-1. Visit the URL and extract ALL available data from the listing page.
-2. DISTINGUISH between asking price vs sold price:
-   - "comp_value" = the most recent ACTUAL SOLD price for this exact card (same player, set, grade). Search your knowledge of recent eBay/PWCC sold comps. This is NOT the listing price.
-   - "cheapest_available" = the current asking/listing price on this page (what the seller wants). Use the price shown on the listing.
-3. If the listing is an ACTIVE (unsold) listing: cheapest_available = the listed price. For comp_value, use your knowledge of recent real sold prices for this card.
-4. If the listing is a COMPLETED/SOLD listing: comp_value = the final sale price. cheapest_available = null.
-5. NEVER set comp_value = cheapest_available unless the listing explicitly shows both as the same transaction.
-6. NEVER return 0 — use null if a value is truly unknown.
+LISTING URL: ${url}
 
-Example: A BGS 9.5 LeBron 2003 Topps Chrome Refractor listed for $30,000 → cheapest_available=30000, comp_value=[research real recent sold price, e.g. $27000-$35000 range from your knowledge].
+STEP 1 — READ THE LISTING PAGE:
+Visit the URL above. Extract all card details (player, year, set, card number, variation, grade, serial number, listing price).
 
-Return a JSON object with these exact fields:
-- player_name: string (REQUIRED — player's full name)
-- card_year: string (e.g. "1986", "2003", "2023")
-- card_set: string (e.g. "Topps Chrome", "Prizm", "National Treasures")
-- card_number: string (e.g. "221", "57")
-- variation: string (e.g. "Refractor", "Gold Parallel", "Silver", "Base", "Superfractor")
-- grade: string (e.g. "PSA 9", "BGS 9.5", "Raw" — include grading company)
-- comp_value: number (most recent REAL SOLD price — NOT the listing price)
-- cheapest_available: number (current asking/listing price on this page)
+STEP 2 — DETERMINE LISTING TYPE:
+- Is this an ACTIVE listing (still for sale, Buy It Now or auction not ended)? → The price shown is the ASKING price, NOT a sold price.
+- Is this a COMPLETED/SOLD listing (shows "Sold" badge, final price)? → That price IS the last sold comp.
+
+STEP 3 — FIND THE REAL LAST SOLD COMP:
+THIS IS THE MOST CRITICAL STEP. Search eBay sold listings for this EXACT card (same player, same set, same parallel/variation, same serial range or numbering, same grade if graded).
+
+Search strategy:
+1. Go to eBay completed/sold listings: search "[player] [year] [set] [variation] [grade] sold"
+2. Look for the most recent actual sale (within last 90 days if possible)
+3. Use the ACTUAL HAMMER PRICE from a completed sale — not an asking price
+4. If multiple recent sales exist, use the most recent one
+5. If no exact match, use the closest comparable (same parallel tier, similar serial range)
+
+⚠️ CRITICAL RULES:
+- comp_value = the price a buyer ACTUALLY PAID in a completed transaction. NEVER the listing/asking price.
+- cheapest_available = the current listing price on the page (what the seller is asking NOW)
+- These two numbers will almost always be DIFFERENT. If they are identical, you likely made an error — double check.
+- If you truly cannot find any real sold comp, set comp_value = null (do NOT guess or use the listing price)
+- NEVER set comp_value = cheapest_available
+
+Return JSON with these fields:
+- player_name: string (full name)
+- card_year: string
+- card_set: string  
+- card_number: string
+- variation: string (include serial number if present, e.g. "/75", "1/1")
+- grade: string (e.g. "Raw", "PSA 9", "BGS 9.5")
+- comp_value: number or null (REAL last sold price from a completed transaction — NOT the listing price)
+- cheapest_available: number or null (current asking price on this listing)
 - is_rookie_year: boolean
 - color_matches_team: boolean
 - has_autograph: boolean
