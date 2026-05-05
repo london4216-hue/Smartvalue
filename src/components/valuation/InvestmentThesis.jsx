@@ -157,42 +157,7 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
 
 
 
-          {/* ── VERDICT 2: Is the card itself fairly valued by the market? ── */}
-          {valueDiff !== null && (() => {
-            const diff = parseFloat(valueDiff);
-            const isUnder = diff >= 8;
-            const isOver = diff <= -8;
-            return (
-              <div className={cn(
-                'rounded-xl p-4 border',
-                isUnder ? 'bg-emerald-500/8 border-emerald-500/25' :
-                isOver ? 'bg-red-500/8 border-red-500/25' :
-                'bg-secondary/40 border-border/20'
-              )}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                       Is This Card A Good Investment?
-                     </p>
-                     <p className={cn('text-sm font-bold leading-snug',
-                       isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-foreground/70'
-                     )}>
-                       {isUnder
-                         ? `Yes — The market sold this card too cheap. It's worth more than what people paid.`
-                         : isOver
-                         ? `No — The market paid too much. It's worth less than the last sale.`
-                         : `Maybe — The price is about fair. No obvious advantage.`}
-                     </p>
-                  </div>
-                  <span className={cn('text-2xl font-mono font-bold shrink-0',
-                    isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-muted-foreground'
-                  )}>
-                    {diff >= 0 ? '+' : ''}{valueDiff}%
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+
         </div>
       </div>
     </motion.div>
