@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Link as LinkIcon, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 // Detect eBay short links from iOS/Android app Share sheet
 function isEbayShortLink(url) {
@@ -205,23 +206,45 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
                   {/* AI Grade Assessment */}
                   {extracted.ai_grade_assessment && (
-                    <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-semibold text-primary">📊 AI Grade Projection</p>
-                        <span className="font-mono font-bold text-primary">{extracted.ai_grade_assessment.estimated_grade}</span>
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-semibold text-primary text-sm">📊 AI Grade Projection</p>
+                        <span className="font-mono font-bold text-primary text-2xl">{extracted.ai_grade_assessment.estimated_grade}</span>
                       </div>
-                      <p className="text-muted-foreground text-[10px] mb-1.5 leading-tight">
+                      {extracted.ai_eye_appeal_grade && (
+                        <div className="mb-2">
+                          <p className="text-xs text-foreground font-semibold mb-1">Eye Appeal Grade</p>
+                          <div className={cn(
+                            "inline-flex items-center justify-center rounded-full w-16 h-16 text-2xl font-bold border-2",
+                            extracted.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
+                            extracted.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
+                            extracted.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
+                            'bg-red-500/10 border-red-500 text-red-500'
+                          )}>
+                            {extracted.ai_eye_appeal_grade}
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-muted-foreground text-xs mb-2 leading-snug">
                         {extracted.ai_grade_disclosure}
                       </p>
+                      {extracted.eye_appeal_reasoning && (
+                        <p className={cn(
+                          "text-sm font-medium leading-snug mb-2",
+                          extracted.eye_appeal_reasoning.includes('excellent') || extracted.eye_appeal_reasoning.includes('sharp') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                        )}>
+                          {extracted.eye_appeal_reasoning}
+                        </p>
+                      )}
                       {extracted.ai_grade_assessment.key_observations && extracted.ai_grade_assessment.key_observations.length > 0 && (
-                        <ul className="text-[10px] text-muted-foreground space-y-0.5 ml-3 list-disc">
+                        <ul className="text-xs text-foreground/80 space-y-0.5 ml-3 list-disc mb-2">
                           {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
                             <li key={idx}>{obs}</li>
                           ))}
                         </ul>
                       )}
                       {extracted.ai_grade_assessment.confidence && (
-                        <p className="text-[9px] text-muted-foreground/70 mt-1 italic">
+                        <p className="text-xs text-muted-foreground/70 italic">
                           Confidence: {extracted.ai_grade_assessment.confidence}
                         </p>
                       )}
