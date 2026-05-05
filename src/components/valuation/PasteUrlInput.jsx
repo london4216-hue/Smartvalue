@@ -180,61 +180,85 @@ export default function PasteUrlInput({ onCardExtracted }) {
             </motion.div>
           )}
 
-          {/* Confirmation step */}
+          {/* Confirmation step — Card Visual Preview */}
           <AnimatePresence>
             {extracted && (
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="mt-3 bg-card border border-border rounded-xl p-3"
+                className="mt-3 bg-card border border-border rounded-xl overflow-hidden"
               >
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-                  ✦ AI identified this card — is this correct?
-                </p>
-                <p className="text-sm font-semibold text-foreground leading-snug">{cardSummary}</p>
-
-                {/* AI Grade Assessment */}
-                {extracted.ai_grade_assessment && (
-                  <div className="mt-2.5 p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-primary">📊 AI Grade Projection</p>
-                      <span className="font-mono font-bold text-primary">{extracted.ai_grade_assessment.estimated_grade}</span>
-                    </div>
-                    <p className="text-muted-foreground text-[10px] mb-1.5 leading-tight">
-                      {extracted.ai_grade_disclosure}
-                    </p>
-                    {extracted.ai_grade_assessment.key_observations && extracted.ai_grade_assessment.key_observations.length > 0 && (
-                      <ul className="text-[10px] text-muted-foreground space-y-0.5 ml-3 list-disc">
-                        {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
-                          <li key={idx}>{obs}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {extracted.ai_grade_assessment.confidence && (
-                      <p className="text-[9px] text-muted-foreground/70 mt-1 italic">
-                        Confidence: {extracted.ai_grade_assessment.confidence}
-                      </p>
-                    )}
+                {/* Card Image */}
+                {extracted.image_url && (
+                  <div className="w-full bg-secondary/30 flex items-center justify-center p-3">
+                    <img
+                      src={extracted.image_url}
+                      alt={cardSummary}
+                      className="max-h-64 w-auto object-contain rounded-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
                   </div>
                 )}
 
-                {(extracted.comp_value || extracted.cheapest_available) && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {extracted.comp_value ? `Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
-                    {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
-                    {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
-                  </p>
-                )}
-                <div className="flex gap-2 mt-3">
-                  <Button size="sm" onClick={handleConfirm} className="flex-1 h-8 text-xs">
-                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                    Yes, correct
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-8 text-xs px-3">
-                    <X className="w-3 h-3 mr-1" />
-                    Wrong — fix it below
-                  </Button>
+                {/* Card Details */}
+                <div className="p-4 space-y-3">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                      ✦ AI identified this card — is this correct?
+                    </p>
+                    <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
+                  </div>
+
+                  {/* AI Grade Assessment */}
+                  {extracted.ai_grade_assessment && (
+                    <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-semibold text-primary">📊 AI Grade Projection</p>
+                        <span className="font-mono font-bold text-primary">{extracted.ai_grade_assessment.estimated_grade}</span>
+                      </div>
+                      <p className="text-muted-foreground text-[10px] mb-1.5 leading-tight">
+                        {extracted.ai_grade_disclosure}
+                      </p>
+                      {extracted.ai_grade_assessment.key_observations && extracted.ai_grade_assessment.key_observations.length > 0 && (
+                        <ul className="text-[10px] text-muted-foreground space-y-0.5 ml-3 list-disc">
+                          {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
+                            <li key={idx}>{obs}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {extracted.ai_grade_assessment.confidence && (
+                        <p className="text-[9px] text-muted-foreground/70 mt-1 italic">
+                          Confidence: {extracted.ai_grade_assessment.confidence}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pricing */}
+                  {(extracted.comp_value || extracted.cheapest_available) && (
+                    <div className="p-2.5 bg-secondary/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground">
+                        {extracted.comp_value ? `💰 Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
+                        {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
+                        {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={handleConfirm} className="flex-1 h-8 text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                      Yes, correct
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-8 text-xs px-3">
+                      <X className="w-3 h-3 mr-1" />
+                      Wrong — fix it
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}
