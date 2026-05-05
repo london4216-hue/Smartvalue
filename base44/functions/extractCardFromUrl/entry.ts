@@ -318,6 +318,44 @@ Return ONLY this JSON:
       model: 'gemini_3_1_pro',
     });
 
+    // ── AI GRADING ASSESSMENT from image (if available) ────────────────────
+    let aiGradeAssessment = null;
+    if (result.image_url) {
+      try {
+        const gradeResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `You are an expert sports card grader trained on PSA, BGS, and SGC grading standards.
+
+CARD: ${result.player_name} ${result.card_year} ${result.card_set}
+
+IMAGE: Analyze this card image for condition/grade potential.
+
+Evaluate centering, corners, edges, and surface quality against PSA/BGS/SGC standards.
+
+Return JSON with:
+- "estimated_grade": e.g. "8.5", "9", "9.5", "10" (your best estimate if this card were submitted)
+- "confidence": "high" | "medium" | "low" (how confident you are based on image clarity)
+- "key_observations": array of 3-4 strings describing what you see (centering, corner wear, surface issues, etc.)
+- "grade_range": e.g. "8–9" if uncertain
+
+Be honest. If image is unclear, set confidence to "low" and provide a range.`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              estimated_grade: { type: "string" },
+              confidence: { type: "string" },
+              key_observations: { type: "array", items: { type: "string" } },
+              grade_range: { type: "string" },
+            }
+          },
+          file_urls: [result.image_url],
+          model: 'gemini_3_1_pro',
+        });
+        aiGradeAssessment = gradeResult;
+      } catch (_) {
+        // Image grading failed — proceed without it
+      }
+    }
+
     // Clean "null"/"unknown" strings
     const BAD = new Set(['null', 'unknown', 'undefined', 'n/a', 'none', '']);
     for (const key of ['player_name', 'card_year', 'card_set', 'card_number', 'variation', 'serial_number', 'grade', 'image_url']) {
@@ -341,6 +379,12 @@ Return ONLY this JSON:
       return Response.json({
         error: 'Could not identify the card from this listing. It may have ended or been removed. Please enter details manually.'
       }, { status: 422 });
+    }
+
+    // Attach AI grade assessment if generated
+    if (aiGradeAssessment) {
+      result.ai_grade_assessment = aiGradeAssessment;
+      result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination and proprietary grader standards.';
     }
 
     return Response.json(result);

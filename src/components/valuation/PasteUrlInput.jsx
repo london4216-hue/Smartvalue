@@ -164,7 +164,7 @@ export default function PasteUrlInput({ onCardExtracted }) {
 
           {isLoading && (
             <p className="text-[11px] text-muted-foreground mt-2 animate-pulse">
-              Fetching listing & searching for sold comps…
+              Fetching listing, analyzing card image for grade projection & searching for sold comps…
             </p>
           )}
 
@@ -193,8 +193,34 @@ export default function PasteUrlInput({ onCardExtracted }) {
                   ✦ AI identified this card — is this correct?
                 </p>
                 <p className="text-sm font-semibold text-foreground leading-snug">{cardSummary}</p>
+
+                {/* AI Grade Assessment */}
+                {extracted.ai_grade_assessment && (
+                  <div className="mt-2.5 p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-primary">📊 AI Grade Projection</p>
+                      <span className="font-mono font-bold text-primary">{extracted.ai_grade_assessment.estimated_grade}</span>
+                    </div>
+                    <p className="text-muted-foreground text-[10px] mb-1.5 leading-tight">
+                      {extracted.ai_grade_disclosure}
+                    </p>
+                    {extracted.ai_grade_assessment.key_observations && extracted.ai_grade_assessment.key_observations.length > 0 && (
+                      <ul className="text-[10px] text-muted-foreground space-y-0.5 ml-3 list-disc">
+                        {extracted.ai_grade_assessment.key_observations.slice(0, 2).map((obs, idx) => (
+                          <li key={idx}>{obs}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {extracted.ai_grade_assessment.confidence && (
+                      <p className="text-[9px] text-muted-foreground/70 mt-1 italic">
+                        Confidence: {extracted.ai_grade_assessment.confidence}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {(extracted.comp_value || extracted.cheapest_available) && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-2">
                     {extracted.comp_value ? `Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
                     {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
                     {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
