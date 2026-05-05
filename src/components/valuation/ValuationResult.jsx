@@ -9,6 +9,7 @@ import ContextualSignals from './ContextualSignals';
 import InvestmentThesis from './InvestmentThesis';
 import ValuationBreakdown from './ValuationBreakdown';
 import PlayerActivityInsights from './PlayerActivityInsights';
+import PopulationReport from './PopulationReport';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 
 const RECOMMENDATION_CONFIG = {
@@ -95,6 +96,14 @@ export default function ValuationResult({ result, onSave, onReset }) {
 
       {/* Player Activity Intelligence — Real-time stats & news */}
       <PlayerActivityInsights playerName={result.player_name} cardYear={result.card_year} />
+
+      {/* Population Report — Scarcity intel */}
+      <PopulationReport 
+        playerName={result.player_name}
+        grade={result.grade}
+        cardYear={result.card_year}
+        cardSet={result.card_set}
+      />
 
       {/* Key Signals — GOTCHA attributes up top */}
        {result.key_signals && result.key_signals.length > 0 && (
