@@ -176,7 +176,7 @@ Return ONLY a JSON object with: last_game, last_10_games, current_season_status,
               {insights.last_game.shooting_pct !== undefined && (
                 <div>
                   <p className="text-[10px] text-muted-foreground/70 mb-1">FG%</p>
-                  <p className="text-lg font-mono font-bold text-foreground">{(insights.last_game.shooting_pct * 100).toFixed(1)}%</p>
+                  <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.shooting_pct.toFixed(1)}%</p>
                 </div>
               )}
             </div>
