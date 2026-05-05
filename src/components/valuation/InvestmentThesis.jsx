@@ -98,77 +98,102 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
           </div>
         </div>
 
-        {/* Price Comparison */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-border/20">
-          {/* Last Sale */}
-          <div>
-            <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-1">
-              Last Sold (90% Anchor)
-            </p>
-            {compValue > 0 ? (
-              <>
-                <p className="text-xl font-mono font-bold text-emerald-400">${compValue.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">What someone actually paid</p>
-              </>
-            ) : (
-              <>
-                <p className="text-base font-mono font-bold text-red-400">No comp found</p>
-                <p className="text-[10px] text-red-400/60 mt-1">⚠ AI estimated from market data</p>
-              </>
-            )}
+        {/* ── THE THREE PRICES — THE CORE DECISION ── */}
+        <div className="pt-2 border-t border-border/20 space-y-3">
+
+          {/* Three-column price row */}
+          <div className="grid grid-cols-3 gap-2">
+            {/* Asking Price (what seller wants) */}
+            <div className={cn(
+              'rounded-xl p-3 border flex flex-col',
+              cheapestAvailable
+                ? cheapestAvailable > (aiValue || 0)
+                  ? 'bg-red-500/8 border-red-500/30'
+                  : 'bg-amber-500/8 border-amber-500/25'
+                : 'bg-secondary/40 border-border/30 opacity-60'
+            )}>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Asking Price</p>
+              {cheapestAvailable ? (
+                <>
+                  <p className={cn('text-xl font-mono font-bold',
+                    cheapestAvailable > (aiValue || 0) ? 'text-red-400' : 'text-amber-400'
+                  )}>${cheapestAvailable.toLocaleString()}</p>
+                  <p className="text-[9px] text-muted-foreground/60 mt-1">What seller wants now</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-base font-mono font-bold text-muted-foreground">—</p>
+                  <p className="text-[9px] text-muted-foreground/50 mt-1">Not provided</p>
+                </>
+              )}
+            </div>
+
+            {/* Last Sold */}
+            <div className={cn(
+              'rounded-xl p-3 border flex flex-col',
+              compValue > 0 ? 'bg-emerald-500/8 border-emerald-500/25' : 'bg-red-500/8 border-red-500/25'
+            )}>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Last Sold</p>
+              {compValue > 0 ? (
+                <>
+                  <p className="text-xl font-mono font-bold text-emerald-400">${compValue.toLocaleString()}</p>
+                  <p className="text-[9px] text-muted-foreground/60 mt-1">What buyer paid</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-base font-mono font-bold text-red-400">No comp</p>
+                  <p className="text-[9px] text-red-400/60 mt-1">⚠ None found</p>
+                </>
+              )}
+            </div>
+
+            {/* AI Value */}
+            <div className="rounded-xl p-3 border bg-primary/8 border-primary/30 flex flex-col">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">AI Value</p>
+              <p className="text-xl font-mono font-bold text-primary">${(aiValue || 0).toLocaleString()}</p>
+              <p className="text-[9px] text-primary/60 mt-1">44-signal model</p>
+            </div>
           </div>
 
-          {/* AI Value */}
-          <div>
-            <p className="text-xs text-primary font-mono uppercase tracking-wider mb-1">
-              44-Point AI Value
-            </p>
-            <p className="text-xl font-mono font-bold text-primary">
-              ${aiValue.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-primary/70 mt-1">
-              Data-driven valuation from grade, scarcity, player signals
-            </p>
-          </div>
+          {/* ── VERDICT BANNERS ── */}
+          {/* Asking vs AI Value — the most critical signal */}
+          {cheapestAvailable && aiValue > 0 && (() => {
+            const askVsAi = ((cheapestAvailable - aiValue) / aiValue * 100).toFixed(1);
+            const overpricedByAsk = parseFloat(askVsAi) > 5;
+            const dealByAsk = parseFloat(askVsAi) < -5;
+            if (!overpricedByAsk && !dealByAsk) return null;
+            return (
+              <div className={cn(
+                'rounded-xl px-4 py-3 border flex items-center justify-between gap-3',
+                overpricedByAsk ? 'bg-red-500/10 border-red-500/40' : 'bg-emerald-500/10 border-emerald-500/40'
+              )}>
+                <p className={cn('text-sm font-bold', overpricedByAsk ? 'text-red-400' : 'text-emerald-400')}>
+                  {overpricedByAsk
+                    ? `⚠️ Asking price is ${askVsAi}% ABOVE AI value — seller is overpriced`
+                    : `✅ Asking price is ${Math.abs(parseFloat(askVsAi))}% BELOW AI value — potential deal`}
+                </p>
+                <span className={cn('text-sm font-mono font-bold shrink-0', overpricedByAsk ? 'text-red-400' : 'text-emerald-400')}>
+                  {parseFloat(askVsAi) >= 0 ? '+' : ''}{askVsAi}%
+                </span>
+              </div>
+            );
+          })()}
 
-          {/* Difference */}
+          {/* Last Sold vs AI Value */}
           {valueDiff !== null && (
-            <div>
-              <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-1">
-                Difference
+            <div className="rounded-xl px-4 py-3 border bg-background/50 border-border/20 flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Last sold vs AI value:
+                <span className={cn('ml-1 font-semibold', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                  {parseFloat(valueDiff) >= 0 ? 'card appears underpriced' : 'card appears overpriced'} at last sale
+                </span>
               </p>
-              <p className={cn('text-xl font-mono font-bold', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <span className={cn('text-sm font-mono font-bold shrink-0', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
                 {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}%
-              </p>
-              <p className="text-[10px] text-muted-foreground/60 mt-1">
-                {parseFloat(valueDiff) >= 0 ? 'Underpriced' : 'Overpriced'}
-              </p>
+              </span>
             </div>
           )}
         </div>
-
-        {/* Margin of Safety / Upside */}
-        {marginOfSafety !== null && (
-          <div className="bg-background/50 rounded-lg p-3 border border-border/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {parseFloat(valueDiff) >= 0 ? '📈 Upside Potential' : '📉 Downside Risk'}
-              </span>
-              <span className={cn('text-sm font-bold font-mono', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                {parseFloat(valueDiff) >= 0 ? '+' : ''}{marginOfSafety}%
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Current Market Context */}
-        {cheapestAvailable && (
-          <div className="bg-background/50 rounded-lg p-3 border border-border/20 text-xs">
-            <p className="text-muted-foreground">
-              <span className="font-semibold text-foreground">Current market:</span> Cheapest available is ${cheapestAvailable.toLocaleString()}
-            </p>
-          </div>
-        )}
       </div>
     </motion.div>
   );
