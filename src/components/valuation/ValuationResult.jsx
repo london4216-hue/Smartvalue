@@ -34,6 +34,10 @@ export default function ValuationResult({ result, onSave, onReset }) {
     ? ((cheapestAvailable - compValue) / compValue * 100).toFixed(1)
     : null;
 
+  // Calculate gem/run alerts
+  const isGem = compValue > 0 && aiValue > 0 && ((aiValue - compValue) / compValue) >= 1.0;
+  const isRun = cheapestAvailable && compValue > 0 && ((cheapestAvailable - compValue) / compValue) < -0.30 && aiValue < compValue;
+
   // Overpriced warning: cheapest available vs AI value
   const cheapestVsAi = cheapestAvailable && aiValue > 0
     ? ((cheapestAvailable - aiValue) / aiValue * 100)
@@ -289,6 +293,40 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </a>
         </div>
       </div>
+
+      {/* GEM ALERT: Value 100%+ over comp */}
+      {isGem && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-5 flex gap-4 items-start">
+          <span className="text-3xl shrink-0 mt-0.5">💎</span>
+          <div>
+            <p className="text-sm font-bold text-amber-400 mb-1">Found a Gem</p>
+            <p className="text-xs text-amber-300/80 leading-relaxed">
+              AI value is <strong>100%+ above</strong> last sale price. This card has massive upside potential based on market signals, rarity, and player demand. Strong buy if you believe in the thesis.
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+              Last Sale: ${compValue.toLocaleString()} → AI Value: ${aiValue.toLocaleString()} (+{valueDiff}%)
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* RUN ALERT: Massive discount + falling value */}
+      {isRun && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500/10 border border-red-500/40 rounded-2xl p-5 flex gap-4 items-start">
+          <span className="text-3xl shrink-0 mt-0.5">🚩</span>
+          <div>
+            <p className="text-sm font-bold text-red-400 mb-1">Run From It</p>
+            <p className="text-xs text-red-300/80 leading-relaxed">
+              Cheapest available is <strong>30%+ below</strong> last sale, AND AI value doesn't justify buying. Market has cooled significantly. Avoid unless you're speculating on a reversal.
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+              Last Sale: ${compValue.toLocaleString()} → Current Ask: ${cheapestAvailable.toLocaleString()} ({cheapestVsComp}%)
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Overpriced Warning */}
       {overpricedWarning && (
