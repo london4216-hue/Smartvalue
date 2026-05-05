@@ -106,7 +106,11 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
             {/* Asking Price (what seller wants) */}
             <div className={cn(
               'rounded-xl p-3 border flex flex-col',
-              cheapestAvailable
+              cheapestAvailable && compValue > 0
+                ? cheapestAvailable > compValue
+                  ? 'bg-red-500/8 border-red-500/30'
+                  : 'bg-amber-500/8 border-amber-500/25'
+                : cheapestAvailable
                 ? cheapestAvailable > (aiValue || 0)
                   ? 'bg-red-500/8 border-red-500/30'
                   : 'bg-amber-500/8 border-amber-500/25'
@@ -116,9 +120,20 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
               {cheapestAvailable ? (
                 <>
                   <p className={cn('text-xl font-mono font-bold',
+                    compValue > 0 && cheapestAvailable > compValue ? 'text-red-400' : 
+                    compValue > 0 && cheapestAvailable < compValue ? 'text-amber-400' :
                     cheapestAvailable > (aiValue || 0) ? 'text-red-400' : 'text-amber-400'
                   )}>${cheapestAvailable.toLocaleString()}</p>
-                  <p className="text-[9px] text-muted-foreground/60 mt-1">What seller wants now</p>
+                  {compValue > 0 && (
+                    <p className={cn('text-[9px] font-mono font-semibold mt-1',
+                      cheapestAvailable > compValue ? 'text-red-400' : 'text-emerald-400'
+                    )}>
+                      {cheapestAvailable > compValue ? '+' : ''}{((cheapestAvailable - compValue) / compValue * 100).toFixed(1)}% vs last sold
+                    </p>
+                  )}
+                  {!compValue || compValue <= 0 && (
+                    <p className="text-[9px] text-muted-foreground/60 mt-1">What seller wants now</p>
+                  )}
                 </>
               ) : (
                 <>
