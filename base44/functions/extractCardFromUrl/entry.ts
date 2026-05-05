@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     if ((!result || !result.player_name) && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Search for eBay item ${itemId} and tell me what basketball card this listing is selling. Return player name, year, set, grade if visible.`,
+          prompt: `Search for eBay item ${itemId} and tell me what basketball card this listing is selling, plus the asking price. Return player name, year, set, grade if visible, and asking_price as a number.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
@@ -156,13 +156,17 @@ Deno.serve(async (req) => {
               player_name: { type: "string" },
               card_year: { type: "string" },
               card_set: { type: "string" },
-              grade: { type: "string" }
+              grade: { type: "string" },
+              asking_price: { type: "number" }
             }
           }
         });
         if (searchResult?.player_name) {
           dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
           result = parseCardFromKeywords(dataToAnalyze);
+          if (searchResult?.asking_price && searchResult.asking_price > 0) {
+            scrapedPrice = searchResult.asking_price;
+          }
         }
       } catch (_) {}
     }
