@@ -155,44 +155,83 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
             </div>
           </div>
 
-          {/* ── VERDICT BANNERS ── */}
-          {/* Asking vs AI Value — the most critical signal */}
+          {/* ── VERDICT 1: Should I buy at the asking price? ── */}
           {cheapestAvailable && aiValue > 0 && (() => {
-            const askVsAi = ((cheapestAvailable - aiValue) / aiValue * 100).toFixed(1);
-            const overpricedByAsk = parseFloat(askVsAi) > 5;
-            const dealByAsk = parseFloat(askVsAi) < -5;
-            if (!overpricedByAsk && !dealByAsk) return null;
+            const askVsAi = ((cheapestAvailable - aiValue) / aiValue * 100);
+            const pct = askVsAi.toFixed(1);
+            const isOverpriced = askVsAi > 5;
+            const isFair = Math.abs(askVsAi) <= 5;
+            const isDeal = askVsAi < -5;
             return (
               <div className={cn(
-                'rounded-xl px-4 py-3 border flex items-center justify-between gap-3',
-                overpricedByAsk ? 'bg-red-500/10 border-red-500/40' : 'bg-emerald-500/10 border-emerald-500/40'
+                'rounded-xl p-4 border',
+                isOverpriced ? 'bg-red-500/10 border-red-500/40' :
+                isDeal ? 'bg-emerald-500/10 border-emerald-500/40' :
+                'bg-amber-500/10 border-amber-500/30'
               )}>
-                <p className={cn('text-sm font-bold', overpricedByAsk ? 'text-red-400' : 'text-emerald-400')}>
-                  {overpricedByAsk
-                    ? `⚠️ Asking price is ${askVsAi}% ABOVE AI value — seller is overpriced`
-                    : `✅ Asking price is ${Math.abs(parseFloat(askVsAi))}% BELOW AI value — potential deal`}
-                </p>
-                <span className={cn('text-sm font-mono font-bold shrink-0', overpricedByAsk ? 'text-red-400' : 'text-emerald-400')}>
-                  {parseFloat(askVsAi) >= 0 ? '+' : ''}{askVsAi}%
-                </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className={cn('text-xs font-mono uppercase tracking-wider mb-1',
+                      isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
+                    )}>
+                      🏷️ Should you buy at the asking price?
+                    </p>
+                    <p className={cn('text-sm font-bold leading-snug',
+                      isOverpriced ? 'text-red-300' : isDeal ? 'text-emerald-300' : 'text-amber-300'
+                    )}>
+                      {isOverpriced
+                        ? `❌ NO — asking price is ${pct}% above what this card is worth. You'd be overpaying by $${Math.round(cheapestAvailable - aiValue).toLocaleString()}.`
+                        : isDeal
+                        ? `✅ YES — asking price is ${Math.abs(parseFloat(pct))}% below AI value. You'd be buying $${Math.round(aiValue - cheapestAvailable).toLocaleString()} under fair value.`
+                        : `⚖️ FAIR — asking price is within 5% of AI value. Neither a steal nor a rip-off.`}
+                    </p>
+                  </div>
+                  <span className={cn('text-2xl font-mono font-bold shrink-0',
+                    isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
+                  )}>
+                    {parseFloat(pct) >= 0 ? '+' : ''}{pct}%
+                  </span>
+                </div>
               </div>
             );
           })()}
 
-          {/* Last Sold vs AI Value */}
-          {valueDiff !== null && (
-            <div className="rounded-xl px-4 py-3 border bg-background/50 border-border/20 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Last sold vs AI value:
-                <span className={cn('ml-1 font-semibold', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                  {parseFloat(valueDiff) >= 0 ? 'card appears underpriced' : 'card appears overpriced'} at last sale
-                </span>
-              </p>
-              <span className={cn('text-sm font-mono font-bold shrink-0', parseFloat(valueDiff) >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}%
-              </span>
-            </div>
-          )}
+          {/* ── VERDICT 2: Is the card itself fairly valued by the market? ── */}
+          {valueDiff !== null && (() => {
+            const diff = parseFloat(valueDiff);
+            const isUnder = diff >= 8;
+            const isOver = diff <= -8;
+            return (
+              <div className={cn(
+                'rounded-xl p-4 border',
+                isUnder ? 'bg-emerald-500/8 border-emerald-500/25' :
+                isOver ? 'bg-red-500/8 border-red-500/25' :
+                'bg-secondary/40 border-border/20'
+              )}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                      📊 Is the card fairly valued by the market?
+                    </p>
+                    <p className={cn('text-sm font-bold leading-snug',
+                      isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-foreground/70'
+                    )}>
+                      {isUnder
+                        ? `Undervalued — last sold $${compValue.toLocaleString()} is ${diff}% below AI value. The market hasn't caught up yet.`
+                        : isOver
+                        ? `Overvalued — last sold $${compValue.toLocaleString()} is ${Math.abs(diff)}% above AI value. The market may be running hot.`
+                        : `Fairly priced — last sold price aligns with AI value within 8%. No clear edge.`}
+                    </p>
+                  </div>
+                  <span className={cn('text-2xl font-mono font-bold shrink-0',
+                    isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-muted-foreground'
+                  )}>
+                    {diff >= 0 ? '+' : ''}{valueDiff}%
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </motion.div>
