@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { motion, AnimatePresence } from 'framer-motion';
-import CardInputForm from '@/components/valuation/CardInputForm';
+import { motion } from 'framer-motion';
 import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
-import { AlertCircle } from 'lucide-react';
 import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
 
 // Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
@@ -370,10 +368,9 @@ Return ONLY a JSON object. No explanation text.`,
 export default function ValuateCard() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(null); // 'fetching_comp' | 'valuing'
-  const [compFetchResult, setCompFetchResult] = useState(null); // store what Phase 1 found
+  const [compFetchResult, setCompFetchResult] = useState(null);
   const [result, setResult] = useState(null);
   const [cardInput, setCardInput] = useState(null);
-  const [prefillData, setPrefillData] = useState(null); // pre-fill form after wrong URL extraction
   const { toast } = useToast();
 
   const ensureNonZeroAdjustments = (aiResult, cardData) => {
@@ -437,13 +434,6 @@ export default function ValuateCard() {
   };
 
   const handleValuate = async (cardData) => {
-    // If user said "wrong card", pre-fill the form with extracted data for correction
-    if (cardData._needs_correction) {
-      const { _needs_correction, ...cleanData } = cardData;
-      setPrefillData(cleanData);
-      return;
-    }
-    setPrefillData(null);
     setIsLoading(true);
     setCardInput(cardData);
     setCompFetchResult(null);
@@ -614,7 +604,6 @@ export default function ValuateCard() {
   const handleReset = () => {
     setResult(null);
     setCardInput(null);
-    setPrefillData(null);
   };
 
   return (
@@ -649,15 +638,9 @@ export default function ValuateCard() {
         />
       )}
 
-      {/* Input Form */}
+      {/* Paste URL Input */}
       {!result && !isLoading && (
-        <>
-          <PasteUrlInput onCardExtracted={handleValuate} />
-
-          <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
-            <CardInputForm key={prefillData ? 'prefill' : 'empty'} onSubmit={handleValuate} isLoading={isLoading} initialData={prefillData} />
-          </div>
-        </>
+        <PasteUrlInput onCardExtracted={handleValuate} />
       )}
     </div>
   );
