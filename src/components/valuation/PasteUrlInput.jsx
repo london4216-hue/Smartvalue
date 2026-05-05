@@ -142,23 +142,14 @@ export default function PasteUrlInput({ onCardExtracted }) {
           </div>
 
           {/* URL warning banners */}
-          {urlWarning && !isLoading && !extracted && (
+          {urlWarning === 'short' && !isLoading && !extracted && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600"
             >
-              {urlWarning === 'short' ? (
-                <>
-                  <p className="font-semibold mb-0.5">📱 eBay app short link</p>
-                  <p>We'll try to follow this link automatically. If it fails, open the listing in your browser and copy the full address-bar URL instead.</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-semibold mb-0.5">⚠️ Bare eBay item link</p>
-                  <p>This link has no card details embedded. It may still work — we'll search the web for the listing. For best results, copy the URL directly from your browser's address bar, which usually includes extra keywords.</p>
-                </>
-              )}
+              <p className="font-semibold mb-0.5">📱 eBay app short link</p>
+              <p>We'll try to follow this link automatically. If it fails, open the listing in your browser and copy the full address-bar URL instead.</p>
             </motion.div>
           )}
 

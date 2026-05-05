@@ -139,14 +139,37 @@ Deno.serve(async (req) => {
     }
 
     // Use scraped title or keywords
-    const dataToAnalyze = scrapedTitle || skw || '';
+    let dataToAnalyze = scrapedTitle || skw || '';
     
     // Parse manually
     let result = parseCardFromKeywords(dataToAnalyze);
     
+    // If no success and we have an item ID, try web search as fallback
+    if ((!result || !result.player_name) && itemId) {
+      try {
+        const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Search for eBay item ${itemId} and tell me what basketball card this listing is selling. Return player name, year, set, grade if visible.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              player_name: { type: "string" },
+              card_year: { type: "string" },
+              card_set: { type: "string" },
+              grade: { type: "string" }
+            }
+          }
+        });
+        if (searchResult?.player_name) {
+          dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
+          result = parseCardFromKeywords(dataToAnalyze);
+        }
+      } catch (_) {}
+    }
+    
     if (!result || !result.player_name) {
       return Response.json({
-        error: 'Could not identify the card from this URL. Try a URL with card keywords like the full eBay listing name.'
+        error: 'Could not identify the card from this URL. Try a URL with card keywords or enter details manually.'
       }, { status: 422 });
     }
 
