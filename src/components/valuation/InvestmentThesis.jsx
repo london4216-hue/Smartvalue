@@ -17,13 +17,6 @@ const ACTION_CONFIG = {
     icon: ShoppingCart,
     thesis: (comp, ai) => `This card is slightly undervalued. The last sale price is a decent entry point. Look for similar prices before buying.`
   },
-  hold: {
-    label: '⏳ Hold',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10 border-amber-500/30',
-    icon: Clock,
-    thesis: (comp, ai) => `Pricing is in fair range. Monitor for clearer signals before deciding.`
-  },
   sell: {
     label: '⚠️ Overpriced',
     color: 'text-orange-400',
