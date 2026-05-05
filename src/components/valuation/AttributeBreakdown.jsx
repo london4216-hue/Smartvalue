@@ -203,73 +203,13 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
     );
   }
 
-  const totalAttributeImpact = Object.entries(ATTRIBUTE_CATEGORIES).reduce((sum, [_, catDef]) => {
-    return sum + catDef.attributes.reduce((catSum, attr) => {
-      const score = scores[attr.key];
-      const impact = calculateAttributeImpact(score, baseValue, attr.weight);
-      return catSum + impact;
-    }, 0);
-  }, 0);
-
-  const impactPercentage = (totalAttributeImpact / baseValue) * 100;
-  const aiEstimatedValue = baseValue + totalAttributeImpact;
-
   return (
     <div className="space-y-4">
       <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
         Valuation Ledger ({Object.values(ATTRIBUTE_CATEGORIES).reduce((s, c) => s + c.attributes.length, 0)} Factors)
       </h3>
 
-      {/* Ledger Header with Impact Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4"
-      >
-        <div className="bg-secondary/50 border border-border/50 rounded-lg p-3">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-1">Comp Baseline</p>
-          <p className="text-lg font-mono font-bold text-foreground">
-            ${baseValue.toLocaleString()}
-          </p>
-        </div>
 
-        <div className={cn(
-          "rounded-lg p-3 border",
-          totalAttributeImpact >= 0
-            ? 'bg-emerald-400/5 border-emerald-400/20'
-            : 'bg-red-400/5 border-red-400/20'
-        )}>
-          <p className={cn(
-            "text-[10px] font-mono uppercase tracking-wider mb-1",
-            totalAttributeImpact >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'
-          )}>
-            Attribute Adjustments
-          </p>
-          <p className={cn(
-            "text-lg font-mono font-bold",
-            totalAttributeImpact >= 0 ? 'text-emerald-400' : 'text-red-400'
-          )}>
-            {totalAttributeImpact >= 0 ? '+' : ''}{(totalAttributeImpact / 1000).toFixed(1)}K
-          </p>
-          <p className={cn(
-            "text-[10px] font-mono mt-1",
-            totalAttributeImpact >= 0 ? 'text-emerald-400/60' : 'text-red-400/60'
-          )}>
-            {impactPercentage >= 0 ? '+' : ''}{impactPercentage.toFixed(1)}%
-          </p>
-        </div>
-
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 mb-1">Est. AI Value</p>
-          <p className="text-lg font-mono font-bold text-primary">
-            ${aiEstimatedValue.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-mono text-primary/60 mt-1">
-            (from attributes alone)
-          </p>
-        </div>
-      </motion.div>
 
       {/* Category Sections */}
       <div className="space-y-3">
