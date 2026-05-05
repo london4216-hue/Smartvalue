@@ -1,62 +1,58 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-async function fetchPage(url) {
-  const strategies = [
-    {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'no-cache',
-    },
-    {
-      'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    {
-      'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-      'Accept': 'text/html',
-    },
+async function tryFetchPage(url) {
+  const agents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
   ];
-
-  for (const headers of strategies) {
+  for (const ua of agents) {
     try {
-      const res = await fetch(url, { headers, redirect: 'follow' });
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'follow',
+      });
       const html = await res.text();
-      if (html.length > 3000 &&
-          !html.includes('verify you\'re not a robot') &&
-          !html.includes('robot or not') &&
-          !html.includes('Sign in to continue')) {
+      // Must have real content and no bot/login walls
+      if (
+        html.length > 5000 &&
+        !html.includes('verify you\'re not a robot') &&
+        !html.includes('robot or not') &&
+        !html.includes('Sign in to continue') &&
+        !html.includes('g-recaptcha') &&
+        !html.includes('Yolo Login') &&
+        (html.includes('<h1') || html.includes('og:title'))
+      ) {
         return html;
       }
-    } catch (_) { /* try next */ }
+    } catch (_) {}
   }
   return null;
 }
 
-function extractFromHtml(html) {
-  const ogTitle   = (html.match(/property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || [])[1] || '';
-  const ogDesc    = (html.match(/property=["']og:description["'][^>]+content=["']([^"']+)["']/i) || [])[1] || '';
-  const ogImage   = (html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i) || [])[1] || '';
-  const twImage   = (html.match(/name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) || [])[1] || '';
-  const ebayImgM  = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"' ]+/);
-  const ebayImg   = ebayImgM ? ebayImgM[0] : '';
+function parseHtml(html) {
+  const get = (re) => (html.match(re) || [])[1] || '';
+  const ogTitle  = get(/property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+  const ogDesc   = get(/property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+  const ogImage  = get(/property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const twImage  = get(/name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+  const htmlTitle = get(/<title[^>]*>([^<]+)<\/title>/i).replace(/\s*[|\-–].+/, '').trim();
+  const h1 = get(/<h1[^>]*>([\s\S]*?)<\/h1>/i).replace(/<[^>]+>/g, '').trim();
 
-  const titleM = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const title  = titleM ? titleM[1].trim() : '';
-  const h1M    = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  const h1     = h1M ? h1M[1].replace(/<[^>]+>/g, '').trim() : '';
+  // Best eBay image URL
+  const ebayImgM = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[A-Za-z0-9~_-]+\/s-l[0-9]+\.[a-z]+/);
+  const ebayImg  = ebayImgM ? ebayImgM[0].replace(/s-l\d+\./, 's-l1600.') : '';
 
   const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  const jsonLdBlocks = [];
+  const jBlocks = [];
   let m;
-  while ((m = jsonLdRe.exec(html)) !== null) {
-    jsonLdBlocks.push(m[1].substring(0, 1500));
-  }
+  while ((m = jsonLdRe.exec(html)) !== null) jBlocks.push(m[1].substring(0, 2000));
 
-  const priceMatches = html.match(/\$[\d,]+\.?\d{0,2}/g) || [];
-  const prices = [...new Set(priceMatches)].slice(0, 20).join(', ');
-
+  const prices = [...new Set((html.match(/\$[\d,]+\.?\d{0,2}/g) || []))].slice(0, 20).join(', ');
   const stripped = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -64,11 +60,30 @@ function extractFromHtml(html) {
     .replace(/\s+/g, ' ')
     .substring(0, 5000);
 
-  const image_url = ebayImg || ogImage || twImage || '';
-  const scraped_title = ogTitle || title || h1 || '';
-  const useful = scraped_title.length > 10 || ogDesc.length > 10;
+  const title = ogTitle || htmlTitle || h1 || '';
+  const image = ebayImg || ogImage || twImage || '';
+  // Only "useful" if we got real listing data (not a redirect/login page)
+  const useful = title.length > 15 &&
+    !title.toLowerCase().includes('sign in') &&
+    !title.toLowerCase().includes('ebay yolo') &&
+    !title.toLowerCase().includes('welcome to ebay');
 
-  return { useful, image_url, scraped_title, ogDesc, prices, jsonLd: jsonLdBlocks.join('\n'), stripped };
+  return { useful, title, ogDesc, image, prices, jsonLd: jBlocks.join('\n'), stripped };
+}
+
+function cleanResult(result) {
+  // Clean "null", "unknown", "undefined" strings that LLMs sometimes emit
+  const BAD = new Set(['null', 'unknown', 'undefined', 'n/a', 'none', '', '0']);
+  for (const key of ['player_name', 'card_year', 'card_set', 'card_number', 'variation', 'serial_number', 'grade', 'image_url']) {
+    if (!result[key] || BAD.has(String(result[key]).toLowerCase().trim())) {
+      result[key] = null;
+    }
+  }
+  for (const key of ['comp_value', 'cheapest_available']) {
+    const v = parseFloat(result[key]);
+    result[key] = (!v || isNaN(v) || v <= 0) ? null : v;
+  }
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -83,94 +98,81 @@ Deno.serve(async (req) => {
     const ebayItemMatch = url.match(/(?:\/itm\/|itemId=|item=)(\d{10,13})/i);
     const ebayItemId = ebayItemMatch ? ebayItemMatch[1] : null;
 
-    const html = await fetchPage(url);
-    const s = html ? extractFromHtml(html) : { useful: false, image_url: '', scraped_title: '', ogDesc: '', prices: '', jsonLd: '', stripped: '' };
+    // Try scraping first
+    const html = await tryFetchPage(url);
+    const s = html ? parseHtml(html) : { useful: false, title: '', ogDesc: '', image: '', prices: '', jsonLd: '', stripped: '' };
 
-    const prompt = s.useful ? `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
-NEVER ask the user to confirm the card. NEVER guess. NEVER substitute a different card.
-ALWAYS use the scraped data below as the SINGLE source of truth.
+    const scrapedBlock = s.useful
+      ? `=== SCRAPED PAGE DATA (USE AS PRIMARY SOURCE) ===
+TITLE: ${s.title}
+DESCRIPTION: ${s.ogDesc}
+PRICES ON PAGE: ${s.prices}
+IMAGE URL: ${s.image}
+JSON-LD:
+${s.jsonLd}
+PAGE TEXT:
+${s.stripped}
+===================================================`
+      : `NOTE: The eBay page could not be scraped (login wall or bot block). This is common for ended/expired listings.
+You MUST use web search to find the card details.`;
 
-SOURCE URL: ${url}
+    const prompt = `You are a sports card identification engine. Your ONLY job is to identify a specific card from an eBay listing and return its data as JSON.
+
+URL: ${url}
 ${ebayItemId ? `EBAY ITEM ID: ${ebayItemId}` : ''}
 
-=== SCRAPED DATA (SINGLE SOURCE OF TRUTH) ===
-SCRAPED_TITLE: ${s.scraped_title}
-SCRAPED_OG_DESC: ${s.ogDesc}
-SCRAPED_PRICES_ON_PAGE: ${s.prices}
-SCRAPED_IMAGE_URL: ${s.image_url}
-SCRAPED_JSON_LD:
-${s.jsonLd}
-SCRAPED_PAGE_TEXT:
-${s.stripped}
-=============================================
+${scrapedBlock}
 
-CARD IDENTIFICATION RULES — READ EVERY WORD OF SCRAPED_TITLE:
-1. player_name: The FULL player name from the title. First proper noun(s). NEVER invent or substitute.
-2. card_year: 4-digit year (e.g. 2021, 2023). Extract from title only.
-3. card_set: Brand/set name (Prizm, National Treasures, Optic, Select, Mosaic, Topps Chrome, etc.).
-4. card_number: Card # in set (e.g. "#136" → "136"). null if absent.
-5. variation: Parallel/color name only (Silver, Gold, Purple Wave, Hyper, etc.). NOT the grade.
-6. serial_number: Pattern like "/25", "/10", "/99" → return just the NUMBER (e.g. "25"). null if none.
-7. grade: Grading info exactly as written (PSA 10, BGS 9.5, SGC 10, Raw, Ungraded, etc.). null if none.
-8. cheapest_available: The ASKING PRICE from SCRAPED_PRICES_ON_PAGE for this listing (what seller wants now).
-9. image_url: Use SCRAPED_IMAGE_URL exactly: "${s.image_url}"
+${!s.useful ? `IMPORTANT: Since the page is blocked, use web search NOW:
+1. Search Google for: "ebay.com/itm/${ebayItemId}" to find cached versions or references
+2. Search: "eBay ${ebayItemId} card" 
+3. Search: "ebay item number ${ebayItemId} sports card"
+4. Try: site:130point.com OR site:cardladder.com for any reference to this item
+5. If it appears to be an ended listing, search for the same card type and estimate price from recent comps` : ''}
 
-PRICE RULES:
-- cheapest_available = the price the seller is asking RIGHT NOW on this listing (from SCRAPED_PRICES_ON_PAGE).
-- comp_value = what a BUYER ACTUALLY PAID in a COMPLETED/SOLD transaction. Search eBay completed listings, 130point.com, cardladder.com for the EXACT card (same player, set, variation, serial, grade).
-- comp_value and cheapest_available are ALWAYS DIFFERENT numbers. comp_value is a past sale. cheapest_available is a current ask.
-- If no real sold comp found, set comp_value to null. DO NOT use the asking price as comp_value.
+EXTRACTION RULES:
+- player_name: Full player name from title (First Last). If not found, return null.
+- card_year: 4-digit year from title (e.g. 2023). null if not found.
+- card_set: Brand/product name (Prizm, National Treasures, Topps Chrome, etc.). null if not found.
+- card_number: The card's number in the set (e.g. from "#136" return "136"). null if absent.
+- variation: Parallel/color (Silver, Gold, Purple, Hyper, etc.). NOT the grade. null if base/none.
+- serial_number: From "/10", "/25", "/99" patterns → return just the number (e.g. "25"). null if not serialized.
+- grade: Exact grading info (PSA 10, BGS 9.5, SGC 10, Raw, Ungraded). null if not stated.
+- cheapest_available: Current asking price (BIN price) for this listing. null if not found.
+- comp_value: Last SOLD price from a completed transaction (eBay completed, 130point, cardladder). DIFFERENT from asking price. null if not found.
+- image_url: ${s.image ? `Use this exact scraped URL: "${s.image}"` : 'The card image URL from the listing (i.ebayimg.com/...). null if not found.'}
+- is_rookie_year: true only if this is the player's official NBA/NFL/MLB rookie year card.
+- has_autograph: true if "Auto" or "Autograph" appears in the title.
+- has_patch: true if "Patch", "RPA", "Mem", or memorabilia is mentioned.
+- color_matches_team: true if the parallel color matches the player's team colors.
+- player_popularity: Current market status — "rising" | "peak" | "legend" | "declining".
 
-Search the web now for sold comps:
-- "eBay completed ${s.scraped_title} sold"
-- 130point.com: ${s.scraped_title}
-- cardladder.com: ${s.scraped_title}
-${ebayItemId ? `- eBay item ${ebayItemId} completed` : ''}`
+CRITICAL RULES:
+- If the card CANNOT be identified at all (listing deleted, no data found anywhere), return player_name as null.
+- NEVER invent or hallucinate a player name. Only use what you actually find.
+- comp_value and cheapest_available must be DIFFERENT numbers (one is a past sale, one is a current ask).
 
-    : `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
-NEVER guess. NEVER substitute a different card. NEVER invent a player name.
-The page could not be scraped. Use ONLY web search to identify this card from its URL.
-
-SOURCE URL: ${url}
-${ebayItemId ? `EBAY ITEM ID: ${ebayItemId}
-
-STEP 1: Search the web for eBay item number ${ebayItemId} to get the EXACT listing title.
-STEP 2: From the title extract: player name, year, set, parallel/variation, serial number (/XX), grade.
-STEP 3: Search eBay completed listings + 130point.com + cardladder.com for the last SOLD price of this exact card.
-STEP 4: cheapest_available = current asking price on this listing. comp_value = last real hammer price paid.` : `
-STEP 1: Search for or visit: ${url}
-STEP 2: Extract all card details from the listing title only.
-STEP 3: Find sold comps on eBay completed, 130point.com, cardladder.com.`}
-
-RULES:
-- NEVER invent a player name — only use what you find in the listing title.
-- comp_value = real hammer price from a COMPLETED sale (different from asking price).
-- cheapest_available = current asking price on the active listing.
-- If the card cannot be identified, return player_name as null.`;
-
-    const jsonSchema = `
-
-Return ONLY this JSON object — no markdown, no commentary:
+Return ONLY valid JSON, no markdown, no explanation:
 {
-  "player_name": "First Last" or null,
-  "card_year": "YYYY" or null,
-  "card_set": "Set Name" or null,
-  "card_number": "###" or null,
-  "variation": "Parallel Name" or null,
-  "serial_number": "##" or null,
-  "grade": "PSA 10" or null,
-  "comp_value": number or null,
-  "cheapest_available": number or null,
-  "image_url": "${s.image_url}",
-  "is_rookie_year": true or false,
-  "color_matches_team": true or false,
-  "has_autograph": true or false,
-  "has_patch": true or false,
-  "player_popularity": "rising" or "peak" or "legend" or "declining"
+  "player_name": "First Last",
+  "card_year": "2023",
+  "card_set": "Prizm",
+  "card_number": "136",
+  "variation": "Silver",
+  "serial_number": null,
+  "grade": "PSA 10",
+  "comp_value": 250,
+  "cheapest_available": 299,
+  "image_url": "https://i.ebayimg.com/...",
+  "is_rookie_year": false,
+  "color_matches_team": false,
+  "has_autograph": false,
+  "has_patch": false,
+  "player_popularity": "peak"
 }`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: prompt + jsonSchema,
+      prompt,
       response_json_schema: {
         type: "object",
         properties: {
@@ -195,14 +197,18 @@ Return ONLY this JSON object — no markdown, no commentary:
       model: 'gemini_3_1_pro',
     });
 
-    if (!result.player_name || result.player_name === 'Unknown') {
-      return Response.json({ error: 'Could not extract card details from this URL.' }, { status: 422 });
+    const cleaned = cleanResult(result);
+
+    if (!cleaned.player_name) {
+      return Response.json({
+        error: 'This eBay listing could not be found — it may have ended or been removed. Please enter the card details manually.'
+      }, { status: 422 });
     }
 
-    // Always prefer the real scraped image over anything the LLM returned
-    if (s.image_url) result.image_url = s.image_url;
+    // Always prefer real scraped image
+    if (s.image && !cleaned.image_url) cleaned.image_url = s.image;
 
-    return Response.json(result);
+    return Response.json(cleaned);
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
