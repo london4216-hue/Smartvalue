@@ -25,13 +25,12 @@ export default function KeySignals({ signals = [], flipVsHold = 'hold' }) {
   return (
     <div className="bg-card border border-border/50 rounded-2xl p-5 sm:p-6">
       <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
-            Key Value Drivers
-          </h3>
-          <span className="text-[10px] font-mono text-muted-foreground ml-1">— what's really moving this card</span>
-        </div>
+         <div className="flex items-center gap-2">
+           <Zap className="w-4 h-4 text-primary" />
+           <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
+             The Big Factors Moving the Price
+           </h3>
+         </div>
         <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold', action.color)}>
           <ActionIcon className="w-3.5 h-3.5" />
           {action.label}
@@ -71,7 +70,7 @@ export default function KeySignals({ signals = [], flipVsHold = 'hold' }) {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {signal.reason}
+                    {signal.reason || 'This factor impacts the card\'s value.'}
                   </p>
                   {/* Impact bar */}
                   <div className="mt-2 h-1 bg-secondary/80 rounded-full overflow-hidden">

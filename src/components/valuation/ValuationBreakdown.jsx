@@ -91,35 +91,35 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
     <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="px-6 pt-6 pb-4 border-b border-border/30">
-      <h3 className="text-sm font-bold text-foreground">How AI Value Is Calculated</h3>
+      <h3 className="text-sm font-bold text-foreground">How We Calculate What This Card Is Worth</h3>
       <p className="text-xs text-muted-foreground mt-1">
-        Last sold price is the 90% anchor. Every signal below adds or subtracts dollars from that baseline.
+        We start with what someone actually paid for it (Last Sold). Then we look at factors like player demand, card rarity, and condition to adjust that price up or down.
       </p>
       </div>
 
       <div className="px-4 py-4 space-y-2">
 
-        {/* ── COMP ANCHOR (90%) ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between px-4 py-4 rounded-xl bg-primary/5 border border-primary/25"
-        >
-          <div>
-            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-0.5">Last Sold (90% Anchor)</p>
-            <p className="text-xs text-muted-foreground">What someone actually paid — your baseline</p>
-          </div>
-          <span className="text-2xl font-mono font-bold text-foreground">
-            {compValue > 0 ? `$${compValue.toLocaleString()}` : '—'}
-          </span>
-        </motion.div>
+        {/* ── COMP ANCHOR ── */}
+         <motion.div
+           initial={{ opacity: 0, y: 6 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="flex items-center justify-between px-4 py-4 rounded-xl bg-primary/5 border border-primary/25"
+         >
+           <div>
+             <p className="text-xs font-mono uppercase tracking-wider text-primary mb-0.5">Last Sold Price</p>
+             <p className="text-xs text-muted-foreground">The most recent actual sale price — this is our starting point</p>
+           </div>
+           <span className="text-2xl font-mono font-bold text-foreground">
+             {compValue > 0 ? `$${compValue.toLocaleString()}` : '—'}
+           </span>
+         </motion.div>
 
-        {/* ── DIVIDER ── */}
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="flex-1 h-px bg-border/40" />
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">AI signal adjustments</span>
-          <div className="flex-1 h-px bg-border/40" />
-        </div>
+         {/* ── DIVIDER ── */}
+         <div className="flex items-center gap-2 px-2 py-1">
+           <div className="flex-1 h-px bg-border/40" />
+           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Value adjustments based on factors below</span>
+           <div className="flex-1 h-px bg-border/40" />
+         </div>
 
         {/* ── INDIVIDUAL DRIVERS ── */}
         {drivers.length > 0 ? (
@@ -142,8 +142,8 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
             )}
           >
             <div>
-              <p className="text-sm font-semibold text-foreground">Remaining signals (combined)</p>
-              <p className="text-xs text-muted-foreground">{Math.max(0, (valueDrivers?.length || 0) - drivers.length + (holdersCompCalc ? 1 : 0))} additional factors rolled up</p>
+              <p className="text-sm font-semibold text-foreground">Other factors combined</p>
+              <p className="text-xs text-muted-foreground">Additional signals that add or subtract value</p>
             </div>
             <span className={cn('text-base font-mono font-bold', supportingDollars >= 0 ? 'text-emerald-500' : 'text-red-500')}>
               {fmt(supportingDollars)}
@@ -166,12 +166,12 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
           <div>
             <p className={cn('text-xs font-mono uppercase tracking-wider mb-0.5',
               diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-primary'
-            )}>= AI Investment Value</p>
+            )}>What This Card Is Worth</p>
             {compValue > 0 && (
               <p className={cn('text-xs font-semibold',
                 diff > 0 ? 'text-emerald-500' : diff < 0 ? 'text-red-500' : 'text-muted-foreground'
               )}>
-                {diff > 0 ? '+' : ''}{fmt(diff)} vs last sold
+                {diff > 0 ? '+' : ''}{fmt(diff)} difference from last sold
               </p>
             )}
           </div>

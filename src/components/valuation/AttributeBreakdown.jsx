@@ -206,7 +206,7 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
   return (
     <div className="space-y-4">
       <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
-        Valuation Ledger ({Object.values(ATTRIBUTE_CATEGORIES).reduce((s, c) => s + c.attributes.length, 0)} Factors)
+        Why This Price? All the Factors ({Object.values(ATTRIBUTE_CATEGORIES).reduce((s, c) => s + c.attributes.length, 0)} signals checked)
       </h3>
 
 
@@ -237,7 +237,7 @@ export default function AttributeBreakdown({ scores, baseValue = 10000 }) {
         className="bg-accent/30 border border-border/30 rounded-lg p-3 mt-4"
       >
         <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-          <span className="font-semibold">How the ledger works:</span> Comp value is the baseline (average of last 3 sales). Each attribute is scored 0-100. Scores above 50 add value (green), below 50 subtract (red). The "Est. AI Value" shows what attributes alone would suggest. Compare this to the actual AI Investment Value to see if AI aligned with fundamental factors.
+          <span className="font-semibold">How to read this:</span> Green scores (60+) are strengths that add value. Red scores (below 40) are weaknesses that subtract value. Click each category to expand and see all factors. The higher the score in each category, the more that factor helps justify a higher price.
         </p>
       </motion.div>
     </div>

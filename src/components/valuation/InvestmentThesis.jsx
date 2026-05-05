@@ -4,39 +4,39 @@ import { cn } from '@/lib/utils';
 
 const ACTION_CONFIG = {
   strong_buy: {
-    label: '🔥 BUY AT LAST SOLD — Strong Value',
+    label: '🔥 Great Buy Opportunity',
     color: 'text-emerald-500',
     bg: 'bg-emerald-500/10 border-emerald-500/30',
     icon: ShoppingCart,
-    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is 20%+ below that. At the last sold price, this is a strong buy. Do NOT pay more than last sold.`
+    thesis: (comp, ai) => `This card is undervalued by the market. Last sold price is well below what it should be worth. Good opportunity to buy.`
   },
   buy: {
-    label: '✓ BUY AT LAST SOLD — Good Entry',
+    label: '✓ Good Buy',
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10 border-emerald-400/20',
     icon: ShoppingCart,
-    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is below that. Good entry if you can get it at or near last sold price. Do NOT pay more.`
+    thesis: (comp, ai) => `This card is slightly undervalued. The last sale price is a decent entry point. Look for similar prices before buying.`
   },
   hold: {
-    label: '⏳ FAIR VALUE — No Clear Edge',
+    label: '⏳ Fairly Priced',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10 border-amber-500/30',
     icon: Clock,
-    thesis: (comp, ai) => `AI values this card at $${ai?.toLocaleString()} — last sold at $${comp?.toLocaleString()} is roughly in line. No clear edge at this price. Hold if you own it, wait for a dip to buy.`
+    thesis: (comp, ai) => `This card is priced fairly. No major advantage to buy or sell right now. Wait for a better price if you're thinking about buying.`
   },
   sell: {
-    label: '📉 CAUTION — Overpriced at Last Sale',
+    label: '⚠️ Overpriced',
     color: 'text-orange-400',
     bg: 'bg-orange-500/10 border-orange-500/20',
     icon: DollarSign,
-    thesis: (comp, ai) => `⚠️ AI values this card at $${ai?.toLocaleString()} — but it last sold for $${comp?.toLocaleString()}. The market paid more than it's worth. Avoid buying at or above last sold price.`
+    thesis: (comp, ai) => `Be careful — this card sold for more than it's worth. Don't pay that much. Look for lower prices elsewhere.`
   },
   strong_sell: {
-    label: '🚨 AVOID — Market Is Running Hot',
+    label: '🚨 Avoid — Too Expensive',
     color: 'text-red-500',
     bg: 'bg-red-500/10 border-red-500/20',
     icon: DollarSign,
-    thesis: (comp, ai) => `🚨 AI values this card at $${ai?.toLocaleString()} — but it last sold for $${comp?.toLocaleString()}. That's 25%+ above fair value. Strong signal the market is overheated. Do not buy at these prices.`
+    thesis: (comp, ai) => `This card is significantly overpriced. The market paid too much. Skip it and find a better deal.`
   }
 };
 
@@ -172,19 +172,19 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <p className={cn('text-xs font-mono uppercase tracking-wider mb-1',
-                      isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
-                    )}>
-                      🏷️ Should you buy at the asking price?
-                    </p>
-                    <p className={cn('text-sm font-bold leading-snug',
-                      isOverpriced ? 'text-red-300' : isDeal ? 'text-emerald-300' : 'text-amber-300'
-                    )}>
-                      {isOverpriced
-                        ? `❌ NO — asking price is ${pct}% above what this card is worth. You'd be overpaying by $${Math.round(cheapestAvailable - aiValue).toLocaleString()}.`
-                        : isDeal
-                        ? `✅ YES — asking price is ${Math.abs(parseFloat(pct))}% below AI value. You'd be buying $${Math.round(aiValue - cheapestAvailable).toLocaleString()} under fair value.`
-                        : `⚖️ FAIR — asking price is within 5% of AI value. Neither a steal nor a rip-off.`}
-                    </p>
+                       isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
+                     )}>
+                       Current Asking Price vs Fair Value
+                     </p>
+                     <p className={cn('text-sm font-bold leading-snug',
+                       isOverpriced ? 'text-red-300' : isDeal ? 'text-emerald-300' : 'text-amber-300'
+                     )}>
+                       {isOverpriced
+                         ? `Too High — Seller is asking more than this card is worth. Look for a lower price.`
+                         : isDeal
+                         ? `Good Deal — The asking price is lower than what this card should cost. This is a good opportunity.`
+                         : `Fair Price — The asking price is about right. Not a huge bargain or a ripoff.`}
+                     </p>
                   </div>
                   <span className={cn('text-2xl font-mono font-bold shrink-0',
                     isOverpriced ? 'text-red-400' : isDeal ? 'text-emerald-400' : 'text-amber-400'
@@ -211,17 +211,17 @@ export default function InvestmentThesis({ compValue, aiValue, flipVsHold, cheap
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                      📊 Is the card fairly valued by the market?
-                    </p>
-                    <p className={cn('text-sm font-bold leading-snug',
-                      isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-foreground/70'
-                    )}>
-                      {isUnder
-                        ? `Undervalued — last sold $${compValue.toLocaleString()} is ${diff}% below AI value. The market hasn't caught up yet.`
-                        : isOver
-                        ? `Overvalued — last sold $${compValue.toLocaleString()} is ${Math.abs(diff)}% above AI value. The market may be running hot.`
-                        : `Fairly priced — last sold price aligns with AI value within 8%. No clear edge.`}
-                    </p>
+                       Is This Card A Good Investment?
+                     </p>
+                     <p className={cn('text-sm font-bold leading-snug',
+                       isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-foreground/70'
+                     )}>
+                       {isUnder
+                         ? `Yes — The market sold this card too cheap. It's worth more than what people paid.`
+                         : isOver
+                         ? `No — The market paid too much. It's worth less than the last sale.`
+                         : `Maybe — The price is about fair. No obvious advantage.`}
+                     </p>
                   </div>
                   <span className={cn('text-2xl font-mono font-bold shrink-0',
                     isUnder ? 'text-emerald-400' : isOver ? 'text-red-400' : 'text-muted-foreground'
