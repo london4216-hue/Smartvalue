@@ -2,12 +2,6 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-function parseDollar(str) {
-  if (!str) return 0;
-  const isNeg = str.includes('-');
-  const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
-  return isNeg ? -num : num;
-}
 
 function fmt(n) {
   const abs = Math.abs(Math.round(n)).toLocaleString('en-US');
@@ -52,23 +46,34 @@ function DriverRow({ label, dollars, reason, delay }) {
   );
 }
 
-export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, holdersCompCalc }) {
-  // ── Prefer backend/AI-returned driver data ────────────────────────────────
-  const hasDriverData = valueDrivers && valueDrivers.length > 0;
+// Parse a percent string like "+12%" or "-5.5%" into a float (e.g. 0.12, -0.055)
+function parsePct(str) {
+  if (!str) return 0;
+  const isNeg = str.includes('-');
+  const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+  return isNeg ? -(num / 100) : num / 100;
+}
 
-  // Build driver list — from backend value_drivers or fallback to empty
+export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, holdersCompCalc }) {
+  const hasDriverData = valueDrivers && valueDrivers.length > 0;
+  const base = compValue > 0 ? compValue : 0;
+
+  // Always compute dollar adjustments ourselves from percent_adjustment × compValue
+  // Never trust the AI's dollar_adjustment field — it hallucinates bad numbers
   const drivers = hasDriverData
     ? valueDrivers.map(d => ({
         label: d.label,
-        dollars: parseDollar(d.dollar_adjustment),
+        dollars: base > 0 ? Math.round(parsePct(d.percent_adjustment) * base) : 0,
         reason: d.reason,
       }))
     : [];
 
-  // Supporting / rollup dollar amount
-  const supportingDollars = holdersCompCalc
-    ? parseDollar(holdersCompCalc.supporting_factors_dollars)
-    : 0;
+  // Sum of displayed drivers
+  const driverTotal = drivers.reduce((sum, d) => sum + d.dollars, 0);
+
+  // Supporting factors = whatever gap remains between driverTotal and the actual diff
+  const actualDiff = base > 0 ? (aiValue || 0) - base : 0;
+  const supportingDollars = drivers.length > 0 ? actualDiff - driverTotal : 0;
 
   // True final AI value for the = row
   const finalValue = aiValue || 0;
