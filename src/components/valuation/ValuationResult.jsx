@@ -33,6 +33,19 @@ export default function ValuationResult({ result, onSave, onReset }) {
     ? ((cheapestAvailable - compValue) / compValue * 100).toFixed(1)
     : null;
 
+  // Overpriced warning: cheapest available vs AI value
+  const cheapestVsAi = cheapestAvailable && aiValue > 0
+    ? ((cheapestAvailable - aiValue) / aiValue * 100)
+    : null;
+  const getOverpricedWarning = (pct) => {
+    if (pct === null || pct <= 0) return null;
+    if (pct <= 5)   return { label: 'Slightly Overpriced',   color: 'text-yellow-500',  bg: 'bg-yellow-500/10 border-yellow-500/30',  icon: '⚠️', tip: 'Asking price is marginally above AI fair value. Minor negotiation may close the gap.' };
+    if (pct <= 15)  return { label: 'Overpriced',             color: 'text-orange-400',  bg: 'bg-orange-400/10 border-orange-400/30',  icon: '⚠️', tip: 'Seller is asking noticeably more than AI fair value. Watch for price drops or seek competing listings.' };
+    if (pct <= 30)  return { label: 'Significantly Overpriced', color: 'text-red-400',   bg: 'bg-red-400/10 border-red-400/30',        icon: '🚨', tip: 'Asking price meaningfully exceeds AI fair value. Strong-arm a counteroffer or pass — better deals likely exist.' };
+    return           { label: 'Severely Overpriced',           color: 'text-red-500',    bg: 'bg-red-500/10 border-red-500/40',        icon: '🚨', tip: 'Asking price is dramatically above what the market and AI data support. Avoid unless unique circumstances justify the premium.' };
+  };
+  const overpricedWarning = getOverpricedWarning(cheapestVsAi);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -272,6 +285,26 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </a>
         </div>
       </div>
+
+      {/* Overpriced Warning */}
+      {overpricedWarning && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className={`border rounded-2xl p-5 flex gap-4 items-start ${overpricedWarning.bg}`}>
+          <span className="text-xl shrink-0 mt-0.5">{overpricedWarning.icon}</span>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <p className={`text-sm font-bold ${overpricedWarning.color}`}>{overpricedWarning.label}</p>
+              <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-full border ${overpricedWarning.bg} ${overpricedWarning.color}`}>
+                +{cheapestVsAi.toFixed(1)}% above AI value
+              </span>
+            </div>
+            <p className="text-xs text-foreground/70 leading-relaxed">{overpricedWarning.tip}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Asking ${cheapestAvailable.toLocaleString()} · AI Fair Value ${aiValue.toLocaleString()}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Possible Treasure Found Alert */}
       {result.possible_treasure && result.possible_treasure_text && (
