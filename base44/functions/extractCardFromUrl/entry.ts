@@ -131,7 +131,13 @@ Deno.serve(async (req) => {
               || html.match(/itemprop="price"[^>]+content="([0-9,.]+)"/i)
               || html.match(/"price"\s*:\s*"([0-9,.]+)"/i)
               || html.match(/\$([0-9,.]+)\s*<span[^>]*>(Buy It Now|Bid)/i);
-            if (priceMatch) scrapedPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
+            if (priceMatch) {
+              const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
+              // Validate price is reasonable (above $10, below $100k)
+              if (parsed >= 10 && parsed <= 100000) {
+                scrapedPrice = parsed;
+              }
+            }
 
             const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
             if (imgMatch) scrapedImage = imgMatch[0];
@@ -149,11 +155,20 @@ Deno.serve(async (req) => {
     // Check if parse looks suspicious (e.g. "sticky" in player name from bad _skw tag)
     const isSuspiciousParse = result && result.player_name && result.player_name.toLowerCase().includes('sticky');
     
-    // If no success or suspicious parse, and we have an item ID, try web search as fallback
-    if (((!result || !result.player_name) || isSuspiciousParse) && itemId) {
+    // If no success, suspicious parse, or bare link (no keywords), always try web search
+    const isBareLink = itemId && !skw;
+    if (((!result || !result.player_name) || isSuspiciousParse || isBareLink) && itemId) {
       try {
         const searchResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Go directly to ebay.com/itm/${itemId} and extract the listing title and current price. From the title, identify: basketball player name, card year, card set name, grade (if any). Return all as JSON.`,
+          prompt: `Fetch the eBay listing at ebay.com/itm/${itemId}. Extract:
+1. Full listing title
+2. Current asking price (BIN or auction price)
+3. Basketball player name
+4. Card year (e.g., 2023)
+5. Card set name (e.g., Prizm, Optic, Select)
+6. Grade if shown (e.g., PSA 9, BGS 10, Raw)
+
+Be precise—this is a sports card. Return as JSON.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
@@ -165,16 +180,19 @@ Deno.serve(async (req) => {
               grade: { type: "string" },
               asking_price: { type: "number" }
             }
-          }
+          },
+          model: 'gemini_3_1_pro'
         });
         if (searchResult?.player_name && searchResult.player_name !== 'Unknown') {
           dataToAnalyze = `${searchResult.player_name} ${searchResult.card_year || ''} ${searchResult.card_set || ''} ${searchResult.grade || ''}`;
           result = parseCardFromKeywords(dataToAnalyze);
-          if (searchResult?.asking_price && searchResult.asking_price > 0) {
+          if (searchResult?.asking_price && searchResult.asking_price >= 10 && searchResult.asking_price <= 100000) {
             scrapedPrice = searchResult.asking_price;
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        // Web search failed silently—continue with manual parse
+      }
     }
     
     if (!result || !result.player_name) {
