@@ -167,6 +167,12 @@ Deno.serve(async (req) => {
        }
      } catch (_) {}
     }
+    
+    // Extract URL hints as fallback if scraping failed
+    const urlHints = parseUrlHints(url);
+    if (!scrapedTitle && urlHints.skw) {
+      scrapedTitle = urlHints.skw;
+    }
 
     // STRICT CARD IDENTIFICATION — Use LLM to parse scraped title ONLY
     let result = null;
