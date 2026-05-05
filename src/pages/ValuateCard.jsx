@@ -512,6 +512,7 @@ export default function ValuateCard() {
         const valuationResponse = await base44.functions.invoke('calculateValuation', {
           last_sold_price: anchorPrice,
           grade: cardData.grade || 'Raw',
+          ai_eye_appeal_grade: enrichedCardData.ai_eye_appeal_grade || 'B',
           attributes: signals.map(sig => ({
             label: sig.label,
             percent_adjustment: `${sig.direction === 'bullish' ? '+' : sig.direction === 'bearish' ? '-' : ''}${sig.impact_pct}%`,

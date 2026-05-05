@@ -221,6 +221,33 @@ Return:
     if (aiGradeAssessment) {
       result.ai_grade_assessment = aiGradeAssessment;
       result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination and proprietary grader standards.';
+      
+      // Compute AI Eye-Appeal Grade (A/B/C/D) based on centering + corners
+      const obsText = (aiGradeAssessment.key_observations || []).join(' ').toLowerCase();
+      const centeringScore = (() => {
+        if (obsText.includes('excellent') || obsText.includes('very good') || obsText.includes('perfect')) return 95;
+        if (obsText.includes('good') || obsText.includes('slight') && !obsText.includes('noticeable')) return 80;
+        if (obsText.includes('noticeable') || obsText.includes('off')) return 55;
+        if (obsText.includes('poor') || obsText.includes('very off')) return 20;
+        return 70;
+      })();
+      
+      const cornerScore = (() => {
+        if (obsText.includes('sharp') || obsText.includes('very sharp') || (obsText.includes('corner') && obsText.includes('sharp'))) return 95;
+        if (obsText.includes('minor wear') || obsText.includes('light wear')) return 80;
+        if (obsText.includes('corner wear') || obsText.includes('wear') || obsText.includes('soft')) return 55;
+        if (obsText.includes('damaged') || obsText.includes('heavy wear')) return 20;
+        return 70;
+      })();
+      
+      // Assign eye-appeal grade
+      let eyeAppealGrade = 'B';
+      if (centeringScore >= 90 && cornerScore >= 90) eyeAppealGrade = 'A';
+      else if (centeringScore < 60 || cornerScore < 60) eyeAppealGrade = 'C';
+      if (centeringScore < 40 && cornerScore < 40) eyeAppealGrade = 'D';
+      
+      result.ai_eye_appeal_grade = eyeAppealGrade;
+      result.eye_appeal_reasoning = `Centering: ${centeringScore >= 90 ? 'excellent' : centeringScore >= 75 ? 'good' : centeringScore >= 55 ? 'noticeable issues' : 'poor'}. Corners: ${cornerScore >= 90 ? 'sharp' : cornerScore >= 75 ? 'minor wear' : cornerScore >= 55 ? 'visible wear' : 'damaged'}.`;
     }
 
     return Response.json(result);

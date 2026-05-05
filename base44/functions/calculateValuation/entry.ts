@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { last_sold_price, grade, attributes } = body;
+    const { last_sold_price, grade, attributes, ai_eye_appeal_grade } = body;
 
     if (!last_sold_price || !grade || !Array.isArray(attributes)) {
       return Response.json({
@@ -71,11 +71,23 @@ Deno.serve(async (req) => {
     const top5 = attributeDrivers.slice(0, 5);
     const remaining = attributeDrivers.slice(5);
 
+    // Eye-Appeal Grade adjustment (A/B/C/D based on centering + corners)
+    const eyeAppealMap = {
+      'A': { min: 0.05, max: 0.12, label: 'Excellent eye appeal' },
+      'B': { min: 0.00, max: 0.03, label: 'Good eye appeal' },
+      'C': { min: -0.12, max: -0.05, label: 'Visible flaws' },
+      'D': { min: -0.25, max: -0.15, label: 'Poor eye appeal' }
+    };
+    
+    const eyeAppealConfig = eyeAppealMap[ai_eye_appeal_grade] || eyeAppealMap['B'];
+    const eyeAppealPercent = (eyeAppealConfig.min + eyeAppealConfig.max) / 2; // midpoint
+    const eyeAppealDollar = Math.round(comp * eyeAppealPercent);
+
     const top5Total = top5.reduce((sum, d) => sum + d.dollarAdjustment, 0);
     const supportingTotal = remaining.reduce((sum, d) => sum + d.dollarAdjustment, 0);
     // NOTE: no artificial baseline added here — the diff-enforcement below handles it cleanly
 
-    let holdersComp = comp + top5Total + supportingTotal;
+    let holdersComp = comp + top5Total + supportingTotal + eyeAppealDollar;
 
     // IRONCLAD RULE: AI Value MUST differ from Last Sold by at least 8% — no exceptions
     const netSignal = top5Total + supportingTotal;
@@ -97,6 +109,12 @@ Deno.serve(async (req) => {
       holders_comp_display: `$${holdersComp.toLocaleString('en-US')}`,
       difference_display: `${parseFloat(differencePercent) >= 0 ? '+' : ''}${differencePercent}%`,
 
+      eye_appeal_adjustment: {
+        grade: ai_eye_appeal_grade || 'B',
+        percent_adjustment: `${(eyeAppealPercent * 100).toFixed(1)}%`,
+        dollar_adjustment: fmt(eyeAppealDollar)
+      },
+
       top_value_drivers: top5.map(d => ({
         label: d.label,
         percent_adjustment: d.percent_adjustment,
@@ -113,6 +131,7 @@ Deno.serve(async (req) => {
         last_sold_comp: `$${comp.toLocaleString('en-US')}`,
         grade_multiplier_label: `${grade} (×${gradeMultiplier}) — grade is already reflected in your comp`,
         top5_dollar_adjustments: top5.map(d => `${fmt(d.dollarAdjustment)} – ${d.label}`),
+        eye_appeal_dollar_adjustment: fmt(eyeAppealDollar),
         supporting_factors_dollars: fmt(supportingTotal),
         final_holders_comp: `$${holdersComp.toLocaleString('en-US')}`
       }
