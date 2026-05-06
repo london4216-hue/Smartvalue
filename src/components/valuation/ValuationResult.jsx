@@ -76,7 +76,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           )}
         >
           <div>
-            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
+            <p className="text-sm font-semibold text-muted-foreground mb-1">
               Current Asking Price
             </p>
             <div className="flex items-baseline gap-2">
@@ -94,13 +94,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
           {cheapestAvailable > aiValue && (
             <div className="text-right shrink-0">
               <p className="text-lg font-bold text-red-500">⚠️ Overpriced</p>
-              <p className="text-xs text-red-600/80 mt-0.5">Above fair value</p>
+              <p className="text-sm text-red-600 mt-0.5">Above fair value</p>
             </div>
           )}
           {cheapestAvailable <= aiValue && (
             <div className="text-right shrink-0">
               <p className="text-lg font-bold text-emerald-500">✓ Good Deal</p>
-              <p className="text-xs text-emerald-600/80 mt-0.5">Below AI value</p>
+              <p className="text-sm text-emerald-600 mt-0.5">Below AI value</p>
             </div>
           )}
         </motion.div>
@@ -118,8 +118,8 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 +{cheapestVsAi.toFixed(1)}% above AI value
               </span>
             </div>
-            <p className="text-xs text-foreground/70 leading-relaxed">{overpricedWarning.tip}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-sm text-foreground/80 leading-relaxed">{overpricedWarning.tip}</p>
+            <p className="text-xs text-muted-foreground mt-1">
               Asking ${cheapestAvailable.toLocaleString()} · AI Fair Value ${aiValue.toLocaleString()}
             </p>
           </div>
@@ -170,7 +170,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{result.player_name}</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-base text-muted-foreground mt-1">
               {[result.card_year, result.card_set, result.variation, result.grade].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -197,7 +197,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 )}>
                   {result.ai_eye_appeal_grade}
                 </div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-semibold text-muted-foreground">
                   Eye Appeal Grade
                 </p>
               </div>
@@ -208,12 +208,12 @@ export default function ValuationResult({ result, onSave, onReset }) {
             {/* Last Sale */}
              <div className={`rounded-xl p-3 border ${compValue > 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/30'}`}>
                <div className="flex items-center justify-between mb-1">
-                 <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                 <p className="text-xs font-semibold text-muted-foreground">
                    Last Sold (90% Anchor)
                  </p>
                  {compValue > 0 && (
                    <span className={cn(
-                     "text-[9px] font-mono px-1.5 py-0.5 rounded border",
+                     "text-xs font-mono px-1.5 py-0.5 rounded border",
                      result._comp_confidence === 'high' ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' :
                      result._comp_confidence === 'user_provided' ? 'text-primary border-primary/30 bg-primary/10' :
                      'text-amber-400 border-amber-400/30 bg-amber-400/10'
@@ -244,24 +244,24 @@ export default function ValuationResult({ result, onSave, onReset }) {
             {/* AI-Driven Projections */}
              {result.projections && (result.projections.one_year || result.projections.three_year || result.projections.five_year) && (
                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                 <p className="text-xs font-mono uppercase tracking-wider text-emerald-500 mb-2">
+                 <p className="text-xs font-semibold text-emerald-600 mb-2">
                    Projected Value Range
                  </p>
                  <div className="space-y-1.5">
                    {result.projections.one_year && (
-                     <div className="flex justify-between items-center text-xs">
+                     <div className="flex justify-between items-center text-sm">
                        <span className="text-muted-foreground">1 Year</span>
                        <span className="font-mono font-bold text-foreground">{result.projections.one_year}</span>
                      </div>
                    )}
                    {result.projections.three_year && (
-                     <div className="flex justify-between items-center text-xs">
+                     <div className="flex justify-between items-center text-sm">
                        <span className="text-muted-foreground">3 Year</span>
                        <span className="font-mono font-bold text-emerald-400">{result.projections.three_year}</span>
                      </div>
                    )}
                    {result.projections.five_year && (
-                     <div className="flex justify-between items-center text-xs">
+                     <div className="flex justify-between items-center text-sm">
                        <span className="text-muted-foreground">5 Year</span>
                        <span className="font-mono font-bold text-emerald-300">{result.projections.five_year}</span>
                      </div>
@@ -279,7 +279,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
               )}>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <ShoppingCart className="w-3 h-3 text-muted-foreground" />
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  <p className="text-xs font-semibold text-muted-foreground">
                     Cheapest Available Now
                   </p>
                 </div>
@@ -310,11 +310,11 @@ export default function ValuationResult({ result, onSave, onReset }) {
               <div className="bg-secondary/80 rounded-xl p-3 border border-border/50">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Shield className="w-3 h-3 text-muted-foreground" />
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  <p className="text-xs font-semibold text-muted-foreground">
                     Grade-Adjusted ({gradeInfo.multiplier}× {result.grade?.split(' ')[0]})
                   </p>
                   {gradeTier && (
-                    <span className={cn("text-[10px] font-mono font-semibold ml-auto", gradeTier.color)}>
+                    <span className={cn("text-xs font-semibold ml-auto", gradeTier.color)}>
                       {gradeTier.label}
                     </span>
                   )}
@@ -328,7 +328,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
                <div className="space-y-2">
                  <div>
-                   <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-0.5">
+                   <p className="text-xs font-semibold text-primary mb-0.5">
                      AI Investment Value
                    </p>
                    <div className="flex items-baseline gap-2">
@@ -365,7 +365,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           <span className="text-3xl shrink-0 mt-0.5">💎</span>
           <div>
             <p className="text-sm font-bold text-amber-400 mb-1">Found a Gem</p>
-            <p className="text-xs text-amber-300/80 leading-relaxed">
+            <p className="text-sm text-amber-700 leading-relaxed">
               AI value is <strong>100%+ above</strong> last sale price. This card has massive upside potential based on market signals, rarity, and player demand. Strong buy if you believe in the thesis.
             </p>
             <p className="text-xs text-muted-foreground mt-2 font-mono">
@@ -382,7 +382,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           <span className="text-3xl shrink-0 mt-0.5">🚩</span>
           <div>
             <p className="text-sm font-bold text-red-400 mb-1">Run From It</p>
-            <p className="text-xs text-red-300/80 leading-relaxed">
+            <p className="text-sm text-red-700 leading-relaxed">
               Cheapest available is <strong>30%+ below</strong> last sale, AND AI value doesn't justify buying. Market has cooled significantly. Avoid unless you're speculating on a reversal.
             </p>
             <p className="text-xs text-muted-foreground mt-2 font-mono">
@@ -399,7 +399,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           <Gem className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-emerald-400 mb-1">Possible Treasure Found</p>
-            <p className="text-xs text-emerald-300/80 leading-relaxed">{result.possible_treasure_text}</p>
+            <p className="text-sm text-emerald-700 leading-relaxed">{result.possible_treasure_text}</p>
           </div>
         </motion.div>
       )}
@@ -411,7 +411,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-red-400 mb-1">Bust Risk</p>
-            <p className="text-xs text-red-300/80 leading-relaxed">{result.bust_risk_text}</p>
+            <p className="text-sm text-red-700 leading-relaxed">{result.bust_risk_text}</p>
           </div>
         </motion.div>
       )}
@@ -423,7 +423,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <div className="flex gap-3 items-start">
               <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Trader Recommendation</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Trader Recommendation</p>
                 <p className="text-sm text-foreground leading-relaxed">{result.trader_recommendation}</p>
               </div>
             </div>
@@ -432,7 +432,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <div className="flex gap-3 items-start">
               <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Liquidity Score</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Liquidity Score</p>
                 <p className="text-sm text-foreground leading-relaxed capitalize">{result.liquidity_score}</p>
               </div>
             </div>
@@ -443,10 +443,10 @@ export default function ValuationResult({ result, onSave, onReset }) {
       {/* Analysis Summary */}
       {result.analysis_summary && (
         <div className="bg-card border border-border/50 rounded-2xl p-6">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+          <h3 className="text-sm font-bold text-foreground mb-3">
             AI Investment Analysis
           </h3>
-          <p className="text-sm text-foreground/80 leading-relaxed">
+          <p className="text-base text-foreground/85 leading-relaxed">
             {result.analysis_summary}
           </p>
         </div>
