@@ -27,9 +27,12 @@ function getPrintRunScore(serialNumber) {
   return 20;
 }
 
-function buildPrompt(cardData) {
+function buildPrompt(cardData, fast = false) {
+  // In fast mode (comp already known), strip verbose notes to massively reduce token count
   const allAttrs = Object.values(ATTRIBUTE_CATEGORIES).flatMap(cat =>
-    cat.attributes.map(a => `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
+    cat.attributes.map(a => fast
+      ? `"${a.key}": (${a.label})`
+      : `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
   );
 
   const gradeInfo = cardData.grade && GRADE_WEIGHTS[cardData.grade]
@@ -524,35 +527,16 @@ export default function ValuateCard() {
     // ── PHASE 2: Full valuation ──────────────────────────────────────────────
     setLoadingPhase('valuing');
 
-    const prompt = buildPrompt(enrichedCardData);
-    const schema = buildResponseSchema();
     const compValue = parseFloat(enrichedCardData.comp_value) || 0;
 
-    // If we already have a comp, no need to search the web again — much faster
-    const needsWebSearch = compValue <= 0;
-
-    // Run LLM valuation and calculateValuation backend truly in parallel
-    let aiResult = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: schema,
-      add_context_from_internet: needsWebSearch,
-      ...(needsWebSearch ? {} : { model: 'gemini_3_flash' }),
-    });
-
-    // Ensure non-zero adjustments
-    aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
-
-    let finalAiValue = parseFloat(aiResult.ai_investment_value) || 0;
-    let backendCalc = null;
-
-    // Compute net signal direction from key_signals so we pick the right side
-    const signals = aiResult.key_signals || [];
-    const netSignalPct = signals.reduce((sum, sig) => {
-      const pct = sig.impact_pct || 0;
-      return sum + (sig.direction === 'bullish' ? pct : sig.direction === 'bearish' ? -pct : 0);
-    }, 0);
+    // Fast mode: comp is known, skip web search, use smaller prompt + faster model
+    const fastMode = compValue > 0;
+    const prompt = buildPrompt(enrichedCardData, fastMode);
+    const schema = buildResponseSchema();
 
     // IRONCLAD: AI value MUST differ from comp by at least 8%. No exceptions.
+    // (defined here so it's available in parallel closures)
+    let netSignalPct = 0;
     const enforceMinDiff = (aiVal, comp) => {
       if (!comp || comp <= 0) return aiVal > 0 ? Math.round(aiVal) : 0;
       const candidate = Math.round(aiVal);
@@ -563,9 +547,27 @@ export default function ValuateCard() {
       return candidate;
     };
 
-    finalAiValue = enforceMinDiff(finalAiValue, compValue);
+    // Run LLM valuation (no web search when comp is known = much faster)
+    let aiResult = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: schema,
+      add_context_from_internet: !fastMode,
+      ...(fastMode ? { model: 'gpt_5_mini' } : {}),
+    });
 
-    // Call calculateValuation backend in parallel with signal processing
+    // Ensure non-zero adjustments
+    aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
+
+    const signals = aiResult.key_signals || [];
+    netSignalPct = signals.reduce((sum, sig) => {
+      const pct = sig.impact_pct || 0;
+      return sum + (sig.direction === 'bullish' ? pct : sig.direction === 'bearish' ? -pct : 0);
+    }, 0);
+
+    let finalAiValue = enforceMinDiff(parseFloat(aiResult.ai_investment_value) || 0, compValue);
+    let backendCalc = null;
+
+    // Call calculateValuation backend — fast local function, run now
     if (signals.length > 0) {
       const anchorPrice = compValue > 0 ? compValue : finalAiValue;
       try {
