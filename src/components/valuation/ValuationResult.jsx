@@ -228,7 +228,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                  <>
                    <p className="text-2xl font-mono font-bold text-emerald-500">${compValue.toLocaleString()}</p>
                    <p className="text-xs text-muted-foreground mt-1">
-                     What someone actually paid · {result._comp_sale_date ? new Date(result._comp_sale_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Most recent completed sale'}
+                     What someone actually paid · {result._comp_sale_date ? (() => { const d = result._comp_sale_date; const parts = d.match(/(\d{4})-(\d{2})-(\d{2})/); return parts ? new Date(+parts[1], +parts[2]-1, +parts[3]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : d; })() : 'Most recent completed sale'}
                    </p>
                  </>
                ) : (
