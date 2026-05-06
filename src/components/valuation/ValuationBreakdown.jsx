@@ -32,7 +32,7 @@ function DriverRow({ label, dollars, reason, delay }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
-        {reason && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{reason}</p>}
+        {reason && <p className="text-sm text-foreground/75 mt-0.5 leading-snug">{reason}</p>}
       </div>
       <span className={cn(
         'text-base font-mono font-bold shrink-0',
@@ -92,7 +92,7 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
       {/* Header */}
       <div className="px-6 pt-6 pb-4 border-b border-border/30">
       <h3 className="text-sm font-bold text-foreground">How We Calculate What This Card Is Worth</h3>
-      <p className="text-xs text-muted-foreground mt-1">
+      <p className="text-sm text-foreground/80 mt-1">
         We start with what someone actually paid for it (Last Sold). Then we look at factors like player demand, card rarity, and condition to adjust that price up or down.
       </p>
       </div>
@@ -117,7 +117,7 @@ export default function ValuationBreakdown({ compValue, aiValue, valueDrivers, h
          {/* ── DIVIDER ── */}
          <div className="flex items-center gap-2 px-2 py-1">
            <div className="flex-1 h-px bg-border/40" />
-           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Value adjustments based on factors below</span>
+           <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Value adjustments based on factors below</span>
            <div className="flex-1 h-px bg-border/40" />
          </div>
 

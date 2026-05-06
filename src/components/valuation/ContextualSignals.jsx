@@ -44,7 +44,7 @@ function SectionCard({ section, index }) {
                   <span className="text-xs text-muted-foreground">{item.label}</span>
                   <span className="text-xs font-bold text-foreground">{item.stat}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.note}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.note}</p>
               </div>
             </motion.div>
           );

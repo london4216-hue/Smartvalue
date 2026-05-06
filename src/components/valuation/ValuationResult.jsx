@@ -227,14 +227,14 @@ export default function ValuationResult({ result, onSave, onReset }) {
                {compValue > 0 ? (
                  <>
                    <p className="text-2xl font-mono font-bold text-emerald-500">${compValue.toLocaleString()}</p>
-                   <p className="text-[9px] text-muted-foreground/70 mt-1">
+                   <p className="text-xs text-muted-foreground mt-1">
                      What someone actually paid · {result._comp_sale_date ? result._comp_sale_date : 'Most recent completed sale'}
                    </p>
                  </>
                ) : (
                  <>
                    <p className="text-lg font-mono font-bold text-red-400">No comp found</p>
-                   <p className="text-[9px] text-red-400/70 mt-1">
+                   <p className="text-xs text-red-400 mt-1">
                      ⚠ AI searched but could not find a real completed sale. AI Value is estimated from market knowledge only — treat with caution.
                    </p>
                  </>
@@ -244,7 +244,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             {/* AI-Driven Projections */}
              {result.projections && (result.projections.one_year || result.projections.three_year || result.projections.five_year) && (
                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                 <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-2">
+                 <p className="text-xs font-mono uppercase tracking-wider text-emerald-500 mb-2">
                    Projected Value Range
                  </p>
                  <div className="space-y-1.5">
@@ -300,7 +300,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                   )}
                 </div>
                 {cheapestAvailable < compValue && (
-                  <p className="text-[10px] text-amber-400/80 mt-1">⚠ Cheaper than last sale — suppresses value</p>
+                  <p className="text-xs text-amber-500 mt-1">⚠ Cheaper than last sale — suppresses value</p>
                 )}
               </div>
             )}
@@ -368,7 +368,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <p className="text-xs text-amber-300/80 leading-relaxed">
               AI value is <strong>100%+ above</strong> last sale price. This card has massive upside potential based on market signals, rarity, and player demand. Strong buy if you believe in the thesis.
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+            <p className="text-xs text-muted-foreground mt-2 font-mono">
               Last Sale: ${compValue.toLocaleString()} → AI Value: ${aiValue.toLocaleString()} (+{valueDiff}%)
             </p>
           </div>
@@ -385,7 +385,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <p className="text-xs text-red-300/80 leading-relaxed">
               Cheapest available is <strong>30%+ below</strong> last sale, AND AI value doesn't justify buying. Market has cooled significantly. Avoid unless you're speculating on a reversal.
             </p>
-            <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+            <p className="text-xs text-muted-foreground mt-2 font-mono">
               Last Sale: ${compValue.toLocaleString()} → Current Ask: ${cheapestAvailable.toLocaleString()} ({cheapestVsComp}%)
             </p>
           </div>

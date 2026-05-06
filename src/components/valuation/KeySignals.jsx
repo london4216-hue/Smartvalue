@@ -69,7 +69,7 @@ export default function KeySignals({ signals = [], flipVsHold = 'hold' }) {
                       {signal.direction === 'bearish' ? '−' : '+'}{impactPct}%
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-foreground/80 leading-relaxed">
                     {signal.reason || 'This factor impacts the card\'s value.'}
                   </p>
                   {/* Impact bar */}

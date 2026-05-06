@@ -141,31 +141,31 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {insights.last_game.points !== undefined && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground/70 mb-1">Points</p>
+                  <p className="text-xs text-muted-foreground mb-1">Points</p>
                   <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.points}</p>
                 </div>
               )}
               {insights.last_game.rebounds !== undefined && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground/70 mb-1">Rebounds</p>
+                  <p className="text-xs text-muted-foreground mb-1">Rebounds</p>
                   <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.rebounds}</p>
                 </div>
               )}
               {insights.last_game.assists !== undefined && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground/70 mb-1">Assists</p>
+                  <p className="text-xs text-muted-foreground mb-1">Assists</p>
                   <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.assists}</p>
                 </div>
               )}
               {insights.last_game.shooting_pct !== undefined && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground/70 mb-1">FG%</p>
+                  <p className="text-xs text-muted-foreground mb-1">FG%</p>
                   <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.shooting_pct.toFixed(1)}%</p>
                 </div>
               )}
             </div>
             {insights.last_game.performance && (
-              <p className="text-[10px] text-muted-foreground/70 mt-2 italic">
+              <p className="text-xs text-muted-foreground mt-2 italic">
                 Performance: {insights.last_game.performance}
               </p>
             )}
@@ -185,15 +185,15 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-[10px] text-muted-foreground/70 mb-1">Avg Points</p>
+                <p className="text-xs text-muted-foreground mb-1">Avg Points</p>
                 <p className="text-lg font-mono font-bold text-foreground">{insights.last_10_games.avg_points}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground/70 mb-1">Games</p>
+                <p className="text-xs text-muted-foreground mb-1">Games</p>
                 <p className="text-lg font-mono font-bold text-foreground">{insights.last_10_games.games_played}</p>
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground/70 mb-1">Trend</p>
+                <p className="text-xs text-muted-foreground mb-1">Trend</p>
                 <p className={cn(
                   "text-lg font-mono font-bold capitalize",
                   insights.last_10_games.trend?.toLowerCase().includes('up') ? 'text-emerald-400' :
@@ -233,11 +233,11 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
                 >
                   <div className="flex items-start gap-2 mb-1">
                     <Calendar className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
-                    <p className="text-[10px] font-mono text-muted-foreground/70">{news.date}</p>
+                    <p className="text-xs font-mono text-muted-foreground">{news.date}</p>
                   </div>
                   <p className="text-xs font-semibold text-foreground mb-1">{news.headline}</p>
                   {news.impact_on_value && (
-                    <p className="text-[10px] text-muted-foreground/80 italic">
+                    <p className="text-xs text-muted-foreground italic">
                       💡 {news.impact_on_value}
                     </p>
                   )}

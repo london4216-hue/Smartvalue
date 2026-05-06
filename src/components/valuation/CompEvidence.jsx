@@ -64,7 +64,7 @@ export default function CompEvidence({ result }) {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{config.description}</p>
+          <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{config.description}</p>
         </div>
       </div>
 
@@ -72,7 +72,7 @@ export default function CompEvidence({ result }) {
       {(tier === 'exact_match' || tier === 'adjusted_comp') && (
         <div className="space-y-2">
           {result._comp_sale_date && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               <span className="text-foreground font-semibold">${compValue?.toLocaleString()}</span>
               {result._comp_sale_date ? ` · Sold ${result._comp_sale_date}` : ''}
             </p>
@@ -99,7 +99,7 @@ export default function CompEvidence({ result }) {
       {/* Similar card baseline — 3 comp cards */}
       {tier === 'similar_card_baseline' && similarComps.length > 0 && (
         <div className="space-y-3">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             3 Similar Sold Comps Used as Baseline
           </p>
           <div className="space-y-2">
@@ -110,7 +110,7 @@ export default function CompEvidence({ result }) {
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-foreground leading-snug">{comp.description}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {comp.source} · {comp.sale_date}
                   </p>
                 </div>
@@ -121,7 +121,7 @@ export default function CompEvidence({ result }) {
                       href={comp.ebay_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
                     >
                       <ExternalLink className="w-2.5 h-2.5" />
                       View
@@ -133,7 +133,7 @@ export default function CompEvidence({ result }) {
           </div>
           <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
             <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-amber-600 leading-relaxed">
+            <p className="text-xs text-amber-700 leading-relaxed">
               <strong>Baseline note:</strong> These similar cards establish the floor. The actual card's value adjusts <strong>upward</strong> from this baseline based on its rarity, serial number, and scarcity premium applied by the AI.
             </p>
           </div>
@@ -156,8 +156,8 @@ export default function CompEvidence({ result }) {
           </div>
           {conservativeReasoning && (
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Conservative Estimate Methodology</p>
-              <p className="text-xs text-foreground/80 leading-relaxed">{conservativeReasoning}</p>
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Conservative Estimate Methodology</p>
+              <p className="text-sm text-foreground/80 leading-relaxed">{conservativeReasoning}</p>
             </div>
           )}
           {notes && (
