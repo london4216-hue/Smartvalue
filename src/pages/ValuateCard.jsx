@@ -675,45 +675,12 @@ export default function ValuateCard() {
         <>
           <PasteUrlInput onCardExtracted={handleValuate} />
 
-          {/* OR — Snap / Upload card image */}
-          {!showManualForm && (
-            <div className="my-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Or — Snap / Upload Your Card</p>
-              <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card, shows condition & eye appeal, then runs the full valuation.</p>
-              <CardImageScanner onConfirmed={handleScanned} />
-            </div>
-          )}
-
-          {/* Manual form */}
-          {showManualForm && (
-            <div className="mt-4 bg-card border border-border/50 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-foreground">Card Details</p>
-                <button
-                  onClick={() => { setShowManualForm(false); setScannedData(null); }}
-                  className="text-xs text-muted-foreground hover:text-foreground underline"
-                >
-                  Cancel
-                </button>
-              </div>
-              <CardInputForm
-                onSubmit={handleValuate}
-                isLoading={isLoading}
-                initialData={scannedData || {}}
-              />
-            </div>
-          )}
-
-          {!showManualForm && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setShowManualForm(true)}
-                className="text-xs text-muted-foreground hover:text-foreground underline"
-              >
-                Enter card details manually instead
-              </button>
-            </div>
-          )}
+          {/* Snap / Upload card image */}
+          <div className="my-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Or — Snap / Upload Your Card</p>
+            <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card, shows condition & eye appeal, then runs the full valuation.</p>
+            <CardImageScanner onConfirmed={handleScanned} />
+          </div>
 
           <MarketAlertsDashboard />
         </>
