@@ -87,7 +87,9 @@ export default function CardImageScanner({ onConfirmed }) {
   const [imagePreview, setImagePreview] = useState(null);
   const [extracted, setExtracted]       = useState(null);
   const [error, setError]               = useState('');
-  const [awaitingAutoConfirm, setAwaitingAutoConfirm] = useState(false);
+  // null = not needed, 'on_card' | 'sticker' | null(unset) = user selection
+  const [autoTypeConfirmed, setAutoTypeConfirmed] = useState(null); // null means not yet confirmed
+  const [needsAutoConfirm, setNeedsAutoConfirm] = useState(false);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
 
@@ -95,6 +97,8 @@ export default function CardImageScanner({ onConfirmed }) {
     if (!file || !file.type.startsWith('image/')) return;
     setError('');
     setExtracted(null);
+    setAutoTypeConfirmed(null);
+    setNeedsAutoConfirm(false);
 
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target.result);
@@ -104,9 +108,13 @@ export default function CardImageScanner({ onConfirmed }) {
     try {
       const result = await analyzeCardImage(file);
       setExtracted(result);
-      // If auto detected but type is uncertain, ask user to confirm before proceeding
-      if (result.has_autograph && result._auto_type_uncertain) {
-        setAwaitingAutoConfirm(true);
+      // If card has autograph (any detection state), require explicit user confirmation
+      if (result.has_autograph) {
+        setNeedsAutoConfirm(true);
+        // Pre-select AI's confident detection so user just taps confirm
+        if (!result._auto_type_uncertain) {
+          setAutoTypeConfirmed(result.is_sticker_auto ? 'sticker' : 'on_card');
+        }
       }
     } catch (err) {
       setError(err.message || "Couldn't identify the card. Try a clearer photo.");
@@ -127,24 +135,20 @@ export default function CardImageScanner({ onConfirmed }) {
     setExtracted(null);
     setError('');
     setScanning(false);
-    setAwaitingAutoConfirm(false);
+    setNeedsAutoConfirm(false);
+    setAutoTypeConfirmed(null);
   };
 
   const handleConfirm = () => {
-    onConfirmed(extracted);
+    // Bake the confirmed auto type into the data before sending
+    const finalData = needsAutoConfirm && autoTypeConfirmed
+      ? { ...extracted, is_sticker_auto: autoTypeConfirmed === 'sticker', _auto_type_uncertain: false }
+      : extracted;
+    onConfirmed(finalData);
   };
 
   const handleWrongCard = () => {
     onConfirmed({ ...extracted, _needs_correction: true });
-  };
-
-  const handleAutoTypeSelect = (type) => {
-    setExtracted(prev => ({
-      ...prev,
-      is_sticker_auto: type === 'sticker',
-      _auto_type_uncertain: false,
-    }));
-    setAwaitingAutoConfirm(false);
   };
 
   const cardSummary = extracted ? [
@@ -246,24 +250,66 @@ export default function CardImageScanner({ onConfirmed }) {
                 <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
               </div>
 
-              {/* Auto type confirmation — ask user before proceeding */}
-              {awaitingAutoConfirm && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
-                  <p className="text-xs font-semibold text-amber-600">✍️ We detected an autograph — is it on-card or a sticker auto?</p>
-                  <p className="text-[10px] text-amber-600/80">This significantly affects valuation accuracy. Please confirm before we proceed.</p>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" onClick={() => handleAutoTypeSelect('on_card')} className="flex-1 h-8 text-xs border-amber-500/40 text-amber-700 hover:bg-amber-500/10">
-                      On-Card Auto
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleAutoTypeSelect('sticker')} className="flex-1 h-8 text-xs border-amber-500/40 text-amber-700 hover:bg-amber-500/10">
-                      Sticker Auto
-                    </Button>
+              {/* Auto type confirmation — always required when autograph detected */}
+              {needsAutoConfirm && (
+                <div className={cn(
+                  "p-3 rounded-lg border space-y-2",
+                  autoTypeConfirmed
+                    ? "bg-emerald-500/5 border-emerald-500/30"
+                    : "bg-amber-500/10 border-amber-500/40"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">✍️</span>
+                    <p className="text-xs font-bold text-foreground">Autograph Type — confirm before valuation</p>
+                    <span className="text-[10px] text-red-500 font-semibold ml-auto">Required</span>
                   </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug">
+                    On-card autos are worth <strong>40–200% more</strong> than sticker autos. This is a critical value driver.
+                    {!extracted._auto_type_uncertain && autoTypeConfirmed && (
+                      <span className="text-primary ml-1">AI detected: <strong>{autoTypeConfirmed === 'sticker' ? 'Sticker Auto' : 'On-Card Auto'}</strong> — confirm or correct below.</span>
+                    )}
+                    {extracted._auto_type_uncertain && (
+                      <span className="text-amber-600 ml-1">AI couldn't determine type from the image — please select manually.</span>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAutoTypeConfirmed('on_card')}
+                      className={cn(
+                        "flex-1 h-9 rounded-lg text-xs font-semibold border-2 transition-all",
+                        autoTypeConfirmed === 'on_card'
+                          ? "bg-emerald-500 border-emerald-500 text-white"
+                          : "bg-transparent border-border text-muted-foreground hover:border-emerald-500/60 hover:text-emerald-600"
+                      )}
+                    >
+                      ✅ On-Card Auto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAutoTypeConfirmed('sticker')}
+                      className={cn(
+                        "flex-1 h-9 rounded-lg text-xs font-semibold border-2 transition-all",
+                        autoTypeConfirmed === 'sticker'
+                          ? "bg-amber-500 border-amber-500 text-white"
+                          : "bg-transparent border-border text-muted-foreground hover:border-amber-500/60 hover:text-amber-600"
+                      )}
+                    >
+                      🏷️ Sticker Auto
+                    </button>
+                  </div>
+                  {autoTypeConfirmed && (
+                    <p className={cn("text-[10px] font-semibold", autoTypeConfirmed === 'on_card' ? "text-emerald-600" : "text-amber-600")}>
+                      {autoTypeConfirmed === 'on_card'
+                        ? "✓ On-card auto confirmed — premium value applied"
+                        : "✓ Sticker auto confirmed — discount applied to AI value"}
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Condition Assessment */}
-              {extracted.ai_grade_assessment && !awaitingAutoConfirm && (
+              {extracted.ai_grade_assessment && (
                 <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
                   <p className="font-semibold text-primary text-sm">📐 Visual Assessment</p>
 
@@ -304,25 +350,26 @@ export default function CardImageScanner({ onConfirmed }) {
                 </div>
               )}
 
-              {/* Actions — only show after auto type is confirmed */}
-              {!awaitingAutoConfirm && (
-                <>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" onClick={handleConfirm} className="flex-1 h-9 text-xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                      Yes, run AI valuation
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-9 text-xs px-3">
-                      <X className="w-3 h-3 mr-1" />
-                      Wrong — fix it
-                    </Button>
-                  </div>
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={handleConfirm}
+                  disabled={needsAutoConfirm && !autoTypeConfirmed}
+                  className="flex-1 h-9 text-xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                  {needsAutoConfirm && !autoTypeConfirmed ? 'Select auto type above' : 'Yes, run AI valuation'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-9 text-xs px-3">
+                  <X className="w-3 h-3 mr-1" />
+                  Wrong — fix it
+                </Button>
+              </div>
 
-                  <button onClick={handleReset} className="w-full text-[10px] text-muted-foreground hover:text-foreground underline text-center">
-                    Scan a different card
-                  </button>
-                </>
-              )}
+              <button onClick={handleReset} className="w-full text-[10px] text-muted-foreground hover:text-foreground underline text-center">
+                Scan a different card
+              </button>
             </div>
           </motion.div>
         )}
