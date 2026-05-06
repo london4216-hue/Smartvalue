@@ -350,28 +350,25 @@ Return JSON only.`,
     result._ask_type = 'buy_it_now';
     result.image_url = scrapedImage || imageFromHash || null;
 
-    // Grade assessment LLM (if we have image) — run in parallel with nothing else to await
-    let aiGradeAssessment = null;
-    if (result.image_url) {
-     try {
-       aiGradeAssessment = await base44.asServiceRole.integrations.Core.InvokeLLM({
-         prompt: `Assess this sports card image condition briefly.
-    Card: ${result.player_name} ${result.card_year || ''} ${result.card_set || ''}
-    Return: estimated_grade, confidence (high/medium/low), key_observations (2-3 items array), grade_range`,
-         response_json_schema: {
-           type: "object",
-           properties: {
-             estimated_grade: { type: "string" },
-             confidence: { type: "string" },
-             key_observations: { type: "array", items: { type: "string" } },
-             grade_range: { type: "string" },
-           }
-         },
-         file_urls: [result.image_url],
-         model: 'gemini_3_flash',
-       });
-     } catch (_) {}
-    }
+    // Grade assessment — fire immediately, don't await sequentially
+    const gradePromise = result.image_url
+      ? base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Sports card image: grade centering/corners/surface/edges briefly. Return estimated_grade, confidence, key_observations (2-3 short strings), grade_range.`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              estimated_grade: { type: "string" },
+              confidence: { type: "string" },
+              key_observations: { type: "array", items: { type: "string" } },
+              grade_range: { type: "string" },
+            }
+          },
+          file_urls: [result.image_url],
+          model: 'gemini_3_flash',
+        }).catch(() => null)
+      : Promise.resolve(null);
+
+    const aiGradeAssessment = await gradePromise;
 
     // Assign grade & eye appeal
     if (aiGradeAssessment) {

@@ -358,24 +358,18 @@ There may be ZERO direct comps for this exact card. Follow the ESCALATING COMP S
     : 'This card has an autograph. Prefer autograph comps when available.';
 
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `Sports card comp researcher. Find REAL sold prices only — NO asking prices.
+    prompt: `Find the most recent REAL sold price for this sports card. Search eBay sold listings, 130point, PWCC, Goldin.
 
-${ultraRareNote}
-CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
+${ultraRareNote}CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
 ${autoFilter}
 
-SEARCH STRATEGY (stop at first success):
-TIER 1 — Search eBay sold, PWCC, Goldin, 130point for: "${primarySearch} sold" → tier="exact_match"
-TIER 2 — Same card, adj grade/serial → tier="adjusted_comp", explain in notes
-TIER 3 — 3 similar sold cards as baseline (esp. for ultra-rare) → tier="similar_card_baseline", return similar_comps array
-TIER 4 — No data: conservative estimate from market knowledge → tier="no_comp_conservative_estimate"
+TIERS (use first that works):
+T1 exact match → tier="exact_match"
+T2 adj grade/serial → tier="adjusted_comp"
+T3 3 similar cards as baseline → tier="similar_card_baseline", fill similar_comps
+T4 no data → tier="no_comp_conservative_estimate"
 
-RETURN JSON:
-- tier, comp_value (null only for T4), cheapest_available, sale_date, sales_found, confidence (high/medium/low)
-- notes (what you found, adjustments, data quality)
-- ebay_link (T1 only)
-- similar_comps: [{description, sold_price, sale_date, source, ebay_link}] (T3 only)
-- conservative_estimate_reasoning (T4 only)`,
+Return JSON: tier, comp_value, cheapest_available, sale_date, confidence, notes, ebay_link, similar_comps, conservative_estimate_reasoning`,
     response_json_schema: {
       type: "object",
       properties: {
@@ -404,7 +398,7 @@ RETURN JSON:
       }
     },
     add_context_from_internet: true,
-    model: 'gemini_3_1_pro',
+    model: 'gemini_3_flash',
   });
 
   return result;
