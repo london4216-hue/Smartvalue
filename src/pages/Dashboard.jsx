@@ -55,14 +55,14 @@ function CTABanner() {
       className="mb-10 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent border border-primary/25 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5"
     >
       <div>
-        <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Ready to invest smarter?</p>
-        <h2 className="text-xl font-bold text-foreground">Run your own AI valuation — free.</h2>
-        <p className="text-sm text-muted-foreground mt-1.5">Enter any card. Get 42-attribute investment intelligence in seconds.</p>
+        <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Your edge starts here</p>
+        <h2 className="text-xl font-bold text-foreground">Paste a link. Get the real number in seconds.</h2>
+        <p className="text-sm text-muted-foreground mt-1.5">44 data signals. One AI verdict. Flip it or hold it — you decide.</p>
       </div>
       <Link to="/valuate" className="shrink-0">
         <Button className="h-12 px-8 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold whitespace-nowrap">
           <Sparkles className="w-4 h-4 mr-2" />
-          Valuate a Card
+          Get My AI Value
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </Link>
@@ -121,10 +121,10 @@ function RecentAndTrending({ cards }) {
               <Sparkles className="w-6 h-6 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-foreground">No valuations yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Run your first AI valuation to see it here</p>
+            <p className="text-xs text-muted-foreground mt-1">Paste a card link — let AI run the 44-signal verdict</p>
             <Link to="/valuate">
               <Button variant="outline" className="mt-4 rounded-xl border-border/50">
-                Get Started <ArrowRight className="w-4 h-4 ml-2" />
+                Run Your First Valuation <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
           </div>
@@ -159,13 +159,13 @@ export default function Dashboard() {
       >
         <div className="flex items-center gap-2 mb-4">
           <Zap className="w-4 h-4 text-primary" />
-          <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Card Trading Intelligence</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-primary">AI Card Intelligence · 44 Data Signals</span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-4">
-          Never overpay for a card again.
+          The last sold comp isn't the whole story.
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl leading-relaxed mb-8">
-          Compare asking prices against real market data. Get AI-driven fair value estimates based on 44 investment attributes. Find the best deals live on eBay, PWCC, Goldin & COMC. Alert you instantly when graded copies move.
+          Last sale is just the starting point. Our AI runs 44 data signals — scarcity, grade, player trajectory, market momentum & more — to raise or lower that comp and reveal what the card is <em>actually</em> worth today. Then you decide: flip it short or hold it long. That's the power only AI can bring.
         </p>
 
         {/* CTA Buttons */}
@@ -173,7 +173,7 @@ export default function Dashboard() {
           <Link to="/valuate" className="shrink-0">
             <Button className="h-12 px-8 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold">
               <Target className="w-5 h-5 mr-2" />
-              Start Valuating
+              Get My True AI Value
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
@@ -188,12 +188,12 @@ export default function Dashboard() {
         {/* Feature Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { icon: Target, label: 'AI Fair Value', desc: '44-attribute appraisal in seconds' },
-            { icon: Search, label: 'Live Deal Search', desc: 'Find cheapest listings across all platforms' },
-            { icon: AlertCircle, label: 'Smart Alerts', desc: 'Notify when prices hit your thresholds' },
-            { icon: TrendingUp, label: 'Market Trends', desc: 'Track player momentum & scarcity data' },
-            { icon: Shield, label: 'Investment Score', desc: 'See why each card scores high or low' },
-            { icon: Clock, label: 'Instant Analysis', desc: 'Paste URL or upload image — 30 seconds' },
+            { icon: Target, label: 'True AI Value', desc: '44 signals adjust the comp up or down — revealing what the card is really worth' },
+            { icon: TrendingUp, label: 'Flip Short or Hold Long', desc: 'AI tells you exactly which move the data supports' },
+            { icon: Search, label: 'Live Deal Hunter', desc: 'Searches eBay, PWCC, Goldin & COMC for the best price right now' },
+            { icon: Shield, label: '44-Signal Algorithm', desc: 'Grade, scarcity, player trajectory, momentum & 40 more factors' },
+            { icon: AlertCircle, label: 'Price Alerts', desc: 'Get notified the moment a card hits your target price' },
+            { icon: Clock, label: '30-Second Verdict', desc: 'Paste any listing URL — AI does the rest' },
           ].map((feature, i) => {
             const Icon = feature.icon;
             return (
