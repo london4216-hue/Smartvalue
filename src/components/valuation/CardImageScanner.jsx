@@ -12,26 +12,8 @@ async function analyzeCardImage(file) {
 
   // 2. Extract all card details + condition from the image
   const extraction = await base44.integrations.Core.InvokeLLM({
-    prompt: `Sports card image analysis. Return JSON only, no explanation.
-
-Extract:
-- player: player name (required)
-- set: set name (Prizm, Optic, NT, Select, etc.)
-- year: 4-digit year
-- parallel: color/variation
-- card_number: card # if visible
-- rookie: true/false/null
-- grade_company: PSA/BGS/SGC/CGC if slabbed, else null
-- grade_value: grade number if slabbed, else null
-- serial_number: serial # if visible (just the number, e.g. 45 for /45)
-- has_autograph: true if signature visible
-- auto_type: "on_card" | "sticker" | "unknown" | null
-- centering: one short sentence
-- corners: one short sentence
-- surface: one short sentence
-- edges: one short sentence
-- eye_appeal_grade: A/B/C/D
-- eye_appeal_reasoning: one sentence, what you see only`,
+    prompt: `Sports card image — extract ALL in one pass, return JSON only:
+player(required), set, year, parallel, card_number, rookie(bool/null), grade_company(PSA/BGS/SGC/CGC/null), grade_value, serial_number(number only e.g. 45 for /45), has_autograph(bool), auto_type(on_card|sticker|unknown|null), centering(1 sentence), corners(1 sentence), surface(1 sentence), edges(1 sentence), eye_appeal_grade(A/B/C/D), eye_appeal_reasoning(1 sentence).`,
     file_urls: [file_url],
     response_json_schema: {
       type: "object",

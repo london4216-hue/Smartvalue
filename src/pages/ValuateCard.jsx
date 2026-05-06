@@ -77,27 +77,20 @@ CARD SCAN OBSERVATIONS:
 ${cardData.scan_notes}
 ` : '';
 
-  return `NBA TRADING CARD AI VALUATION ENGINE v1.4 — TRADER-FIRST, COMP-ANCHORED
+  return `NBA CARD VALUATION — ONE-PASS, NO RE-EVALUATION
 
-CORE PHILOSOPHY
-You are the world's most advanced trader-first AI valuation engine for NBA basketball trading cards. Your mission is to destroy the "comps-only" mindset — conservatively. Comps are the single strongest anchor (90%+ weight). You only push back on comps when 44+ layered attributes create a clear, evidence-based edge or risk. The AI Value will rarely deviate more than ±10–15% from comps unless data is overwhelmingly strong. Deviations go down just as easily as up. Never hype.
+RULES (follow exactly, no deviation):
+1. Comp anchor (90% weight): $${cardData.comp_value || 'UNKNOWN'}. AI Value MUST differ by ≥8%. Never echo comp.
+2. One internal pass: score ALL attributes → sum adjustments → compute AI Value. No multi-step loops.
+3. possible_treasure=true ONLY if net positive >+12% AND 3+ strong bullish attributes. bust_risk=true ONLY if net negative >-12% AND multiple red flags.
+4. Projections: realistic ranges, 1-sentence each.
+5. key_signals: 5-8 items, honest mix bullish+bearish, ordered by impact_pct desc.
+6. value_drivers: top 6-8 by absolute $ impact, each = comp × percent_adjustment.
+7. holders_comp_calculation: show full math, final_holders_comp MUST differ ≥8% from last_sold_comp.
 
-⚠️ MANDATORY CALCULATION RULE — NEVER SKIP THIS
-
-The AI Value MUST ALWAYS be a mathematically distinct number from the raw comp average. These are two separate outputs. Outputting the comp price as the AI Value is a critical failure.
-
-Before writing any output, you MUST silently complete this 3-step internal calculation:
-Step A — Comp Base: Calculate the weighted comp average (most recent comp weighted highest). This is your Base. Write it down internally.
-Step B — Attribute Adjustment: Evaluate every relevant attribute from the 44+ list. For each, assign a small + or – dollar impact. Add them all up. This is your Net Adjustment. Even if net adjustment is small or near-zero, it is NEVER exactly $0 — at minimum, liquidity, market trend, and condition always produce some delta.
-Step C — AI Value: AI Value = Base + Net Adjustment. This number MUST differ from the Base. If your net adjustment truly rounds to zero after all attributes, default to a ±3–5% uncertainty range around the comp and present the midpoint as the AI Value — never a flat echo.
-Only after completing Steps A, B, and C do you write your output.
-
-POSSIBLE TREASURE FOUND & BUST RISK SYSTEM:
-- "Possible Treasure Found" triggers ONLY when net positive attribute drivers exceed +12% total push after all 44+ factors AND at least 3 high-impact attributes align powerfully (scarcity, on-card auto, player momentum, low pop, etc.).
-  → Set possible_treasure: true and possible_treasure_text: "Our ultra-conservative model identifies X% net upside from these drivers — possible treasure found if the market catches up. Model accuracy improves with more data; treat as one high-signal tool, not gospel."
-- "Bust Risk" triggers when net negative drivers exceed -12% AND multiple red flags align (injury, stale comps, supply flood, hot-to-cold player, etc.).
-  → Set bust_risk: true and bust_risk_text: "Attributes suggest potential bust — consider staying away from last comps. Model accuracy improves with more data; treat as one high-signal tool, not gospel."
-- If NEITHER threshold is met, set both to false and leave text fields empty. Do NOT invent alerts.
+POSSIBLE TREASURE & BUST RISK DISCLOSURE TEXT (use exact wording if triggered):
+- possible_treasure_text: "Our ultra-conservative model identifies X% net upside — possible treasure found if market catches up. Model accuracy improves with more data; treat as one high-signal tool, not gospel."
+- bust_risk_text: "Attributes suggest potential bust — consider staying away from last comps. Model accuracy improves with more data; treat as one high-signal tool, not gospel."
 
 ${aiScanSection}
 
@@ -135,134 +128,47 @@ COMP HANDLING RULES:
 - No recent comps or comps >12 months old: Treat as weak starting point only (max 60% weight). Increase weight of scarcity, liquidity, current player momentum. Flag "Stale Comps – Scarcity & Momentum Drive Value Here."
 - No comps: Use market knowledge conservatively. Flag uncertainty. Still produce best-effort AI Value.
 
-CARD IDENTITY SIGNALS (user-provided):
-- Is Rookie Year Card: ${cardData.is_rookie_year ? 'YES — Rookie year. This is the single most important category signal in the hobby. Meaningful RC premium applies — but stay conservative unless the card is from an ultra-premium set.' : 'No / Unknown'}
-- Parallel Color Matches Team Colors: ${cardData.color_matches_team ? 'YES — color-matched parallel. Small premium (+5-10%) for team/player collectors.' : 'No / Unknown'}
-
-SET BRAND TIER:
-Set: "${cardData.card_set || 'Unknown'}"
-- Ultra-Premium (National Treasures, Flawless, Exquisite, Immaculate, Noir): Massive prestige premium. Score card_brand_tier: 90-100. Can justify up to +10-15% AI adjustment.
-- Premium (Prizm, Select, Optic, Spectra, Crown Royale): High demand, liquid. Score: 65-85. Up to +5-8% adjustment.
-- Mid-Tier (Mosaic, Certified, Hoops Premium): Solid, lower prestige. Score: 40-60. Neutral to small adjustment.
-- Base/Budget (Hoops, Donruss, Topps, Fleer base): High print runs. Score: 10-35. Likely small negative adjustment.
-
-PLAYER STATUS:
-- ${cardData.player_popularity === 'rising' ? '🚀 RISING STAR — accelerating demand. Conservative +5-10% near-term premium. Watch for overcorrection.' : cardData.player_popularity === 'peak' ? '🔥 PEAK POPULARITY — maximum current demand. Premium NOW but watch for pullback. Neutral to small +adjustment.' : cardData.player_popularity === 'legend' ? '🐐 ALL-TIME LEGEND — permanent floor. Strong long-term hold signal. Neutral to small +adjustment for scarcity.' : cardData.player_popularity === 'declining' ? '📉 DECLINING — demand softening. Apply –5-15% conservative discount depending on severity.' : 'Unknown — use your knowledge. Be conservative.'}
-
-TV / DOCUMENTARY CATALYST:
-${cardData.has_tv_show && cardData.tv_show_name ? `ACTIVE MEDIA CATALYST: "${cardData.tv_show_name}" — genuine demand driver. Score recent_viral_moments: 75-90. Can justify +5-15% if currently airing or recently released. Cap at +15% even for major titles.` : 'No known active TV/documentary catalyst.'}
-
-SNEAKER DEAL:
-${cardData.has_sneaker_deal && cardData.sneaker_brand ? `ACTIVE SNEAKER DEAL: ${cardData.sneaker_brand}
-- Nike/Jordan Brand: Score sneaker_line_activity: 85-100. Small premium +3-8%.
-- Adidas/UA/Puma: Score: 60-80. Small premium +2-5%.
-- Li-Ning/Anta: Score: 55-70. Signals China market demand. +2-4%.
-${cardData.sneaker_brand.includes('Nike') || cardData.sneaker_brand.includes('Jordan') ? 'Jordan Brand note: Cyclical retro release spikes drive periodic demand bumps.' : ''}` : 'No sneaker deal specified — use your knowledge. Be conservative.'}
-
-VIRAL MOMENT:
-${cardData.recent_viral_moment && cardData.viral_description ? `RECENT VIRAL MOMENT: "${cardData.viral_description}" — short-term demand spike. Score recent_viral_moments: 80-95. Apply +5-12% near-term only. Note it fades within 30-90 days in analysis_summary.` : 'No recent viral moment reported.'}
-
+CARD SIGNALS (one-pass scoring — use all simultaneously):
+- Rookie: ${cardData.is_rookie_year ? 'YES (+RC premium)' : 'No'}
+- Team color match: ${cardData.color_matches_team ? 'YES (+5-10%)' : 'No'}
+- Set "${cardData.card_set || 'Unknown'}": NT/Flawless/Exquisite/Immaculate=90-100, Prizm/Select/Optic=65-85, Mosaic=40-60, Base=10-35
+- Player: ${cardData.player_popularity || 'unknown'} — rising=+5-10%, peak=neutral/+small, legend=+scarcity, declining=-5-15%
+- TV/Doc: ${cardData.has_tv_show && cardData.tv_show_name ? `"${cardData.tv_show_name}" active +5-15%` : 'none'}
+- Sneaker: ${cardData.has_sneaker_deal && cardData.sneaker_brand ? `${cardData.sneaker_brand} — Nike/Jordan +3-8%, others +2-5%` : 'none'}
+- Viral: ${cardData.recent_viral_moment && cardData.viral_description ? `"${cardData.viral_description}" +5-12% short-term, fades 30-90d` : 'none'}
 ${scanNotes}
+ATTRIBUTE SCORE REFS (score 0-100 or -1 N/A):
+- card_brand_tier: NT=90-100, Prizm=60-80, Base=20-40
+- set_prestige: vintage=95-100, modern-premium=70-85, base=30-50
+- variation_desirability: Silver=60-70, Gold/Color=75-85, /10-=90-100, Superfractor=100
+- jersey_number_match: match=90-100, no=0-10
+- Serial ${serialNum ? `/${serialNum} — print_run_size MUST=${printRunScore}, is_serialized=100, is_one_of_one=${serialNum===1?'100':'0'}` : 'none — is_serialized=10, print_run_size=10, is_one_of_one=0'}
+- low_serial_number: #1=100, #2=95, #3-5=88, #6-10=78, #26+=20
+- auto_type: on-card=85-100, sticker=30-55, none=0
+- auto_quality: bold-full=80-100, partial=40-65, sticker-scribble=20-40
+- patch_quality: logoman=100, swoosh=88, number=82, multi-color=70, white=40, none=0
+- rpa_designation: true-RPA=95-100, base=0
+- pop_count_at_grade: 1=100, 2-5=92-96, 6-15=82-88, 16-30=72-78, 31-75=60-68, 76-150=45-55, 300+=18-28, 500+=5-15${serialNum ? ` [MAX POP=${serialNum}]` : ''}
+- pop_report: <50=90-100, <500=60-70, 2k-10k=20-35, 10k+=5-15
+- liquidity: high=<7d avg sell +2-4%, medium=7-30d neutral, low=>30d -2-5%
+- Retired player: career_trajectory=-1, injury_risk=-1, goat/hof/cultural/historical=80-100
 
-CARD DNA SCORING:
-- "card_brand_tier": NT/Flawless/Exquisite = 90-100. Prizm/Select/Optic = 60-80. Base = 20-40.
-- "set_prestige": Iconic vintage (1986 Fleer, 96-97 Topps Chrome) = 95-100. Modern premium = 70-85. Base modern = 30-50.
-- "variation_desirability": Silver/Base = 60-70. Gold/Color parallels = 75-85. /10 or less = 90-100. Superfractor = 100.
-- "jersey_number_match": Card# = player jersey# = 90-100. No match = 0-10.
-
-SERIAL NUMBER — PRE-CALCULATED (USE THESE EXACT VALUES, DO NOT OVERRIDE):
-${serialNum ? `
-⚠️ THIS CARD IS NUMBERED /${serialNum}. There are exactly ${serialNum} copies of this card in existence.
-- "print_run_size" MUST be scored: ${printRunScore} (pre-calculated for /${serialNum})
-- "is_serialized" MUST be scored: 100 (card is serialized)
-- "is_one_of_one" MUST be scored: ${serialNum === 1 ? '100 — TRUE 1/1' : '0 — NOT a 1/1'}
-- Do NOT score print_run_size as if this were a /10 or /1 card. It is /${serialNum}.
-` : `
-- Card is NOT serialized (or serial unknown). Score "is_serialized": 10, "print_run_size": 10, "is_one_of_one": 0.
-`}
-- "low_serial_number": #1=100. #2=95. #3-5=88. #6-10=78. #26+=20. (only applies if the individual copy number is known)
-
-AUTOGRAPH:
-- "auto_type": On-card = 85-100. Sticker = 30-55. No auto = 0.
-- "auto_quality": Bold full-name = 80-100. Partial/rushed = 40-65. Sticker scribble = 20-40.
-
-PATCH:
-- "patch_quality": Logoman=100. Nike Swoosh=88. Number patch=82. Multi-color=70. Single white=40. No patch=0.
-- "rpa_designation": True RPA (RC+Patch+Auto) = 95-100. Base card = 0.
-
-POPULATION (INVERSE — lower pop = higher score):
-${serialNum ? `⚠️ SERIAL NUMBER CONSTRAINT: This card is /${serialNum}. The MAXIMUM possible total population is ${serialNum} copies. There can NEVER be more than ${serialNum} of these in existence. Do NOT score pop_report as if thousands exist. Score pop_report based on this hard ceiling of ${serialNum} total copies.` : ''}
-- "pop_count_at_grade": Pop 1=100. 2-5=92-96. 6-15=82-88. 16-30=72-78. 31-75=60-68. 76-150=45-55. 300+=18-28. 500+=5-15.
-- "pop_report": Under 50 total=90-100. Under 500=60-70. 2000-10000=20-35. 10000+=5-15.
-${serialNum ? `NOTE: For a /${serialNum} card, pop_report score MUST reflect that the total universe is max ${serialNum} copies. A /${serialNum} card cannot have a pop of 500+. Score accordingly (likely 90-100 for pop_report).` : ''}
-
-RETIRED PLAYER: Score career_trajectory and injury_risk as -1. Score goat_legacy_score, hall_of_fame_trajectory, cultural_icon_status, historical_appreciation: 80-100 for legends.
-
-LIQUIDITY SCORE (always calculate separately):
-- High liquidity (<7 days avg sell for this card type/player): small premium +2-4%. Note: "Fast-moving card — strong flip potential."
-- Medium liquidity (7-30 days): Neutral. No adjustment.
-- Low liquidity (>30 days): small discount –2-5%. Note: "Slow mover — hold premium needed."
-- Always show liquidity_score separately in the response and reference it in analysis_summary.
-
-VALUATION MODEL (ultra-conservative):
-  Base = comp_value (90% anchor) — THIS IS ALREADY A SALE AT THE STATED GRADE. DO NOT multiply by grade_multiplier again.
-  attribute_adjustment = sum of all signal adjustments as % of comp (capped at ±15% standard, ±25% max for extraordinary evidence)
-  ai_investment_value = comp_value + (comp_value × attribute_adjustment)
-
-  GRADE MULTIPLIER RULE: The grade multiplier (${gradeInfo ? gradeInfo.multiplier : 1.0}×) is ONLY informational context. Since comp_value is already a sale at this grade, you MUST NOT multiply comp by the grade multiplier.
-
-  CRITICAL OUTPUT RULE: The "ai_investment_value" field MUST show a different dollar figure from comp_value. If they would be identical, you have failed Step B — go back and re-examine liquidity, condition variance, market trend, and supply/demand. Something always moves the needle. If net adjustment truly rounds to $0, apply a minimum ±5% uncertainty adjustment in the direction of the dominant signals.
-  Minimum enforced difference: ±8% from comp_value. Never return comp_value as ai_investment_value.
-  If cheapest_available < comp: AI Value must not exceed cheapest_available (unless pop at grade < 10).
-
-Score ALL ${allAttrs.length} attributes (0-100, or -1 for N/A):
-
+Score ALL ${allAttrs.length} attributes in one batch:
 ${allAttrs.join('\n')}
 
-Return:
-- "overall_score": 0-100 weighted investment score
-- "flip_vs_hold": "strong_buy" | "buy" | "hold" | "sell" | "strong_sell"
-  Map conservatively: strong_buy only for clear >15% AI premium with strong evidence. sell/strong_sell when attributes point meaningfully lower than comp.
-- "ai_investment_value": USD — MUST differ from comp_value by at least 3%. Use the ultra-conservative model above. Ground in real market data.
-- "liquidity_score": string — one of "high" | "medium" | "low" with a short note (e.g. "high — <7 days avg sell, strong flip potential")
-- "trader_recommendation": string — one of "Good Buy" | "Grab" | "Hold" | "Sell Now" + 2-sentence explanation focused on 30-90 day flip window vs. long-term hold
-- "possible_treasure": boolean — true ONLY if net positive drivers exceed +12% AND 3+ high-impact attributes align powerfully
-- "possible_treasure_text": string — exact disclosure (empty string if possible_treasure is false)
-- "bust_risk": boolean — true ONLY if net negative drivers exceed -12% AND multiple red flags align
-- "bust_risk_text": string — exact disclosure (empty string if bust_risk is false)
-- "projections": object with keys "one_year", "three_year", "five_year" — each a string range like "$800–$1,200" with 1-sentence reasoning
-- "analysis_summary": 3-4 sentences. Lead with: (1) comp anchor quality (fresh/stale/single/none), (2) top 2 drivers moving AI value up or down, (3) liquidity context, (4) honest trader recommendation for 30-90 day vs. long-term.
-- "key_signals": Array of 5-8 objects — the signals that most move value UP or DOWN. Mix bullish AND bearish honestly. For each:
-  - "label": short punchy name
-  - "direction": "bullish" | "bearish" | "neutral"
-  - "impact_pct": realistic % impact (integer, 2-20 — stay conservative, rarely >15%)
-  - "reason": 1 sentence with real market logic
-  Order by impact_pct descending.
-
-DOLLAR-BASED VALUE DRIVERS (REQUIRED — this is the math that makes valuation transparent):
-⚠️ MANDATORY BASE: $${cardData.comp_value || 0} is your ONLY starting number. Every dollar adjustment below is calculated as a percentage of $${cardData.comp_value || 0}. Do not use any other base price.
-
-For each top value driver, compute:
-  dollar_adjustment = comp_value × percent_adjustment
-
-Return "value_drivers" as an array of the top 6-8 drivers ranked by absolute dollar impact:
-{
-  "label": "...",
-  "percent_adjustment": "+X%" or "-X%",
-  "dollar_adjustment": "+$XXX" or "-$XXX",
-  "reason": "One sentence of real market logic"
-}
-
-Also return "holders_comp_calculation" showing the full math:
-{
-  "last_sold_comp": "$${cardData.comp_value || 0}",
-  "grade_multiplier_dollars": "-$XXX (grade_multiplier reduces base by (1 - ${gradeInfo ? gradeInfo.multiplier : 1.0}) × comp)",
-  "top5_dollar_adjustments": ["+$XXX – Label", "-$XXX – Label", ...],
-  "supporting_factors_dollars": "+$XXX (sum of remaining drivers)",
-  "final_holders_comp": "$YYY"
-}
-
-CRITICAL: final_holders_comp MUST differ from last_sold_comp. Minimum ±8% difference always. If your adjustments net to less than ±8%, revisit liquidity score, condition delta, and market trend — they always produce some movement. Apply the minimum ±8% in the direction of dominant signals rather than echoing the comp.`;
+Return JSON with:
+- overall_score (0-100)
+- flip_vs_hold: strong_buy|buy|hold|sell|strong_sell (strong_buy only if >15% AI premium with strong evidence)
+- ai_investment_value (USD, MUST differ from $${cardData.comp_value||0} by ≥8%)
+- liquidity_score (high|medium|low + short note)
+- trader_recommendation (Good Buy|Grab|Hold|Sell Now + 2 sentences: 30-90d flip vs long-term hold)
+- possible_treasure (boolean), possible_treasure_text (empty string if false)
+- bust_risk (boolean), bust_risk_text (empty string if false)
+- projections: {one_year, three_year, five_year} — string ranges with 1-sentence reasoning each
+- analysis_summary (3-4 sentences: comp quality, top 2 drivers, liquidity, recommendation)
+- key_signals: 5-8 items [{label, direction:bullish|bearish|neutral, impact_pct:2-20, reason}] ordered by impact_pct desc
+- value_drivers: top 6-8 [{label, percent_adjustment:"+X%"|"-X%", dollar_adjustment:"+$X"|"-$X", reason}] — each dollar_adjustment = $${cardData.comp_value||0} × percent
+- holders_comp_calculation: {last_sold_comp:"$${cardData.comp_value||0}", grade_multiplier_dollars, top5_dollar_adjustments:[], supporting_factors_dollars, final_holders_comp} — final MUST differ ≥8%`;
 }
 
 function buildResponseSchema() {
@@ -343,10 +249,6 @@ async function fetchRealComp(cardData) {
   const serialStr = serial_number ? `/${serial_number}` : '';
   const isUltraRare = serial_number && parseInt(serial_number, 10) <= 5;
   const isOneOfOne = serial_number === '1' || serial_number === 1;
-
-  const primarySearch = `${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr} ${grade || ''}`.trim();
-  const setSearch = `${player_name} ${card_set || ''} ${grade || ''}`.trim();
-  const playerSearch = `${player_name} ${card_year || ''} ${card_set || ''}`.trim();
 
   const ultraRareNote = isUltraRare ? `
 ⚠️ ULTRA-RARE CARD — THIS IS A ${isOneOfOne ? '1/1 (ONE OF ONE)' : `/${serial_number}`} CARD.
@@ -541,12 +443,12 @@ export default function ValuateCard() {
       return candidate;
     };
 
-    // Run LLM valuation (no web search when comp is known = much faster)
+    // Run LLM valuation — single pass, no follow-up calls
     let aiResult = await base44.integrations.Core.InvokeLLM({
       prompt,
       response_json_schema: schema,
       add_context_from_internet: !fastMode,
-      model: fastMode ? 'gemini_3_flash' : 'gemini_3_flash',
+      model: 'gemini_3_flash',
     });
 
     // Ensure non-zero adjustments
@@ -559,36 +461,8 @@ export default function ValuateCard() {
     }, 0);
 
     let finalAiValue = enforceMinDiff(parseFloat(aiResult.ai_investment_value) || 0, compValue);
-    let backendCalc = null;
-
-    // Run calculateValuation in parallel — it only needs the signals we already have
-    if (signals.length > 0) {
-      const anchorPrice = compValue > 0 ? compValue : finalAiValue;
-      const [valuationResponse] = await Promise.all([
-        base44.functions.invoke('calculateValuation', {
-          last_sold_price: anchorPrice,
-          grade: cardData.grade || 'Raw',
-          ai_eye_appeal_grade: enrichedCardData.ai_eye_appeal_grade || 'B',
-          attributes: signals.map(sig => ({
-            label: sig.label,
-            percent_adjustment: `${sig.direction === 'bullish' ? '+' : sig.direction === 'bearish' ? '-' : ''}${sig.impact_pct}%`,
-            reason: sig.reason
-          }))
-        }).catch(() => null),
-      ]);
-      if (valuationResponse) {
-        const vr = valuationResponse.data;
-        const rawDisplay = vr.holders_comp_display || '';
-        const isNegDisplay = rawDisplay.includes('-');
-        const parsed = parseFloat(rawDisplay.replace(/[^0-9.]/g, '')) * (isNegDisplay ? -1 : 1);
-        const backendValue = parsed && !isNaN(parsed) ? parsed : finalAiValue;
-        finalAiValue = enforceMinDiff(backendValue, compValue);
-        backendCalc = vr.holders_comp_calculation;
-        if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
-          aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
-        }
-      }
-    }
+    // Use value_drivers and holders_comp_calculation directly from the LLM — no extra backend call needed
+    const backendCalc = aiResult.holders_comp_calculation || null;
 
     // FINAL ABSOLUTE SAFETY — triple-check before setting state, no matter what path was taken
     if (compValue > 0) {
@@ -603,7 +477,7 @@ export default function ValuateCard() {
       comp_value: compValue || null,
       ...aiResult,
       ai_investment_value: finalAiValue,
-      holders_comp_calculation: backendCalc || aiResult.holders_comp_calculation || null,
+      holders_comp_calculation: backendCalc,
       _comp_sale_date: enrichedCardData._comp_sale_date || null,
       _comp_confidence: enrichedCardData._comp_confidence || null,
       _comp_notes: enrichedCardData._comp_notes || '',
