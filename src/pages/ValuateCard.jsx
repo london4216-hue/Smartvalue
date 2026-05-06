@@ -110,7 +110,19 @@ ${cardData.grade ? `- Grade: ${cardData.grade}` : ''}
 - ═══════════════════════════════════════════════════
 - LAST SOLD PRICE (MANDATORY COMP ANCHOR): $${cardData.comp_value || 'NOT PROVIDED'}
 - ═══════════════════════════════════════════════════
-${cardData.comp_value ? `- THIS IS YOUR BASE. You MUST use $${cardData.comp_value} as Step A of your internal calculation. Do NOT ignore this number. Do NOT substitute your own estimate. Do NOT look up a different price. Your ai_investment_value MUST be derived mathematically from $${cardData.comp_value} ± attribute adjustments. Any output that does not start from $${cardData.comp_value} as the base is a critical failure.` : '- WARNING: No last sold price provided. You must flag this explicitly in analysis_summary and use your best market knowledge as a conservative estimate. Still complete Steps A/B/C.'}
+${cardData.comp_value ? `- THIS IS YOUR BASE. You MUST use $${cardData.comp_value} as Step A of your internal calculation. Do NOT ignore this number. Do NOT substitute your own estimate. Do NOT look up a different price. Your ai_investment_value MUST be derived mathematically from $${cardData.comp_value} ± attribute adjustments. Any output that does not start from $${cardData.comp_value} as the base is a critical failure.` : '- WARNING: No last sold price provided.'}
+${cardData._comp_tier === 'similar_card_baseline' && cardData._similar_comps?.length > 0 ? `
+⚠️ ULTRA-RARE / NO DIRECT COMP SCENARIO:
+No direct sale of this exact card was found. A baseline was established from 3 similar (non-auto) cards:
+${cardData._similar_comps.map((c, i) => `  ${i+1}. ${c.description}: $${c.sold_price?.toLocaleString()} (${c.sale_date})`).join('\n')}
+
+Average baseline: $${Math.round(cardData._similar_comps.reduce((s,c) => s + (c.sold_price||0), 0) / cardData._similar_comps.length).toLocaleString()}
+
+INSTRUCTION: Use this average baseline as your Step A comp anchor. Then apply a SUBSTANTIAL UPWARD scarcity premium for the card's rarity (${cardData.serial_number === '1' || cardData.serial_number === 1 ? '1/1 = unique in the world' : `/${cardData.serial_number} = extreme scarcity`}). A 1/1 of a superstar like Luka commands a massive premium over base similar cards. Your ai_investment_value should reflect this scarcity reality. Note in analysis_summary that no direct comp exists and the baseline methodology was used.
+` : ''}
+${cardData._comp_tier === 'no_comp_conservative_estimate' ? `
+⚠️ NO COMP DATA AT ALL: No sales found anywhere. Use conservative market knowledge only. Be explicit about uncertainty in analysis_summary.
+` : ''}
 ${cardData.cheapest_available ? `- Cheapest Available Now: $${cardData.cheapest_available} — HARD CEILING: if this is LOWER than comp, AI Value cannot exceed cheapest_available unless pop at grade is under 10. Mention explicitly.` : ''}
 ${gradeSection}
 
@@ -323,61 +335,102 @@ function buildResponseSchema() {
 }
 
 // Phase 1: Fetch real last-sold comp from the market before running valuation
+// For ultra-rare / 1-of-1 cards with no direct comp, escalates to similar-card baseline approach
 async function fetchRealComp(cardData) {
-  const { player_name, card_year, card_set, variation, serial_number, grade } = cardData;
+  const { player_name, card_year, card_set, variation, serial_number, grade, has_autograph } = cardData;
   const serialStr = serial_number ? `/${serial_number}` : '';
-  
-  // Build multiple search queries for fallback strategies
+  const isUltraRare = serial_number && parseInt(serial_number, 10) <= 5;
+  const isOneOfOne = serial_number === '1' || serial_number === 1;
+
   const primarySearch = `${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr} ${grade || ''}`.trim();
   const setSearch = `${player_name} ${card_set || ''} ${grade || ''}`.trim();
   const playerSearch = `${player_name} ${card_year || ''} ${card_set || ''}`.trim();
 
+  const ultraRareNote = isUltraRare ? `
+⚠️ ULTRA-RARE CARD — THIS IS A ${isOneOfOne ? '1/1 (ONE OF ONE)' : `/${serial_number}`} CARD.
+There may be ZERO direct comps for this exact card. Follow the ESCALATING COMP STRATEGY below.
+` : '';
+
+  const autoFilter = has_autograph === false
+    ? 'CRITICAL: This card has NO autograph. Only use comparable cards that also have NO autograph. Do NOT use RPAs, auto patches, or signed cards as comps — autographs add 30-200%+ premium and would distort the baseline.'
+    : 'This card has an autograph. Prefer autograph comps when available.';
+
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are an expert sports card appraiser with deep knowledge of market pricing. Your ONLY job is to find REAL, ACTUAL last-sold prices for this card. NO ASKING PRICES. Only what people ACTUALLY PAID.
+    prompt: `You are the world's most thorough sports card comp researcher. Your ONLY job is to find REAL, ACTUAL sold prices. NO ASKING PRICES EVER.
 
-CARD TO VALUE: ${player_name} (${card_year}) ${card_set} ${variation || ''} ${serialStr}${grade ? ' - ' + grade : ''}
+${ultraRareNote}
+CARD TO VALUE: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
 
-CRITICAL INSTRUCTIONS:
-1. Go directly to eBay.com RIGHT NOW and search for SOLD/COMPLETED listings only
-2. Search queries to try (in order):
-   - "${primarySearch} sold"
-   - "${setSearch} sold last 90 days"
-   - "${playerSearch} sold last 6 months"
-3. Look ONLY at completed auctions or "Buy It Now" sales that show "SOLD" status
-4. Extract the FINAL PRICE the buyer paid (hammer price), not asking price
-5. Also check:
-   - 130point.com recent sales
-   - cardladder.com comps
-   - PWCC Auctions completed lots
-   - Heritage Auctions sold lots
-6. If multiple sales exist, prioritize the most recent within the last 6 months
+${autoFilter}
 
-DATA YOU MUST RETURN:
-- comp_value: The actual sold price ($). If exact match not found, use closest grade/variation/year match. REQUIRED - never null unless truly no comparable sales exist in 6+ months.
-- cheapest_available: Current lowest asking price on active listings (optional)
-- sale_date: When sold (e.g. "2 weeks ago", "April 15, 2026")
-- sales_found: Count of comps you found (e.g. 1, 2, 5)
-- confidence: "high" (3+ recent comps within 90 days), "medium" (1-2 recent comps or older), "low" (1 old comp or partial match)
-- notes: List other comparable prices if found, explain any grade/variation adjustments made
+ESCALATING COMP STRATEGY — Execute in order, stop when you have data:
 
-CRITICAL RULES:
-- NEVER return an asking price as comp_value
-- NEVER guess or estimate - only use REAL completed sales data
-- If you find 0 exact matches, search for closest grade/variation and note the adjustment
-- If card is serial numbered (/x or 1/1), it's rarer - look for similar serialized versions
-- Err on the side of MULTIPLE searches rather than giving up
-- If truly no sales in 6 months, set comp_value to null and explain
+TIER 1 — Exact Match (best):
+Search eBay sold listings, PWCC, Heritage Auctions, Goldin, 130point, CardLadder for:
+"${primarySearch} sold"
+If found: return comp_value + ebay_link or source URL + sale_date. Set tier = "exact_match".
 
-Return ONLY valid JSON. No extra text.`,
+TIER 2 — Same Card, Different Grade or Serial (if Tier 1 fails):
+Search for same player + same set + same variation but different serial or grade. Adjust upward for lower serial / higher grade.
+E.g. if card is /5 and you find a /10 sale, note the serial premium. If card is PSA 10 and you find PSA 9, note grade premium.
+Set tier = "adjusted_comp". Explain the adjustment in notes.
+
+TIER 3 — 3 Similar Cards as Baseline (if Tiers 1-2 fail — CRITICAL for 1/1s):
+${isUltraRare ? `This is likely the path for this ultra-rare. Find 3 REAL sold comps for similar cards:` : `If no direct comp, find 3 similar sold cards:`}
+- Same player (${player_name})
+- Same approximate era (${card_year || 'same era'})
+- Similar set tier (${card_set || 'similar prestige'})
+- ${has_autograph === false ? 'NO autograph — match this exactly' : 'Similar features'}
+- Similar grade if possible
+These 3 comps establish a BASELINE. The actual card's value adjusts UP from here due to ${isUltraRare ? `extreme scarcity (${isOneOfOne ? '1/1' : `/${serial_number}`})` : 'rarity'}.
+Return all 3 in similar_comps array with: description, sold_price, sale_date, source.
+Set tier = "similar_card_baseline".
+
+TIER 4 — Conservative Asset Estimate (absolute last resort):
+If no data at all (extremely rare scenario):
+- Estimate based on: player's current card market, set prestige, grade, serial rarity
+- Return conservative_estimate_reasoning explaining your methodology step by step
+- Note: "No comp data found. Conservative asset estimate based on market knowledge."
+Set tier = "no_comp_conservative_estimate".
+
+RETURN:
+- tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"
+- comp_value: Best single number to anchor valuation (null ONLY for Tier 4)
+- cheapest_available: Lowest active ask if found (optional)
+- sale_date: Most recent sale date
+- sales_found: Number of comps found
+- confidence: "high" | "medium" | "low"
+- notes: Full explanation — what you found, where, any adjustments, data quality
+- ebay_link: Direct URL to the sold eBay listing if found (Tier 1 only)
+- similar_comps: Array of 3 comp objects [{description, sold_price, sale_date, source, ebay_link}] (Tier 3 only)
+- conservative_estimate_reasoning: Step-by-step methodology (Tier 4 only)
+
+Return ONLY valid JSON.`,
     response_json_schema: {
       type: "object",
       properties: {
-        comp_value: { type: "number" },
-        cheapest_available: { type: "number" },
+        tier: { type: "string" },
+        comp_value: { type: ["number", "null"] },
+        cheapest_available: { type: ["number", "null"] },
         sale_date: { type: "string" },
         sales_found: { type: "number" },
         confidence: { type: "string" },
         notes: { type: "string" },
+        ebay_link: { type: ["string", "null"] },
+        similar_comps: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              description:  { type: "string" },
+              sold_price:   { type: "number" },
+              sale_date:    { type: "string" },
+              source:       { type: "string" },
+              ebay_link:    { type: ["string", "null"] },
+            }
+          }
+        },
+        conservative_estimate_reasoning: { type: ["string", "null"] },
       }
     },
     add_context_from_internet: true,
@@ -479,6 +532,19 @@ export default function ValuateCard() {
             _comp_sale_date: compData.sale_date || null,
             _comp_confidence: compData.confidence || 'medium',
             _comp_notes: compData.notes || '',
+            _comp_tier: compData.tier || null,
+            _comp_ebay_link: compData.ebay_link || null,
+            _similar_comps: compData.similar_comps || [],
+            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
+          };
+        } else {
+          // No comp found — still carry through tier data and similar comps
+          enrichedCardData = {
+            ...enrichedCardData,
+            _comp_tier: compData.tier || 'no_comp_conservative_estimate',
+            _comp_notes: compData.notes || '',
+            _similar_comps: compData.similar_comps || [],
+            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
           };
         }
         // If still null — proceed, but the valuation prompt will flag it
@@ -576,6 +642,10 @@ export default function ValuateCard() {
       _comp_sale_date: enrichedCardData._comp_sale_date || null,
       _comp_confidence: enrichedCardData._comp_confidence || null,
       _comp_notes: enrichedCardData._comp_notes || '',
+      _comp_tier: enrichedCardData._comp_tier || null,
+      _comp_ebay_link: enrichedCardData._comp_ebay_link || null,
+      _similar_comps: enrichedCardData._similar_comps || [],
+      _conservative_estimate_reasoning: enrichedCardData._conservative_estimate_reasoning || null,
     };
 
     // Check alerts — fire-and-forget, never block the result

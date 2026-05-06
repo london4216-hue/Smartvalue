@@ -11,6 +11,7 @@ import KeySignals from './KeySignals';
 import ContextualSignals from './ContextualSignals';
 import InvestmentThesis from './InvestmentThesis';
 import ValuationBreakdown from './ValuationBreakdown';
+import CompEvidence from './CompEvidence';
 import PlayerActivityInsights from './PlayerActivityInsights';
 import PopulationReport from './PopulationReport';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
@@ -132,6 +133,9 @@ export default function ValuationResult({ result, onSave, onReset }) {
         flipVsHold={result.flip_vs_hold}
         cheapestAvailable={cheapestAvailable}
       />
+
+      {/* Comp Evidence — source proof for the anchor price */}
+      <CompEvidence result={result} />
 
       {/* Dollar Waterfall — HOW the AI value was built */}
       <ValuationBreakdown
