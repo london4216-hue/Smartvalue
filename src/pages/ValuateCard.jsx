@@ -627,8 +627,8 @@ export default function ValuateCard() {
   };
 
   const handleScanned = (extracted) => {
-    setScannedData(extracted);
-    setShowManualForm(true);
+    // Same flow as URL confirm — go straight to valuation
+    handleValuate(extracted);
   };
 
   const handleReset = () => {
@@ -679,12 +679,12 @@ export default function ValuateCard() {
           {!showManualForm && (
             <div className="my-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
               <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Or — Snap / Upload Your Card</p>
-              <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card and opens the valuation form automatically.</p>
-              <CardImageScanner onExtracted={handleScanned} />
+              <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card, shows condition & eye appeal, then runs the full valuation.</p>
+              <CardImageScanner onConfirmed={handleScanned} />
             </div>
           )}
 
-          {/* Manual / scanned form */}
+          {/* Manual form */}
           {showManualForm && (
             <div className="mt-4 bg-card border border-border/50 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
