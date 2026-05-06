@@ -4,6 +4,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
+import CardImageScanner from '@/components/valuation/CardImageScanner';
+import CardInputForm from '@/components/valuation/CardInputForm';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
 import MarketAlertsDashboard from '@/components/valuation/MarketAlertsDashboard';
@@ -391,6 +393,8 @@ export default function ValuateCard() {
   const [compFetchResult, setCompFetchResult] = useState(null);
   const [result, setResult] = useState(null);
   const [cardInput, setCardInput] = useState(null);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [scannedData, setScannedData] = useState(null);
   const { toast } = useToast();
 
   const ensureNonZeroAdjustments = (aiResult, cardData) => {
@@ -622,9 +626,16 @@ export default function ValuateCard() {
     });
   };
 
+  const handleScanned = (extracted) => {
+    setScannedData(extracted);
+    setShowManualForm(true);
+  };
+
   const handleReset = () => {
     setResult(null);
     setCardInput(null);
+    setShowManualForm(false);
+    setScannedData(null);
   };
 
   return (
@@ -659,10 +670,51 @@ export default function ValuateCard() {
         />
       )}
 
-      {/* Paste URL Input */}
+      {/* Input area */}
       {!result && !isLoading && (
         <>
           <PasteUrlInput onCardExtracted={handleValuate} />
+
+          {/* OR — Snap / Upload card image */}
+          {!showManualForm && (
+            <div className="my-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Or — Snap / Upload Your Card</p>
+              <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card and opens the valuation form automatically.</p>
+              <CardImageScanner onExtracted={handleScanned} />
+            </div>
+          )}
+
+          {/* Manual / scanned form */}
+          {showManualForm && (
+            <div className="mt-4 bg-card border border-border/50 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-foreground">Card Details</p>
+                <button
+                  onClick={() => { setShowManualForm(false); setScannedData(null); }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                >
+                  Cancel
+                </button>
+              </div>
+              <CardInputForm
+                onSubmit={handleValuate}
+                isLoading={isLoading}
+                initialData={scannedData || {}}
+              />
+            </div>
+          )}
+
+          {!showManualForm && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowManualForm(true)}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                Enter card details manually instead
+              </button>
+            </div>
+          )}
+
           <MarketAlertsDashboard />
         </>
       )}
