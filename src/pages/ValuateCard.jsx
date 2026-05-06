@@ -77,7 +77,27 @@ CARD SCAN OBSERVATIONS:
 ${cardData.scan_notes}
 ` : '';
 
-  return `NBA CARD VALUATION — ONE-PASS, NO RE-EVALUATION
+  return `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
+
+Your #1 priority is SPEED. You MUST compute the entire valuation in ONE SINGLE PASS using ONLY the already-confirmed card data provided below.
+
+You MUST NOT:
+- re-scan the image
+- re-parse the title or description
+- re-identify the card
+- re-evaluate centering or corners
+- re-check any attributes individually
+- run multi-pass logic or sequential loops
+
+You MUST:
+- use the confirmed card data AS-IS
+- compute ALL attribute impacts in one batch
+- compute ALL category totals in one batch
+- compute ALL valuation math in one batch
+- compute BOTH recommendations in one batch
+
+------------------------------------------
+NBA CARD VALUATION — ONE-PASS, NO RE-EVALUATION
 
 RULES (follow exactly, no deviation):
 1. Comp anchor (90% weight): $${cardData.comp_value || 'UNKNOWN'}. AI Value MUST differ by ≥8%. Never echo comp.

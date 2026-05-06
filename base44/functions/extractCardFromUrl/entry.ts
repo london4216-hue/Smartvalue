@@ -207,38 +207,28 @@ Deno.serve(async (req) => {
     if (scrapedTitle) {
       try {
         const identificationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Extract card info from this eBay listing text. Be thorough but accurate.
+          prompt: `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
+
+Your #1 priority is SPEED and ACCURACY when scraping.
+
+You MUST extract the following in ONE PASS ONLY from the listing text below.
+You MUST NOT run multi-pass logic, re-check, or infer missing fields.
+Return null for anything not clearly stated.
 
 LISTING TEXT: "${scrapedTitle}"
 
-Extract:
-- player: Real player name (not brand/set name) — required
+Extract exactly:
+- player: Real player name (not brand/set) — required, null if unclear
 - set: Card set (Prizm, Optic, Select, Mosaic, etc)
 - year: Card year (2023, 2023-24, etc)
 - parallel: Color/variant (Silver, Green, Gold, Red, Cracked Ice, etc)
 - card_number: Card # if present
-- rookie: true if rookie or RC mentioned, false otherwise, null if unknown
-- grade_company: PSA, BGS, SGC, CGC (if card is graded)
+- rookie: true if RC/rookie mentioned, false otherwise, null if unknown
+- grade_company: PSA, BGS, SGC, CGC if graded
 - grade_value: Grade number (10, 9.5, 8, etc)
 - serial_number: Serial # if present
 
-Rules:
-1. Extract what's clearly stated
-2. Player is REQUIRED — if no clear player name, return null for player
-3. Do NOT infer or guess
-4. Return JSON only, no markdown
-
-{
-  "player": "...",
-  "set": "...",
-  "year": "...",
-  "parallel": "...",
-  "card_number": "...",
-  "rookie": true|false|null,
-  "grade_company": "...",
-  "grade_value": "...",
-  "serial_number": "..."
-}`,
+OUTPUT JSON ONLY:`,
           response_json_schema: {
             type: "object",
             properties: {
