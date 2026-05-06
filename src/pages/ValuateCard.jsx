@@ -8,7 +8,6 @@ import CardImageScanner from '@/components/valuation/CardImageScanner';
 import CardInputForm from '@/components/valuation/CardInputForm';
 import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
-import MarketAlertsDashboard from '@/components/valuation/MarketAlertsDashboard';
 
 // Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
 function getPrintRunScore(serialNumber) {
@@ -719,7 +718,7 @@ export default function ValuateCard() {
             <CardImageScanner onConfirmed={handleScanned} />
           </div>
 
-          <MarketAlertsDashboard />
+
         </>
       )}
     </div>

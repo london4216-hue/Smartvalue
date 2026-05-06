@@ -17,31 +17,15 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
       }
 
       try {
+        const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `You are a sports analyst. Gather CURRENT real-time information about ${playerName} for today (May 5, 2026).
+        prompt: `You are a sports analyst. Today is ${today}. Gather CURRENT, VERIFIED information about ${playerName}.
 
-Return:
-1. **Last Game Performance** (if in season):
-   - Date of last game
-   - Stats (points, rebounds, assists, shooting %)
-   - Performance quality (excellent/good/average/poor)
+        Return ONLY facts you are confident about. Do NOT fabricate stats or news.
+        Include real dates for all news items (e.g. "May 2, 2026" or "April 28, 2026").
 
-2. **Last 10 Games Trend**:
-   - Average points per game
-   - Injury status (healthy/questionable/out/day-to-day)
-   - Trend (up/down/stable)
-
-3. **Current Status**:
-   - Is it NBA off-season or in-season right now? (May 2026)
-   - If in-season: injury report, playing status
-   - If off-season: training updates, lifestyle/business activity (endorsements, investments, appearances, charity work, training camp prep)
-
-4. **Top 3 Latest News** (dated):
-   - Most recent news about player activities
-   - Include dates (e.g. "2 days ago", "May 3, 2026")
-   - Personal milestones, career developments, team news, or lifestyle updates
-
-Return ONLY a JSON object with: last_game, last_10_games, current_season_status, injury_status, top_3_news (array of {date, headline, impact_on_value}), off_season_insights (if applicable).`,
+        Return JSON: last_game (date, points, rebounds, assists, shooting_pct, performance), last_10_games (avg_points, trend, games_played), current_season_status, injury_status, top_3_news [{date, headline, impact_on_value}], off_season_insights.
+        If a field is unknown or uncertain, omit it or return null — do not guess.`,
           response_json_schema: {
             type: "object",
             properties: {
@@ -126,7 +110,7 @@ Return ONLY a JSON object with: last_game, last_10_games, current_season_status,
           <h3 className="text-xs font-mono uppercase tracking-wider text-primary">
             Player Activity Intelligence
           </h3>
-          <span className="text-[10px] text-muted-foreground ml-auto">Real-time data · May 5, 2026</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">Real-time data · {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
         </div>
       </div>
 

@@ -1,82 +1,14 @@
+import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
+import { TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const TREND_CONFIG = {
   up:      { icon: TrendingUp,   color: "text-emerald-400" },
   down:    { icon: TrendingDown, color: "text-red-400" },
   neutral: { icon: Minus,        color: "text-muted-foreground" },
 };
-
-// Sample contextual data — in production, this could be fetched dynamically
-// For now, we'll show relevant signals based on the player and card type
-function getContextualSignals(playerName, cardYear, cardSet) {
-  // This is demo data; in production you'd fetch real data or derive from API
-  if (playerName?.toLowerCase().includes('jordan')) {
-    return [
-      {
-        emoji: "🔥",
-        label: "Cultural & Media",
-        count: 5,
-        items: [
-          { label: "Instagram Following", stat: "14.1M followers", note: "@jumpman23 + MJ accounts", trend: "up" },
-          { label: "90-Day Social Growth", stat: "+320K new followers", note: "Driven by Jordan Brand retro drops", trend: "up" },
-          { label: "The Last Dance (Netflix)", stat: "23.8M views — top 10 in 190 countries", note: "Card prices spiked +340% post-release 2020", trend: "up" },
-          { label: "Jordan Brand Revenue", stat: "$6.6B / year", note: "Nike FY2024 — #1 athletic sub-brand globally", trend: "up" },
-          { label: "Retro SKUs Released (2024)", stat: "47 colorways", note: "Each launch = measurable eBay search spike", trend: "neutral" },
-        ],
-      },
-      {
-        emoji: "📈",
-        label: "Live Market Activity",
-        count: 5,
-        items: [
-          { label: "eBay Sold (Last 30 Days)", stat: "1,847 Jordan RC sales", note: "All grades combined — eBay US, Mar 2025", trend: "up" },
-          { label: cardYear && cardSet ? `${cardSet} Price Range` : "BGS 8–8.5 Price Range", stat: "$6,200 – $11,500", note: "Last 90 days PWCC + eBay verified", trend: "up" },
-          { label: "Record Sale (PSA 10)", stat: "$738,000", note: "Apr 2021 Goldin Auctions — sets the ceiling", trend: "up" },
-          { label: "Active BGS Listings Now", stat: "214 listings", note: "Low supply = sellers hold pricing power", trend: "neutral" },
-          { label: "Avg Watchers Per Listing", stat: "312 watchers", note: "Proxy for real buy-side demand pressure", trend: "up" },
-        ],
-      },
-      {
-        emoji: "💎",
-        label: "Scarcity & Supply",
-        count: 4,
-        items: [
-          { label: "BGS Pop at 8.5 (This Grade)", stat: "Pop 3,299 — high supply", note: "BGS pop report — suppresses scarcity premium", trend: "down" },
-          { label: "Total Graded (All Graders)", stat: "~3,296 total slabs", note: "Raw copies estimated 5,000–8,000 remain", trend: "neutral" },
-          { label: "Gem Rate (BGS 9.5+)", stat: "< 0.3% hit gem", note: "1986 Fleer notoriously hard to grade", trend: "up" },
-          { label: "Rookie Card Status", stat: "TRUE RC — 1986 Fleer #57", note: "Only widely available Jordan rookie card ever", trend: "up" },
-        ],
-      },
-      {
-        emoji: "🐐",
-        label: "GOAT & Legacy",
-        count: 4,
-        items: [
-          { label: "ESPN All-Time Ranking", stat: "#1 NBA player of all time", note: "ESPN, The Athletic, SI unanimous consensus", trend: "up" },
-          { label: "Championships", stat: "6 titles, 6 Finals MVPs", note: "Perfect Finals record — adds a hard price floor", trend: "up" },
-          { label: "Hall of Fame", stat: "Inducted 2009 — 1st ballot", note: "Unanimous — zero debate, permanent demand", trend: "up" },
-          { label: "10-Year Appreciation", stat: "$800 (2015) → $10,500 (2025)", note: "+1,212% vs S&P +180% same period", trend: "up" },
-        ],
-      },
-    ];
-  }
-
-  // Default fallback for other players
-  return [
-    {
-      emoji: "📈",
-      label: "Market Activity",
-      count: 3,
-      items: [
-        { label: "Recent Sales", stat: "Based on comps", note: "Last 90 days market data", trend: "neutral" },
-        { label: "Active Listings", stat: "Multiple sources", note: "eBay, PWCC, Heritage checked", trend: "neutral" },
-        { label: "Population Report", stat: "Grading company data", note: "Scarcity at grade factored in", trend: "neutral" },
-      ],
-    },
-  ];
-}
 
 function SectionCard({ section, index }) {
   return (
@@ -89,7 +21,9 @@ function SectionCard({ section, index }) {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
         <span className="text-base">{section.emoji}</span>
         <span className="text-xs font-semibold uppercase tracking-wider text-foreground">{section.label}</span>
-        <span className="text-[10px] font-mono text-muted-foreground">({section.count} signals)</span>
+        <span className="text-[10px] font-mono text-muted-foreground ml-auto">
+          {section.as_of ? `as of ${section.as_of}` : ''}
+        </span>
       </div>
 
       <div className="px-4 pb-4 pt-3 space-y-3">
@@ -98,7 +32,7 @@ function SectionCard({ section, index }) {
           const TIcon = T.icon;
           return (
             <motion.div
-              key={item.label}
+              key={i}
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.07 + i * 0.04 }}
@@ -121,7 +55,92 @@ function SectionCard({ section, index }) {
 }
 
 export default function ContextualSignals({ playerName, cardYear, cardSet }) {
-  const sections = getContextualSignals(playerName, cardYear, cardSet);
+  const [sections, setSections] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!playerName) { setLoading(false); return; }
+
+    const fetch = async () => {
+      try {
+        const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Today is ${today}. You are a sports card market analyst. Return REAL, CURRENT, VERIFIED data about this player's card market.
+
+Player: ${playerName}
+Card Year: ${cardYear || 'unknown'}
+Card Set: ${cardSet || 'unknown'}
+
+Return 2-3 sections of market signals. Each section must have real data with specific numbers and dates.
+IMPORTANT: Only include data you are confident is accurate. If unsure about a specific stat, omit it. Do NOT fabricate numbers.
+Every "note" field MUST include a date or time reference (e.g. "eBay sold data, Apr 2025" or "as of May 2026").
+
+Return JSON array of sections:
+[
+  {
+    "emoji": "📈",
+    "label": "Live Market Activity",
+    "as_of": "May 2026",
+    "items": [
+      { "label": "...", "stat": "...", "note": "... (source + date)", "trend": "up|down|neutral" }
+    ]
+  }
+]
+
+Focus on: recent eBay sold volume, price range last 90 days, player career status, set prestige, population data if known.
+Return only verified facts. Mark anything estimated with "(est.)" in the note.`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              sections: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    emoji: { type: "string" },
+                    label: { type: "string" },
+                    as_of: { type: "string" },
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          label: { type: "string" },
+                          stat:  { type: "string" },
+                          note:  { type: "string" },
+                          trend: { type: "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          add_context_from_internet: true,
+          model: 'gemini_3_flash',
+        });
+        if (result?.sections?.length > 0) setSections(result.sections);
+      } catch (_) {
+        // silently hide on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetch();
+  }, [playerName, cardYear, cardSet]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        Fetching contextual market signals...
+      </div>
+    );
+  }
+
+  if (!sections || sections.length === 0) return null;
 
   return (
     <div className="space-y-2">
