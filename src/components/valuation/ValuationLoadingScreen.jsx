@@ -73,27 +73,13 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, 
 
   const steps = loadingPhase === 'fetching_comp' ? PHASE_1_STEPS : PHASE_2_STEPS;
 
+  // Tick fast so the loading screen feels snappy and alive
   useEffect(() => {
     setActiveStep(0);
-    const intervals = [];
-    const baseDuration = loadingPhase === 'fetching_comp' ? 3200 : 2800;
-
-    steps.forEach((_, i) => {
-      if (i === 0) return;
-      const t = setTimeout(() => setActiveStep(i), i * baseDuration / steps.length * 1000 / 10 * (loadingPhase === 'fetching_comp' ? 14 : 10));
-      intervals.push(t);
-    });
-
-    return () => intervals.forEach(clearTimeout);
-  }, [loadingPhase]);
-
-  // Simpler: just tick every N seconds
-  useEffect(() => {
-    setActiveStep(0);
-    const ms = loadingPhase === 'fetching_comp' ? 4500 : 3200;
+    // ~180ms per step — breezes through all checks quickly
     const interval = setInterval(() => {
       setActiveStep(prev => Math.min(prev + 1, steps.length - 1));
-    }, ms / steps.length);
+    }, 180);
     return () => clearInterval(interval);
   }, [loadingPhase, steps.length]);
 

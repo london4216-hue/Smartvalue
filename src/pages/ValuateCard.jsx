@@ -567,11 +567,11 @@ export default function ValuateCard() {
     let finalAiValue = enforceMinDiff(parseFloat(aiResult.ai_investment_value) || 0, compValue);
     let backendCalc = null;
 
-    // Call calculateValuation backend — fast local function, run now
+    // Run calculateValuation in parallel — it only needs the signals we already have
     if (signals.length > 0) {
       const anchorPrice = compValue > 0 ? compValue : finalAiValue;
-      try {
-        const valuationResponse = await base44.functions.invoke('calculateValuation', {
+      const [valuationResponse] = await Promise.all([
+        base44.functions.invoke('calculateValuation', {
           last_sold_price: anchorPrice,
           grade: cardData.grade || 'Raw',
           ai_eye_appeal_grade: enrichedCardData.ai_eye_appeal_grade || 'B',
@@ -580,7 +580,9 @@ export default function ValuateCard() {
             percent_adjustment: `${sig.direction === 'bullish' ? '+' : sig.direction === 'bearish' ? '-' : ''}${sig.impact_pct}%`,
             reason: sig.reason
           }))
-        });
+        }).catch(() => null),
+      ]);
+      if (valuationResponse) {
         const vr = valuationResponse.data;
         const rawDisplay = vr.holders_comp_display || '';
         const isNegDisplay = rawDisplay.includes('-');
@@ -591,8 +593,6 @@ export default function ValuateCard() {
         if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
           aiResult = { ...aiResult, value_drivers: vr.top_value_drivers };
         }
-      } catch (err) {
-        // enforceMinDiff already applied above, value is safe
       }
     }
 
