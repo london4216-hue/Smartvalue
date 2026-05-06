@@ -82,8 +82,8 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
       {/* Pop Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         <div>
-          <p className="text-[10px] text-muted-foreground/70 mb-1">At This Grade</p>
-          <p className="text-lg font-mono font-bold text-foreground">{popAtGrade}</p>
+          <p className="text-[10px] text-muted-foreground/70 mb-1">Pop @ This Grade</p>
+          <p className="text-lg font-mono font-bold text-foreground">{popAtGrade.toLocaleString()}</p>
           {totalPop > 0 && (
             <p className="text-[9px] text-muted-foreground/60 mt-0.5">
               {popPct.toFixed(1)}% of total
@@ -92,9 +92,9 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
         </div>
 
         <div>
-          <p className="text-[10px] text-muted-foreground/70 mb-1">Total Graded</p>
-          <p className="text-lg font-mono font-bold text-foreground">{totalPop}</p>
-          <p className="text-[9px] text-muted-foreground/60 mt-0.5">All grades</p>
+          <p className="text-[10px] text-muted-foreground/70 mb-1">Total Pop (All Grades)</p>
+          <p className="text-lg font-mono font-bold text-foreground">{totalPop.toLocaleString()}</p>
+          <p className="text-[9px] text-muted-foreground/60 mt-0.5">PSA + BGS + SGC</p>
         </div>
 
         {popData.highest_grade_achieved && (

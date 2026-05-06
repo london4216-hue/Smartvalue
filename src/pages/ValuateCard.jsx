@@ -546,7 +546,7 @@ export default function ValuateCard() {
       prompt,
       response_json_schema: schema,
       add_context_from_internet: !fastMode,
-      ...(fastMode ? { model: 'gpt_5_mini' } : {}),
+      model: fastMode ? 'gemini_3_flash' : 'gemini_3_flash',
     });
 
     // Ensure non-zero adjustments

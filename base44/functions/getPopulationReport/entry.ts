@@ -12,31 +12,21 @@ Deno.serve(async (req) => {
     }
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card population report expert. Look up the CURRENT population report data for:
+      prompt: `Sports card pop report lookup. Use your training data knowledge — do NOT search the web.
 
-Player: ${player_name}
-Year: ${card_year || 'any'}
-Set: ${card_set || 'any'}
-Grade: ${grade}
+Card: ${player_name} ${card_year || ''} ${card_set || ''} ${grade}
 
-Search PSA, BGS, and SGC population databases to find:
-1. Total number of cards graded at THIS EXACT GRADE (e.g., PSA 9, BGS 9.5, SGC 10)
-2. Total population at this grade across all graders (PSA + BGS + SGC combined if available)
-3. Grading company breakdown if available
-4. Highest grade achieved for this card (if known)
-5. Estimated scarcity tier (common/uncommon/rare/very rare/ultra rare)
+Estimate from known PSA/BGS/SGC population data:
+- pop_at_grade: approx count graded at this exact grade
+- total_pop_all_grades: approx total graded all grades
+- pop_percentage: % at this grade
+- highest_grade_achieved
+- scarcity_assessment: common|uncommon|rare|very_rare|ultra_rare
+- grader_breakdown: {PSA, BGS, SGC}
+- source_confidence: high|medium|low
+- notes: brief caveat
 
-Return JSON with:
-- grading_company (e.g., PSA, BGS, SGC)
-- grade_requested: "${grade}"
-- pop_at_grade: number (how many graded at this exact grade)
-- total_pop_all_grades: number (total ever graded, all grades)
-- pop_percentage: number (percent at this grade out of total pop)
-- highest_grade_achieved: string
-- scarcity_assessment: string (one of: common, uncommon, rare, very_rare, ultra_rare)
-- grader_breakdown: { PSA: number, BGS: number, SGC: number } (if available)
-- source_confidence: string (high/medium/low)
-- notes: string (any caveats about data freshness)`,
+Return JSON only.`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -59,8 +49,8 @@ Return JSON with:
           notes: { type: "string" }
         }
       },
-      add_context_from_internet: true,
-      model: 'gemini_3_1_pro',
+      add_context_from_internet: false,
+      model: 'gemini_3_flash',
     });
 
     return Response.json(result);

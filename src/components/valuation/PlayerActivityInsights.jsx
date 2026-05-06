@@ -65,7 +65,7 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
             }
           },
           add_context_from_internet: true,
-          model: 'gemini_3_1_pro',
+          model: 'gemini_3_flash',
         });
 
         setInsights(result);
