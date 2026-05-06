@@ -505,7 +505,6 @@ export default function ValuateCard() {
             _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
           };
         } else {
-          // No comp found — still carry through tier data and similar comps
           enrichedCardData = {
             ...enrichedCardData,
             _comp_tier: compData.tier || 'no_comp_conservative_estimate',
@@ -514,11 +513,11 @@ export default function ValuateCard() {
             _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
           };
         }
-        // If still null — proceed, but the valuation prompt will flag it
       } catch {
         // Phase 1 failed silently — proceed to valuation anyway
       }
     } else {
+      // Comp already provided by user — skip Phase 1 entirely
       enrichedCardData._comp_confidence = 'user_provided';
     }
 
@@ -529,11 +528,15 @@ export default function ValuateCard() {
     const schema = buildResponseSchema();
     const compValue = parseFloat(enrichedCardData.comp_value) || 0;
 
-    // Run LLM valuation — calculateValuation backend will fire in parallel once we have signals
+    // If we already have a comp, no need to search the web again — much faster
+    const needsWebSearch = compValue <= 0;
+
+    // Run LLM valuation and calculateValuation backend truly in parallel
     let aiResult = await base44.integrations.Core.InvokeLLM({
       prompt,
       response_json_schema: schema,
-      add_context_from_internet: true,
+      add_context_from_internet: needsWebSearch,
+      ...(needsWebSearch ? {} : { model: 'gemini_3_flash' }),
     });
 
     // Ensure non-zero adjustments
@@ -562,7 +565,7 @@ export default function ValuateCard() {
 
     finalAiValue = enforceMinDiff(finalAiValue, compValue);
 
-    // Call calculateValuation backend in parallel — fire immediately, await result
+    // Call calculateValuation backend in parallel with signal processing
     if (signals.length > 0) {
       const anchorPrice = compValue > 0 ? compValue : finalAiValue;
       try {
