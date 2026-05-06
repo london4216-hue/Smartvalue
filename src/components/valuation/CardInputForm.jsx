@@ -155,7 +155,7 @@ export default function CardInputForm({ onSubmit, isLoading, initialData }) {
       <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
         <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Step 1 — Snap or Upload Your Card</p>
         <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot from Veriswap, eBay, or any site — AI reads the card and fills everything in automatically.</p>
-        <CardImageScanner onExtracted={handleScanned} />
+        <CardImageScanner onConfirmed={handleScanned} />
       </div>
 
       <div className="border-t border-border/30" />
