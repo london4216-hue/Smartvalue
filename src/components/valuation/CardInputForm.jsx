@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Search, Loader2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+
 import { motion } from 'framer-motion';
 import CardImageScanner from './CardImageScanner';
 import GradeWeightDisplay from './GradeWeightDisplay';
@@ -98,7 +99,6 @@ export default function CardInputForm({ onSubmit, isLoading, initialData }) {
     ai_scan_quality: '',
     psa_alignment: false,
   });
-  const [showScanner, setShowScanner] = useState(true);
   const [showSignals, setShowSignals] = useState(true);
 
   const handleChange = (field, value) => {
@@ -151,17 +151,11 @@ export default function CardInputForm({ onSubmit, isLoading, initialData }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* AI Card Scanner Toggle */}
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setShowScanner(s => !s)}
-          className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="font-mono uppercase tracking-wider">AI Card Scanner (optional)</span>
-          {showScanner ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
-        {showScanner && <CardImageScanner onExtracted={handleScanned} />}
+      {/* AI Card Scanner — always visible */}
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Step 1 — Snap or Upload Your Card</p>
+        <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot from Veriswap, eBay, or any site — AI reads the card and fills everything in automatically.</p>
+        <CardImageScanner onExtracted={handleScanned} />
       </div>
 
       <div className="border-t border-border/30" />

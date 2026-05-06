@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Loader2, Sparkles, X, CheckCircle2, ScanLine } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Camera, Upload, Loader2, X, CheckCircle2, ScanLine, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function CardImageScanner({ onExtracted }) {
@@ -76,96 +75,107 @@ Be as specific as possible. If you see a PSA/BGS/SGC slab, note the exact grade 
     setScanning(false);
   };
 
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <ScanLine className="w-4 h-4 text-primary" />
         <span className="text-xs font-mono uppercase tracking-wider text-primary">AI Card Scanner</span>
-        <span className="text-[10px] text-muted-foreground ml-auto">Upload card image to auto-fill</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">Snap or upload · AI auto-fills all fields</span>
       </div>
 
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        className={cn(
-          "relative border-2 border-dashed rounded-xl transition-all overflow-hidden",
-          dragging ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/40",
-          imagePreview ? "h-36" : "h-28"
-        )}
-      >
-        {imagePreview ? (
-          <>
-            <img
-              src={imagePreview}
-              alt="Card"
-              className="w-full h-full object-contain bg-secondary/20"
-            />
-            {/* Scan overlay */}
-            <AnimatePresence>
-              {scanning && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2"
-                >
-                  {/* Scanning line animation */}
-                  <motion.div
-                    className="absolute left-0 right-0 h-0.5 bg-primary/80 shadow-[0_0_8px_hsl(43,96%,56%)]"
-                    animate={{ top: ['10%', '90%', '10%'] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-                  />
-                  <div className="relative z-10 text-center">
-                    <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto mb-1" />
-                    <p className="text-xs font-mono text-primary">Scanning card...</p>
-                  </div>
-                </motion.div>
-              )}
-              {done && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-emerald-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-1"
-                >
-                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
-                  <p className="text-xs font-mono text-emerald-400">Fields populated!</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!scanning && (
-              <button
-                onClick={handleReset}
-                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
-              >
-                <X className="w-3 h-3 text-foreground" />
-              </button>
-            )}
-          </>
-        ) : (
+      {!imagePreview ? (
+        <div className="grid grid-cols-2 gap-3">
+          {/* Camera — opens camera directly on mobile */}
           <button
-            onClick={() => inputRef.current?.click()}
-            className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/70 transition-all text-primary"
           >
-            <div className="flex items-center gap-3">
-              <Camera className="w-5 h-5" />
-              <span className="text-sm">Drop card image or click to upload</span>
-              <Upload className="w-4 h-4" />
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground/60">
-              AI will auto-detect player, set, grade, variation
-            </span>
+            <Camera className="w-7 h-7" />
+            <span className="text-xs font-semibold">Take Photo</span>
+            <span className="text-[10px] text-primary/60">Use your camera</span>
           </button>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileInput}
-        />
-      </div>
+
+          {/* Gallery / file upload */}
+          <button
+            type="button"
+            onClick={() => galleryRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={cn(
+              "flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed transition-all",
+              dragging
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <ImagePlus className="w-7 h-7" />
+            <span className="text-xs font-semibold">Upload Screenshot</span>
+            <span className="text-[10px] text-muted-foreground/60">From camera roll or desktop</span>
+          </button>
+
+          {/* Hidden inputs */}
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileInput} />
+          <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={handleFileInput} />
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "relative border-2 border-dashed rounded-xl overflow-hidden transition-all",
+            scanning ? "border-primary" : done ? "border-emerald-500" : "border-border/50",
+            "h-48"
+          )}
+        >
+          <img src={imagePreview} alt="Card" className="w-full h-full object-contain bg-secondary/20" />
+
+          <AnimatePresence>
+            {scanning && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2"
+              >
+                <motion.div
+                  className="absolute left-0 right-0 h-0.5 bg-primary/80"
+                  animate={{ top: ['10%', '90%', '10%'] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+                />
+                <div className="relative z-10 text-center">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto mb-1" />
+                  <p className="text-xs font-mono text-primary">AI scanning card...</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Detecting player, set, grade & more</p>
+                </div>
+              </motion.div>
+            )}
+            {done && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-emerald-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-1"
+              >
+                <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-400">Card identified!</p>
+                <p className="text-[10px] text-emerald-300/70">Fields auto-filled below</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!scanning && (
+            <button
+              onClick={handleReset}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/90 flex items-center justify-center hover:bg-background transition-colors shadow"
+            >
+              <X className="w-3.5 h-3.5 text-foreground" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
