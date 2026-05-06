@@ -228,7 +228,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                  <>
                    <p className="text-2xl font-mono font-bold text-emerald-500">${compValue.toLocaleString()}</p>
                    <p className="text-xs text-muted-foreground mt-1">
-                     What someone actually paid · {result._comp_sale_date ? result._comp_sale_date : 'Most recent completed sale'}
+                     What someone actually paid · {result._comp_sale_date ? new Date(result._comp_sale_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Most recent completed sale'}
                    </p>
                  </>
                ) : (

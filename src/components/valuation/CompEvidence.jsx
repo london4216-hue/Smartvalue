@@ -33,6 +33,13 @@ const TIER_CONFIG = {
   },
 };
 
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr; // fallback: show as-is
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function CompEvidence({ result }) {
   const tier = result._comp_tier;
   const ebayLink = result._comp_ebay_link;
@@ -74,7 +81,7 @@ export default function CompEvidence({ result }) {
           {result._comp_sale_date && (
             <p className="text-sm text-muted-foreground">
               <span className="text-foreground font-semibold">${compValue?.toLocaleString()}</span>
-              {result._comp_sale_date ? ` · Sold ${result._comp_sale_date}` : ''}
+              {result._comp_sale_date ? ` · Sold ${formatDate(result._comp_sale_date)}` : ''}
             </p>
           )}
           {ebayLink && (
@@ -111,7 +118,7 @@ export default function CompEvidence({ result }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-foreground leading-snug">{comp.description}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {comp.source} · {comp.sale_date}
+                    {comp.source} · {formatDate(comp.sale_date)}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
