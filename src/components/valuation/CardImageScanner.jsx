@@ -12,32 +12,26 @@ async function analyzeCardImage(file) {
 
   // 2. Extract all card details + condition from the image
   const extraction = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a sports card identification and condition expert. Analyze this card image thoroughly.
+    prompt: `Sports card image analysis. Return JSON only, no explanation.
 
-Extract every visible detail AND assess the card's physical condition.
-
-IDENTIFICATION:
-- player: Full player name (required)
-- set: Card set name (Prizm, Optic, National Treasures, Select, Mosaic, etc.)
-- year: Year produced (4 digits)
-- parallel: Color/variation (Silver, Gold, Base, Holo, Cracked Ice, etc.)
-- card_number: Card # if visible
-- rookie: true if RC/Rookie visible, false otherwise
-- grade_company: PSA, BGS, SGC, CGC if card is in a slab (null if raw)
-- grade_value: Grade number if slabbed (null if raw)
-- serial_number: Serial # if visible (e.g. 45 for /45)
-- has_autograph: true if any signature is visible on the card
-- auto_type: If autograph is present — "on_card" if the signature is directly on the card surface, "sticker" if the signature is on a separate sticker/label affixed to the card, "unknown" if you genuinely cannot tell. Return null if no autograph.
-
-CONDITION ASSESSMENT (describe only what you can observe in the image):
-- centering: Brief centering observation (e.g. "60/40 left-right, well centered top-bottom")
-- corners: Brief corner observation (e.g. "sharp on all four corners", "slight wear on bottom-right")
-- surface: Brief surface observation (e.g. "clean gloss, no scratches visible", "light surface wear")
-- edges: Brief edge observation
-- eye_appeal_grade: Letter grade A, B, C, or D based purely on visual appeal
-- eye_appeal_reasoning: 1-2 sentences describing what you see — centering, corners, surface — without referencing any grading company standards
-
-Return JSON only.`,
+Extract:
+- player: player name (required)
+- set: set name (Prizm, Optic, NT, Select, etc.)
+- year: 4-digit year
+- parallel: color/variation
+- card_number: card # if visible
+- rookie: true/false/null
+- grade_company: PSA/BGS/SGC/CGC if slabbed, else null
+- grade_value: grade number if slabbed, else null
+- serial_number: serial # if visible (just the number, e.g. 45 for /45)
+- has_autograph: true if signature visible
+- auto_type: "on_card" | "sticker" | "unknown" | null
+- centering: one short sentence
+- corners: one short sentence
+- surface: one short sentence
+- edges: one short sentence
+- eye_appeal_grade: A/B/C/D
+- eye_appeal_reasoning: one sentence, what you see only`,
     file_urls: [file_url],
     response_json_schema: {
       type: "object",
