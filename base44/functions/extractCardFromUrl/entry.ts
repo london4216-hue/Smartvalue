@@ -350,33 +350,27 @@ Return JSON only.`,
     result._ask_type = 'buy_it_now';
     result.image_url = scrapedImage || imageFromHash || null;
 
-    // Grade assessment LLM (if we have image) — blocking for response
+    // Grade assessment LLM (if we have image) — run in parallel with nothing else to await
     let aiGradeAssessment = null;
     if (result.image_url) {
-      try {
-        aiGradeAssessment = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Grade this sports card image using PSA/BGS/SGC standards.
-
-Card: ${result.player_name} ${result.card_year} ${result.card_set}
-
-Return:
-- estimated_grade (e.g. "9" or "8.5")
-- confidence ("high", "medium", or "low")
-- key_observations (array of 2-3 observations)
-- grade_range (e.g. "8-9")`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              estimated_grade: { type: "string" },
-              confidence: { type: "string" },
-              key_observations: { type: "array", items: { type: "string" } },
-              grade_range: { type: "string" },
-            }
-          },
-          file_urls: [result.image_url],
-          model: 'gemini_3_flash',
-        });
-      } catch (_) {}
+     try {
+       aiGradeAssessment = await base44.asServiceRole.integrations.Core.InvokeLLM({
+         prompt: `Assess this sports card image condition briefly.
+    Card: ${result.player_name} ${result.card_year || ''} ${result.card_set || ''}
+    Return: estimated_grade, confidence (high/medium/low), key_observations (2-3 items array), grade_range`,
+         response_json_schema: {
+           type: "object",
+           properties: {
+             estimated_grade: { type: "string" },
+             confidence: { type: "string" },
+             key_observations: { type: "array", items: { type: "string" } },
+             grade_range: { type: "string" },
+           }
+         },
+         file_urls: [result.image_url],
+         model: 'gemini_3_flash',
+       });
+     } catch (_) {}
     }
 
     // Assign grade & eye appeal

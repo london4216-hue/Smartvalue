@@ -356,56 +356,24 @@ There may be ZERO direct comps for this exact card. Follow the ESCALATING COMP S
     : 'This card has an autograph. Prefer autograph comps when available.';
 
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are the world's most thorough sports card comp researcher. Your ONLY job is to find REAL, ACTUAL sold prices. NO ASKING PRICES EVER.
+    prompt: `Sports card comp researcher. Find REAL sold prices only — NO asking prices.
 
 ${ultraRareNote}
-CARD TO VALUE: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
-
+CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
 ${autoFilter}
 
-ESCALATING COMP STRATEGY — Execute in order, stop when you have data:
+SEARCH STRATEGY (stop at first success):
+TIER 1 — Search eBay sold, PWCC, Goldin, 130point for: "${primarySearch} sold" → tier="exact_match"
+TIER 2 — Same card, adj grade/serial → tier="adjusted_comp", explain in notes
+TIER 3 — 3 similar sold cards as baseline (esp. for ultra-rare) → tier="similar_card_baseline", return similar_comps array
+TIER 4 — No data: conservative estimate from market knowledge → tier="no_comp_conservative_estimate"
 
-TIER 1 — Exact Match (best):
-Search eBay sold listings, PWCC, Heritage Auctions, Goldin, 130point, CardLadder for:
-"${primarySearch} sold"
-If found: return comp_value + ebay_link or source URL + sale_date. Set tier = "exact_match".
-
-TIER 2 — Same Card, Different Grade or Serial (if Tier 1 fails):
-Search for same player + same set + same variation but different serial or grade. Adjust upward for lower serial / higher grade.
-E.g. if card is /5 and you find a /10 sale, note the serial premium. If card is PSA 10 and you find PSA 9, note grade premium.
-Set tier = "adjusted_comp". Explain the adjustment in notes.
-
-TIER 3 — 3 Similar Cards as Baseline (if Tiers 1-2 fail — CRITICAL for 1/1s):
-${isUltraRare ? `This is likely the path for this ultra-rare. Find 3 REAL sold comps for similar cards:` : `If no direct comp, find 3 similar sold cards:`}
-- Same player (${player_name})
-- Same approximate era (${card_year || 'same era'})
-- Similar set tier (${card_set || 'similar prestige'})
-- ${has_autograph === false ? 'NO autograph — match this exactly' : 'Similar features'}
-- Similar grade if possible
-These 3 comps establish a BASELINE. The actual card's value adjusts UP from here due to ${isUltraRare ? `extreme scarcity (${isOneOfOne ? '1/1' : `/${serial_number}`})` : 'rarity'}.
-Return all 3 in similar_comps array with: description, sold_price, sale_date, source.
-Set tier = "similar_card_baseline".
-
-TIER 4 — Conservative Asset Estimate (absolute last resort):
-If no data at all (extremely rare scenario):
-- Estimate based on: player's current card market, set prestige, grade, serial rarity
-- Return conservative_estimate_reasoning explaining your methodology step by step
-- Note: "No comp data found. Conservative asset estimate based on market knowledge."
-Set tier = "no_comp_conservative_estimate".
-
-RETURN:
-- tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"
-- comp_value: Best single number to anchor valuation (null ONLY for Tier 4)
-- cheapest_available: Lowest active ask if found (optional)
-- sale_date: Most recent sale date
-- sales_found: Number of comps found
-- confidence: "high" | "medium" | "low"
-- notes: Full explanation — what you found, where, any adjustments, data quality
-- ebay_link: Direct URL to the sold eBay listing if found (Tier 1 only)
-- similar_comps: Array of 3 comp objects [{description, sold_price, sale_date, source, ebay_link}] (Tier 3 only)
-- conservative_estimate_reasoning: Step-by-step methodology (Tier 4 only)
-
-Return ONLY valid JSON.`,
+RETURN JSON:
+- tier, comp_value (null only for T4), cheapest_available, sale_date, sales_found, confidence (high/medium/low)
+- notes (what you found, adjustments, data quality)
+- ebay_link (T1 only)
+- similar_comps: [{description, sold_price, sale_date, source, ebay_link}] (T3 only)
+- conservative_estimate_reasoning (T4 only)`,
     response_json_schema: {
       type: "object",
       properties: {
@@ -560,7 +528,9 @@ export default function ValuateCard() {
 
     const prompt = buildPrompt(enrichedCardData);
     const schema = buildResponseSchema();
+    const compValue = parseFloat(enrichedCardData.comp_value) || 0;
 
+    // Run LLM valuation — calculateValuation backend will fire in parallel once we have signals
     let aiResult = await base44.integrations.Core.InvokeLLM({
       prompt,
       response_json_schema: schema,
@@ -570,7 +540,6 @@ export default function ValuateCard() {
     // Ensure non-zero adjustments
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
 
-    const compValue = parseFloat(enrichedCardData.comp_value) || 0;
     let finalAiValue = parseFloat(aiResult.ai_investment_value) || 0;
     let backendCalc = null;
 
@@ -587,7 +556,6 @@ export default function ValuateCard() {
       const candidate = Math.round(aiVal);
       const diffPct = Math.abs((candidate - comp) / comp) * 100;
       if (diffPct < 8) {
-        // Direction determined by net signal sentiment
         return netSignalPct < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
       }
       return candidate;
@@ -595,7 +563,7 @@ export default function ValuateCard() {
 
     finalAiValue = enforceMinDiff(finalAiValue, compValue);
 
-    // Call calculateValuation backend whenever we have signals
+    // Call calculateValuation backend in parallel — fire immediately, await result
     if (signals.length > 0) {
       const anchorPrice = compValue > 0 ? compValue : finalAiValue;
       try {
@@ -614,7 +582,6 @@ export default function ValuateCard() {
         const isNegDisplay = rawDisplay.includes('-');
         const parsed = parseFloat(rawDisplay.replace(/[^0-9.]/g, '')) * (isNegDisplay ? -1 : 1);
         const backendValue = parsed && !isNaN(parsed) ? parsed : finalAiValue;
-        // Always re-enforce after backend — backend can still return same-as-comp
         finalAiValue = enforceMinDiff(backendValue, compValue);
         backendCalc = vr.holders_comp_calculation;
         if (vr.top_value_drivers && vr.top_value_drivers.length > 0) {
