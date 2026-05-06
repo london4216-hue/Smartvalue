@@ -12,7 +12,7 @@ async function analyzeCardImage(file) {
 
   // 2. Extract all card details + condition from the image
   const extraction = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a professional sports card grader and expert. Analyze this card image thoroughly.
+    prompt: `You are a sports card identification and condition expert. Analyze this card image thoroughly.
 
 Extract every visible detail AND assess the card's physical condition.
 
@@ -23,20 +23,19 @@ IDENTIFICATION:
 - parallel: Color/variation (Silver, Gold, Base, Holo, Cracked Ice, etc.)
 - card_number: Card # if visible
 - rookie: true if RC/Rookie visible, false otherwise
-- grade_company: PSA, BGS, SGC, CGC if slabbed (null if raw)
+- grade_company: PSA, BGS, SGC, CGC if card is in a slab (null if raw)
 - grade_value: Grade number if slabbed (null if raw)
 - serial_number: Serial # if visible (e.g. 45 for /45)
+- has_autograph: true if any signature is visible on the card
+- auto_type: If autograph is present — "on_card" if the signature is directly on the card surface, "sticker" if the signature is on a separate sticker/label affixed to the card, "unknown" if you genuinely cannot tell. Return null if no autograph.
 
-CONDITION ASSESSMENT (analyze the actual card surface visible):
-- estimated_grade: Your PSA-equivalent grade estimate (e.g. "9", "9.5", "8")
-- grade_range: Range like "8-9" or "9-9.5"
-- confidence: "high", "medium", or "low"
-- centering: Brief centering assessment (e.g. "60/40 left-right, well centered top-bottom")
-- corners: Brief corner assessment (e.g. "sharp on all four corners", "slight wear on bottom-right")
-- surface: Brief surface assessment (e.g. "clean gloss, no scratches visible", "light surface wear")
-- edges: Brief edge assessment
-- eye_appeal_grade: Letter grade A, B, C, or D
-- eye_appeal_reasoning: 1-2 sentences summarizing overall condition
+CONDITION ASSESSMENT (describe only what you can observe in the image):
+- centering: Brief centering observation (e.g. "60/40 left-right, well centered top-bottom")
+- corners: Brief corner observation (e.g. "sharp on all four corners", "slight wear on bottom-right")
+- surface: Brief surface observation (e.g. "clean gloss, no scratches visible", "light surface wear")
+- edges: Brief edge observation
+- eye_appeal_grade: Letter grade A, B, C, or D based purely on visual appeal
+- eye_appeal_reasoning: 1-2 sentences describing what you see — centering, corners, surface — without referencing any grading company standards
 
 Return JSON only.`,
     file_urls: [file_url],
@@ -52,9 +51,8 @@ Return JSON only.`,
         grade_company:    { type: ["string", "null"] },
         grade_value:      { type: ["string", "null"] },
         serial_number:    { type: ["string", "null"] },
-        estimated_grade:  { type: ["string", "null"] },
-        grade_range:      { type: ["string", "null"] },
-        confidence:       { type: ["string", "null"] },
+        has_autograph:    { type: ["boolean", "null"] },
+        auto_type:        { type: ["string", "null"] },
         centering:        { type: ["string", "null"] },
         corners:          { type: ["string", "null"] },
         surface:          { type: ["string", "null"] },
@@ -84,16 +82,14 @@ Return JSON only.`,
     serial_number: extraction.serial_number || null,
     grade: gradeStr || null,
     is_rookie_year: extraction.rookie || false,
-    has_autograph: false,
+    has_autograph: extraction.has_autograph || false,
+    is_sticker_auto: extraction.auto_type === 'sticker',
+    _auto_type_uncertain: extraction.auto_type === 'unknown',
     has_patch: false,
     image_url: file_url,
     comp_value: null,
     cheapest_available: null,
-    // Eye appeal & condition — same fields as extractCardFromUrl
     ai_grade_assessment: {
-      estimated_grade: extraction.estimated_grade,
-      confidence: extraction.confidence,
-      grade_range: extraction.grade_range,
       key_observations: [
         extraction.centering,
         extraction.corners,
@@ -101,7 +97,7 @@ Return JSON only.`,
         extraction.edges,
       ].filter(Boolean),
     },
-    ai_grade_disclosure: 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination.',
+    ai_grade_disclosure: 'Eye appeal grade reflects our visual assessment of the card only. We are not a grading company and this is not a professional grade.',
     ai_eye_appeal_grade: extraction.eye_appeal_grade || null,
     eye_appeal_reasoning: extraction.eye_appeal_reasoning || null,
   };
@@ -110,11 +106,12 @@ Return JSON only.`,
 }
 
 export default function CardImageScanner({ onConfirmed }) {
-  const [dragging, setDragging]     = useState(false);
-  const [scanning, setScanning]     = useState(false);
+  const [dragging, setDragging]         = useState(false);
+  const [scanning, setScanning]         = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
-  const [extracted, setExtracted]   = useState(null);
-  const [error, setError]           = useState('');
+  const [extracted, setExtracted]       = useState(null);
+  const [error, setError]               = useState('');
+  const [awaitingAutoConfirm, setAwaitingAutoConfirm] = useState(false);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
 
@@ -131,6 +128,10 @@ export default function CardImageScanner({ onConfirmed }) {
     try {
       const result = await analyzeCardImage(file);
       setExtracted(result);
+      // If auto detected but type is uncertain, ask user to confirm before proceeding
+      if (result.has_autograph && result._auto_type_uncertain) {
+        setAwaitingAutoConfirm(true);
+      }
     } catch (err) {
       setError(err.message || "Couldn't identify the card. Try a clearer photo.");
       setImagePreview(null);
@@ -150,6 +151,7 @@ export default function CardImageScanner({ onConfirmed }) {
     setExtracted(null);
     setError('');
     setScanning(false);
+    setAwaitingAutoConfirm(false);
   };
 
   const handleConfirm = () => {
@@ -157,8 +159,16 @@ export default function CardImageScanner({ onConfirmed }) {
   };
 
   const handleWrongCard = () => {
-    // Still confirm but flag for correction
     onConfirmed({ ...extracted, _needs_correction: true });
+  };
+
+  const handleAutoTypeSelect = (type) => {
+    setExtracted(prev => ({
+      ...prev,
+      is_sticker_auto: type === 'sticker',
+      _auto_type_uncertain: false,
+    }));
+    setAwaitingAutoConfirm(false);
   };
 
   const cardSummary = extracted ? [
@@ -260,10 +270,26 @@ export default function CardImageScanner({ onConfirmed }) {
                 <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
               </div>
 
-              {/* Condition Assessment — same as URL flow */}
-              {extracted.ai_grade_assessment && (
+              {/* Auto type confirmation — ask user before proceeding */}
+              {awaitingAutoConfirm && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold text-amber-600">✍️ We detected an autograph — is it on-card or a sticker auto?</p>
+                  <p className="text-[10px] text-amber-600/80">This significantly affects valuation accuracy. Please confirm before we proceed.</p>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => handleAutoTypeSelect('on_card')} className="flex-1 h-8 text-xs border-amber-500/40 text-amber-700 hover:bg-amber-500/10">
+                      On-Card Auto
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleAutoTypeSelect('sticker')} className="flex-1 h-8 text-xs border-amber-500/40 text-amber-700 hover:bg-amber-500/10">
+                      Sticker Auto
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Condition Assessment */}
+              {extracted.ai_grade_assessment && !awaitingAutoConfirm && (
                 <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
-                  <p className="font-semibold text-primary text-sm">📐 Condition Assessment</p>
+                  <p className="font-semibold text-primary text-sm">📐 Visual Assessment</p>
 
                   {/* Eye appeal grade badge */}
                   {extracted.ai_eye_appeal_grade && (
@@ -286,27 +312,6 @@ export default function CardImageScanner({ onConfirmed }) {
                     </div>
                   )}
 
-                  {/* Estimated grade */}
-                  {extracted.ai_grade_assessment.estimated_grade && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-muted-foreground">Est. PSA Grade:</span>
-                      <span className="font-mono font-bold text-foreground">
-                        {extracted.ai_grade_assessment.estimated_grade}
-                        {extracted.ai_grade_assessment.grade_range ? ` (range: ${extracted.ai_grade_assessment.grade_range})` : ''}
-                      </span>
-                      {extracted.ai_grade_assessment.confidence && (
-                        <span className={cn(
-                          "text-[9px] font-mono px-1.5 py-0.5 rounded border",
-                          extracted.ai_grade_assessment.confidence === 'high' ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' :
-                          extracted.ai_grade_assessment.confidence === 'medium' ? 'text-amber-400 border-amber-400/30 bg-amber-400/10' :
-                          'text-muted-foreground border-border/30 bg-secondary/50'
-                        )}>
-                          {extracted.ai_grade_assessment.confidence} confidence
-                        </span>
-                      )}
-                    </div>
-                  )}
-
                   {/* Key observations */}
                   {extracted.ai_grade_assessment.key_observations?.length > 0 && (
                     <ul className="space-y-1">
@@ -323,21 +328,25 @@ export default function CardImageScanner({ onConfirmed }) {
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleConfirm} className="flex-1 h-9 text-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                  Yes, run AI valuation
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-9 text-xs px-3">
-                  <X className="w-3 h-3 mr-1" />
-                  Wrong — fix it
-                </Button>
-              </div>
+              {/* Actions — only show after auto type is confirmed */}
+              {!awaitingAutoConfirm && (
+                <>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" onClick={handleConfirm} className="flex-1 h-9 text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                      Yes, run AI valuation
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-9 text-xs px-3">
+                      <X className="w-3 h-3 mr-1" />
+                      Wrong — fix it
+                    </Button>
+                  </div>
 
-              <button onClick={handleReset} className="w-full text-[10px] text-muted-foreground hover:text-foreground underline text-center">
-                Scan a different card
-              </button>
+                  <button onClick={handleReset} className="w-full text-[10px] text-muted-foreground hover:text-foreground underline text-center">
+                    Scan a different card
+                  </button>
+                </>
+              )}
             </div>
           </motion.div>
         )}
