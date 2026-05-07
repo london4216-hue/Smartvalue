@@ -349,7 +349,7 @@ export default function ValuateCard() {
           </motion.div>
 
           {/* ── INTAKE: URL INPUT ── */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-2">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="border-2 border-black rounded-2xl p-5 bg-card space-y-2">
             <div className="flex items-center gap-2">
               <Link className="w-5 h-5 text-primary shrink-0" />
               <p className="text-lg font-bold text-foreground">Cut & Paste Your Listing URL to Valuate</p>
@@ -359,7 +359,7 @@ export default function ValuateCard() {
           </motion.div>
 
           {/* ── INTAKE: PHOTO / UPLOAD ── */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="bg-card border border-border/50 rounded-2xl p-5 space-y-3">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="border-2 border-black rounded-2xl p-5 bg-card space-y-3">
             <div className="flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary shrink-0" />
               <p className="text-lg font-bold text-foreground">Take Photo or Upload Card Image</p>
