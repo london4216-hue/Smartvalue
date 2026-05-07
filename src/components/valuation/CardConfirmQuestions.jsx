@@ -29,6 +29,10 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
 
   // Last sold price — user-entered, becomes the locked comp anchor
   const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || '');
+  
+  // eBay comp lookup
+  const [ebayCompUrl, setEbayCompUrl] = useState('');
+  const [showEbayFrame, setShowEbayFrame] = useState(false);
 
   const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null;
 
@@ -195,7 +199,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
             <span className="text-[10px] text-muted-foreground font-semibold ml-auto">Optional but recommended</span>
           </div>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Enter the real last sold price from eBay. This becomes the <strong>locked comp anchor</strong> — the AI will never override it.
+            Enter the real last sold price. This becomes the <strong>locked comp anchor</strong> — the AI will never override it.
           </p>
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-muted-foreground shrink-0">$</span>
@@ -213,15 +217,61 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
               ✓ ${parseFloat(lastSoldPrice).toLocaleString()} locked in as comp — AI will NOT override this
             </p>
           )}
-          {!lastSoldPrice && (
-            <a
-              href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
-              target="_blank"
-              rel="noopener noreferrer"
+          
+          {/* eBay Comp Lookup */}
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const searchQuery = [extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' ');
+                setEbayCompUrl(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQuery)}&LH_Sold=1&LH_Complete=1&_sop=13`);
+                setShowEbayFrame(true);
+              }}
               className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-semibold"
             >
-              🔍 Look up sold comps on eBay →
-            </a>
+              🔍 Open eBay Sold Listings
+            </button>
+          </div>
+
+          {/* eBay Frame Modal */}
+          {showEbayFrame && ebayCompUrl && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+              <div className="bg-card rounded-xl border border-border w-full max-w-4xl h-[80vh] flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-border/30">
+                  <p className="text-sm font-bold text-foreground">Find the sold listing on eBay, then enter the price above</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEbayFrame(false)}
+                    className="text-muted-foreground hover:text-foreground text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                {/* eBay iFrame */}
+                <iframe
+                  src={ebayCompUrl}
+                  title="eBay Sold Listings"
+                  className="flex-1 border-0 w-full"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+                
+                {/* Footer */}
+                <div className="p-4 border-t border-border/30 bg-secondary/20 flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground">
+                    Copy the final sale price from a matching listing above, paste it in the $ field, then close this window.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEbayFrame(false)}
+                    className="text-[10px] font-semibold text-primary hover:underline"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
