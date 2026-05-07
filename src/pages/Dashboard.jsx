@@ -6,10 +6,6 @@ import { Sparkles, ArrowRight, Zap, CheckCircle2, Target, TrendingUp, Clock, Shi
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
-import TopTrending from '@/components/dashboard/TopTrending';
-
-
-
 // ── Portfolio summary stats ───────────────────────────────────────────────────
 function ValuationSummary({ cards }) {
   const portfolioCards = cards.filter(c => c.in_portfolio);
@@ -109,33 +105,28 @@ function RecentCard({ card, delay }) {
 
 function RecentAndTrending({ cards }) {
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1">
-        <TopTrending cards={cards} />
-      </div>
-      <div className="lg:col-span-2">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Recent Valuations</h2>
-        {cards.length === 0 ? (
-          <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-foreground">No valuations yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Paste a card link — let AI run the 44-signal verdict</p>
-            <Link to="/valuate">
-              <Button variant="outline" className="mt-4 rounded-xl border-border/50">
-                Run Your First Valuation <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+    <div>
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Recent Valuations</h2>
+      {cards.length === 0 ? (
+        <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-muted-foreground" />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {cards.slice(0, 8).map((card, i) => (
-              <RecentCard key={card.id} card={card} delay={0.05 + i * 0.04} />
-            ))}
-          </div>
-        )}
-      </div>
+          <p className="text-sm font-medium text-foreground">No valuations yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Paste a card link — let AI run the 44-signal verdict</p>
+          <Link to="/valuate">
+            <Button variant="outline" className="mt-4 rounded-xl border-border/50">
+              Run Your First Valuation <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {cards.slice(0, 8).map((card, i) => (
+            <RecentCard key={card.id} card={card} delay={0.05 + i * 0.04} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
