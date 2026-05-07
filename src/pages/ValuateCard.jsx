@@ -79,22 +79,55 @@ ${cardData.scan_notes}
 
   return `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
 
-Your #1 priority is SPEED. You MUST compute the entire valuation in ONE SINGLE PASS using ONLY the already-confirmed card data provided below.
+Your #1 priority is SPEED.
+
+After the user confirms the card is correct, you MUST run ALL deep analysis computations in ONE SINGLE PASS.
 
 You MUST NOT:
 - re-scan the image
 - re-parse the title or description
 - re-identify the card
-- re-evaluate centering or corners
-- re-check any attributes individually
-- run multi-pass logic or sequential loops
+- re-check attributes
+- re-run scraping logic
+- run multi-pass loops
+- run sequential attribute scoring
+- run sequential category scoring
+- run sequential valuation steps
+- run any redundant checks
 
 You MUST:
-- use the confirmed card data AS-IS
-- compute ALL attribute impacts in one batch
-- compute ALL category totals in one batch
-- compute ALL valuation math in one batch
-- compute BOTH recommendations in one batch
+- use the confirmed card object AS-IS
+- use the scraped image AS-IS
+- use the scraped last sale AS-IS
+- use the scraped current ask AS-IS
+
+Then compute EVERYTHING below in ONE PASS:
+- centering + corners → eye appeal grade
+- all 44 attributes → percent impacts
+- category rollups
+- top value drivers
+- supporting factors rollup
+- valuation math
+- final AI Value
+- short-term flip recommendation
+- long-term hold recommendation
+
+------------------------------------------
+ONE-PASS WORKFLOW (MUST FOLLOW)
+------------------------------------------
+
+1. Take the confirmed card object exactly as provided.
+2. Take the scraped image URL exactly as provided.
+3. Take the last sale price + date + source exactly as provided.
+4. Take the current ask price exactly as provided.
+
+5. In ONE PASS:
+   - evaluate ALL attributes
+   - convert ALL attribute scores → percent impact → dollar impact
+   - compute category impact summary
+   - compute valuation math
+   - compute final AI Value
+   - compute flip/hold recommendations
 
 ------------------------------------------
 NBA CARD VALUATION — ONE-PASS, NO RE-EVALUATION
