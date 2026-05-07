@@ -103,41 +103,9 @@ function buildResponseSchema() {
 }
 
 async function fetchRealComp(cardData) {
-  const { player_name, card_year, card_set, variation, serial_number, grade, has_autograph } = cardData;
-  const serialStr = serial_number ? `/${serial_number}` : '';
-  const autoNote = has_autograph === false ? 'No autograph — base card only comps.' : '';
-  return await base44.integrations.Core.InvokeLLM({
-    prompt: `Sports card comp lookup. Use your training knowledge of eBay/PWCC sold prices.
-
-CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
-${autoNote}
-
-CRITICAL GRADE RULE: If this card has a grade (e.g. PSA 10, BGS 9.5), you MUST ONLY return comps for that exact grade from that exact grading company. NEVER use raw/ungraded prices as comp_value or cheapest_available for a graded card. If no graded comp exists, set comp_value=null and tier=no_comp_conservative_estimate.
-
-CHEAPEST AVAILABLE RULE: cheapest_available must also be for the same grade. If you only see raw listings for a graded card, set cheapest_available=null.
-
-24-MONTH RULE: Only return comps from the last 24 months. If the most recent comp is older than 24 months, set tier=no_comp_conservative_estimate.
-
-Pick best tier: exact_match → adjusted_comp → similar_card_baseline → no_comp_conservative_estimate
-
-Return JSON only: tier, comp_value, cheapest_available, sale_date, confidence (high/medium/low), notes, ebay_link, similar_comps[], conservative_estimate_reasoning`,
-    response_json_schema: {
-      type: "object",
-      properties: {
-        tier: { type: "string" },
-        comp_value: { type: ["number", "null"] },
-        cheapest_available: { type: ["number", "null"] },
-        sale_date: { type: "string" },
-        confidence: { type: "string" },
-        notes: { type: "string" },
-        ebay_link: { type: ["string", "null"] },
-        similar_comps: { type: "array", items: { type: "object", properties: { description: { type: "string" }, sold_price: { type: "number" }, sale_date: { type: "string" }, source: { type: "string" }, ebay_link: { type: ["string", "null"] } } } },
-        conservative_estimate_reasoning: { type: ["string", "null"] },
-      }
-    },
-    add_context_from_internet: false,
-    model: 'gemini_3_flash',
-  });
+  // Use live eBay scraping backend function for real sold comps
+  const response = await base44.functions.invoke('fetchLiveSoldComps', cardData);
+  return response.data;
 }
 
 const FEATURES = [
