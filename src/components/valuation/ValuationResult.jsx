@@ -463,6 +463,32 @@ export default function ValuationResult({ result, onSave, onReset }) {
         />
       )}
 
+      {/* Other Attributes — not yet scored, could move the needle */}
+      {result.other_attributes?.length > 0 && (
+        <div className="bg-card border border-border/50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-bold text-foreground">Additional Signals Not Yet Scored</p>
+              <p className="text-xs text-muted-foreground mt-0.5">These attributes could further move the AI value — run a deep report to include them.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {result.other_attributes.map((attr, i) => (
+              <span key={i} className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-medium border",
+                attr.direction === 'bullish'  && 'bg-emerald-500/8 border-emerald-500/25 text-emerald-600',
+                attr.direction === 'bearish'  && 'bg-red-500/8 border-red-500/25 text-red-500',
+                attr.direction === 'neutral'  && 'bg-secondary border-border/40 text-muted-foreground',
+                !attr.direction               && 'bg-secondary border-border/40 text-muted-foreground',
+              )}>
+                {attr.direction === 'bullish' ? '↑' : attr.direction === 'bearish' ? '↓' : '·'} {attr.label}
+              </span>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground/60 italic">Deep report scores all 44 attributes including jersey number match, auction velocity, legal risk, championship trajectory, and more.</p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button

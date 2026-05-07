@@ -27,12 +27,31 @@ function getPrintRunScore(serialNumber) {
   return 20;
 }
 
+// The 12 highest-impact attributes — used for fast valuation
+const TOP_ATTRS = [
+  'is_rookie_year',
+  'print_run_size',
+  'is_one_of_one',
+  'auto_type',
+  'patch_quality',
+  'rpa_designation',
+  'card_brand_tier',
+  'pop_count_at_grade',
+  'player_momentum',
+  'goat_legacy_score',
+  'psa_gem_potential',
+  'variation_desirability',
+];
+
 function buildPrompt(cardData, fast = false) {
-  // In fast mode (comp already known), strip verbose notes to massively reduce token count
+  // Only score the top 12 highest-impact attributes for speed.
+  // All other attributes roll into supporting_factors_dollars automatically.
   const allAttrs = Object.values(ATTRIBUTE_CATEGORIES).flatMap(cat =>
-    cat.attributes.map(a => fast
-      ? `"${a.key}": (${a.label})`
-      : `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
+    cat.attributes
+      .filter(a => TOP_ATTRS.includes(a.key))
+      .map(a => fast
+        ? `"${a.key}": (${a.label})`
+        : `"${a.key}": (0-100 score — ${a.label}. Context: ${a.note || ''} Weight: ${a.weight})`)
   );
 
   const gradeInfo = cardData.grade && GRADE_WEIGHTS[cardData.grade]
@@ -206,7 +225,7 @@ ATTRIBUTE SCORE REFS (score 0-100 or -1 N/A):
 - liquidity: high=<7d avg sell +2-4%, medium=7-30d neutral, low=>30d -2-5%
 - Retired player: career_trajectory=-1, injury_risk=-1, goat/hof/cultural/historical=80-100
 
-Score ALL ${allAttrs.length} attributes in one batch:
+Score ONLY these ${allAttrs.length} top-impact attributes (others auto-roll into supporting_factors):
 ${allAttrs.join('\n')}
 
 Return JSON with:
@@ -221,15 +240,15 @@ Return JSON with:
 - analysis_summary (3-4 sentences: comp quality, top 2 drivers, liquidity, recommendation)
 - key_signals: 5-8 items [{label, direction:bullish|bearish|neutral, impact_pct:2-20, reason}] ordered by impact_pct desc
 - value_drivers: top 6-8 [{label, percent_adjustment:"+X%"|"-X%", dollar_adjustment:"+$X"|"-$X", reason}] — each dollar_adjustment = $${cardData.comp_value||0} × percent
-- holders_comp_calculation: {last_sold_comp:"$${cardData.comp_value||0}", grade_multiplier_dollars, top5_dollar_adjustments:[], supporting_factors_dollars, final_holders_comp} — final MUST differ ≥8%`;
+- holders_comp_calculation: {last_sold_comp:"$${cardData.comp_value||0}", grade_multiplier_dollars, top5_dollar_adjustments:[], supporting_factors_dollars, final_holders_comp} — final MUST differ ≥8%
+- other_attributes: array of 4-6 attribute names NOT in the top 12 that COULD move the needle if a deep report were run (e.g. "jersey_number_match", "auction_velocity", "legal_risk"). Short label + direction (bullish/bearish/neutral) only.`;
 }
 
 function buildResponseSchema() {
+  // Only request scores for the top 12 attributes — keeps response token count minimal
   const attrProps = {};
-  Object.values(ATTRIBUTE_CATEGORIES).forEach(cat => {
-    cat.attributes.forEach(attr => {
-      attrProps[attr.key] = { type: "number" };
-    });
+  TOP_ATTRS.forEach(key => {
+    attrProps[key] = { type: "number" };
   });
 
   return {
@@ -290,6 +309,16 @@ function buildResponseSchema() {
       attribute_scores: {
         type: "object",
         properties: attrProps
+      },
+      other_attributes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            label:     { type: "string" },
+            direction: { type: "string" },
+          }
+        }
       }
     }
   };
@@ -377,49 +406,20 @@ export default function ValuateCard() {
     const allZero = Object.values(attributeScores).every(score => score === -1 || score === 0 || score === 50);
     
     if (allZero && compValue > 0) {
-      // Auto-generate realistic scores based on card signals
+      // Auto-generate scores for only the top 12 impact attributes
       attributeScores = {
-        // Cultural/Market Signals
-        cultural_icon_status: cardData.player_popularity === 'legend' ? 85 : cardData.player_popularity === 'peak' ? 75 : 55,
-        player_momentum: cardData.player_popularity === 'rising' ? 80 : cardData.player_popularity === 'declining' ? 25 : 60,
-        recent_viral_moments: cardData.recent_viral_moment ? 82 : 45,
-        
-        // Set/Grade Signals
-        card_brand_tier: cardData.card_set ? 68 : 50,
-        set_prestige: cardData.card_set ? 65 : 45,
-        
-        // Scarcity Signals
-        scarcity_at_grade: 62,
-        print_run_size: 58,
-        pop_count_at_grade: 60,
-        
-        // Media/Sneaker Signals
-        sneaker_line_activity: cardData.has_sneaker_deal ? 72 : 40,
-        upcoming_documentary: cardData.has_tv_show ? 78 : 35,
-        
-        // Investment Fundamentals
-        goat_legacy_score: cardData.player_popularity === 'legend' ? 88 : 55,
-        hall_of_fame_trajectory: cardData.player_popularity === 'legend' ? 85 : 55,
-        retail_floor_strength: 58,
-        auction_velocity: 64,
-        
-        // Card Identity
-        is_rookie_year: cardData.is_rookie_year ? 88 : 30,
-        variation_desirability: cardData.color_matches_team ? 72 : 50,
-        
-        // PSA/Condition
-        psa_gem_potential: cardData.psa_alignment ? 92 : cardData.ai_scan_quality === 'flawless' ? 78 : 45,
-        card_condition_psa_readiness: cardData.psa_alignment ? 90 : 50,
-        
-        // Serial / Scarcity — use real print run if available
-        is_serialized: cardData.serial_number ? 100 : 10,
-        print_run_size: getPrintRunScore(cardData.serial_number) ?? 10,
-        is_one_of_one: cardData.serial_number === '1' ? 100 : 0,
-        has_autograph: cardData.has_autograph ? 75 : 25,
-        has_patch: cardData.has_autograph || cardData.color_matches_team ? 68 : 35,
-        auto_quality: cardData.has_autograph ? 70 : 20,
-        rpa_designation: 45,
-        historical_appreciation: 62,
+        is_rookie_year:        cardData.is_rookie_year ? 88 : 30,
+        print_run_size:        getPrintRunScore(cardData.serial_number) ?? 10,
+        is_one_of_one:         cardData.serial_number === '1' ? 100 : 0,
+        auto_type:             cardData.has_autograph ? (cardData.is_sticker_auto ? 40 : 88) : 0,
+        patch_quality:         cardData.has_patch ? 70 : 0,
+        rpa_designation:       (cardData.has_autograph && cardData.has_patch) ? 90 : 0,
+        card_brand_tier:       cardData.card_set ? 68 : 50,
+        pop_count_at_grade:    60,
+        player_momentum:       cardData.player_popularity === 'rising' ? 80 : cardData.player_popularity === 'declining' ? 25 : 60,
+        goat_legacy_score:     cardData.player_popularity === 'legend' ? 88 : 55,
+        psa_gem_potential:     cardData.psa_alignment ? 92 : cardData.ai_scan_quality === 'flawless' ? 78 : 45,
+        variation_desirability:cardData.color_matches_team ? 72 : 50,
       };
     }
     
