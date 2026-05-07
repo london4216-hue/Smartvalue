@@ -332,7 +332,7 @@ export default function ValuateCard() {
       )}
 
       {!result && !isLoading && (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-4">
 
           {/* Hero Header */}
           <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-3">
@@ -356,13 +356,6 @@ export default function ValuateCard() {
             </div>
             <p className="text-xs text-muted-foreground pl-7">Paste any eBay, COMC, or marketplace link — AI extracts all card details automatically.</p>
             <PasteUrlInput onCardExtracted={handleValuate} />
-          </motion.div>
-
-          {/* ── DIVIDER ── */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }} className="flex items-center gap-4">
-            <div className="flex-1 h-px bg-border/60" />
-            <span className="text-sm font-bold text-muted-foreground px-2">OR</span>
-            <div className="flex-1 h-px bg-border/60" />
           </motion.div>
 
           {/* ── INTAKE: PHOTO / UPLOAD ── */}
