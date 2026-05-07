@@ -16,6 +16,7 @@ import PlayerActivityInsights from './PlayerActivityInsights';
 import PopulationReport from './PopulationReport';
 import DeepDiveAttributes from './DeepDiveAttributes';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
+import ValuationTransparencyHeader from './ValuationTransparencyHeader';
 
 const RECOMMENDATION_CONFIG = {
   strong_buy: { label: 'Strong Buy', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20', icon: TrendingUp },
@@ -155,6 +156,9 @@ export default function ValuationResult({ result, onSave, onReset }) {
           </div>
         </motion.div>
       )}
+
+      {/* Transparency Header — Base-44 audit trail + confidence score */}
+      <ValuationTransparencyHeader result={result} />
 
       {/* Investment Thesis — Last Sale vs AI Value */}
       <InvestmentThesis
