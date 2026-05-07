@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Zap, CheckCircle2, Target, TrendingUp, Clock, Shield, Search, AlertCircle } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, CheckCircle2, Target, TrendingUp, Clock, Shield, Search, AlertCircle, TrendingDown, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
@@ -99,6 +99,117 @@ function RecentCard({ card, delay }) {
           {rec.replace(/_/g, ' ')}
         </p>
       </div>
+    </motion.div>
+  );
+}
+
+// ── Worst Performers Alert ───────────────────────────────────────────────────
+function WorstPerformers({ cards }) {
+  const portfolioCards = cards.filter(c => c.in_portfolio);
+  const worstCards = portfolioCards
+    .sort((a, b) => {
+      const aPct = a.purchase_price && a.ai_investment_value 
+        ? ((a.ai_investment_value - a.purchase_price) / a.purchase_price) * 100
+        : 0;
+      const bPct = b.purchase_price && b.ai_investment_value 
+        ? ((b.ai_investment_value - b.purchase_price) / b.purchase_price) * 100
+        : 0;
+      return aPct - bPct;
+    })
+    .slice(0, 5)
+    .filter(c => c.purchase_price && c.ai_investment_value < c.purchase_price);
+
+  if (worstCards.length === 0) return null;
+
+  const hasDeepRed = worstCards.some(c => {
+    const pct = ((c.ai_investment_value - c.purchase_price) / c.purchase_price) * 100;
+    return pct < -30;
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className={cn(
+        "mb-10 rounded-2xl p-6 border",
+        hasDeepRed
+          ? "bg-red-500/8 border-red-500/40"
+          : "bg-amber-500/8 border-amber-500/30"
+      )}
+    >
+      <div className="flex items-center gap-3 mb-5">
+        <div className={cn(
+          "w-10 h-10 rounded-lg flex items-center justify-center",
+          hasDeepRed ? "bg-red-500/20" : "bg-amber-500/20"
+        )}>
+          {hasDeepRed ? (
+            <Flame className={cn("w-5 h-5", hasDeepRed ? "text-red-400" : "text-amber-400")} />
+          ) : (
+            <TrendingDown className={cn("w-5 h-5", hasDeepRed ? "text-red-400" : "text-amber-400")} />
+          )}
+        </div>
+        <div>
+          <h3 className={cn(
+            "text-sm font-bold",
+            hasDeepRed ? "text-red-400" : "text-amber-400"
+          )}>
+            {hasDeepRed ? "🚨 CRITICAL: Deep Red Holdings" : "⚠️ Attention: Underwater Cards"}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {hasDeepRed
+              ? "Portfolio cards down >30% from purchase. Immediate action recommended."
+              : "These cards are worth less than you paid. Consider your strategy."}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {worstCards.map((card, i) => {
+          const lossPct = Math.round(((card.ai_investment_value - card.purchase_price) / card.purchase_price) * 100);
+          const lossAmt = card.ai_investment_value - card.purchase_price;
+          return (
+            <motion.div
+              key={card.id}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              className={cn(
+                "flex items-center justify-between p-3 rounded-lg border",
+                lossPct < -30
+                  ? "bg-red-500/5 border-red-500/20"
+                  : "bg-amber-500/5 border-amber-500/20"
+              )}
+            >
+              <div className="flex-1 min-w-0">
+                <Link to={`/card/${card.id}`} className="hover:opacity-75">
+                  <p className="text-sm font-semibold text-foreground truncate">{card.player_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[card.card_year, card.card_set, card.grade].filter(Boolean).join(' · ')}
+                  </p>
+                </Link>
+              </div>
+              <div className="text-right ml-4 shrink-0">
+                <p className={cn(
+                  "text-sm font-mono font-bold",
+                  lossPct < -30 ? "text-red-400" : "text-amber-400"
+                )}>
+                  {lossPct}%
+                </p>
+                <p className="text-xs text-muted-foreground font-mono">
+                  ${Math.round(lossAmt).toLocaleString()}
+                </p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <Link to="/portfolio" className="inline-block mt-4">
+        <Button variant="outline" size="sm" className="border-border/50 rounded-lg">
+          Review Full Portfolio <ArrowRight className="w-3 h-3 ml-2" />
+        </Button>
+      </Link>
     </motion.div>
   );
 }
@@ -206,6 +317,7 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      <WorstPerformers cards={cards} />
       <ValuationSummary cards={cards} />
       <CTABanner />
       <RecentAndTrending cards={cards} />
