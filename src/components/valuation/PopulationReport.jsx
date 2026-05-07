@@ -121,7 +121,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
       )}
 
       {/* Scarcity Insight */}
-      <div className="text-xs text-foreground/80 leading-relaxed">
+      <div className="text-xs text-foreground/80 leading-relaxed mb-3">
         <p>
           {popAtGrade === 1 && "This is a one-of-one at this grade—the rarest possible copy."}
           {popAtGrade > 1 && popAtGrade <= 5 && `Only ${popAtGrade} copies graded at this elite level.`}
@@ -129,6 +129,30 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
           {popAtGrade > 20 && "Solid pop at this grade—still desirable but not ultra-rare."}
         </p>
       </div>
+
+      {/* Grading Opportunity / Saturation Callout */}
+      {popAtGrade <= 15 && totalPop > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+          <span className="text-base shrink-0">🏆</span>
+          <div>
+            <p className="text-xs font-bold text-emerald-500 mb-0.5">Grading Opportunity</p>
+            <p className="text-[10px] text-emerald-600/90 leading-snug">
+              Only <strong>{popAtGrade}</strong> {popData.grade_requested} copies exist across PSA, BGS & SGC. Low population = strong grading upside. A gem mint slab could command a serious premium in this thin market.
+            </p>
+          </div>
+        </div>
+      )}
+      {popAtGrade > 200 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <span className="text-base shrink-0">⚠️</span>
+          <div>
+            <p className="text-xs font-bold text-amber-500 mb-0.5">High Population — Saturated Grade</p>
+            <p className="text-[10px] text-amber-600/90 leading-snug">
+              <strong>{popAtGrade.toLocaleString()}</strong> copies already graded at this level. Heavy supply compresses premiums — grading fees may not be justified unless your card is a borderline PSA 10.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Confidence Note */}
       {popData.source_confidence === 'low' && (

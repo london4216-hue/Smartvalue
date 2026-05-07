@@ -348,6 +348,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
                  <p className="text-[9px] text-primary/70 leading-tight">
                    What this card is worth to a long-term holder based on grade, rarity, player demand & market signals. Accounts for PSA potential, condition, and collector interest.
                  </p>
+                 {/* Pro Tip */}
+                 <div className="mt-2 pt-2 border-t border-primary/15 flex items-start gap-1.5">
+                   <span className="text-[10px] shrink-0">💡</span>
+                   <p className="text-[9px] text-primary/60 leading-tight">
+                     <strong className="text-primary/80">Pro Tip:</strong> Check the Population Report below — low PSA/BGS pop at this grade = rare opportunity to grade and flip at a premium. High pop = saturated, harder to stand out.
+                   </p>
+                 </div>
                </div>
              </div>
           </div>
