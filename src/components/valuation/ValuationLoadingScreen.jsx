@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Search, TrendingUp, Shield, Zap, Activity, AlertTriangle, Trophy, Twitter, Scale, Heart, Flame } from 'lucide-react';
+import { CheckCircle2, Search, TrendingUp, Zap, Activity, AlertTriangle, Trophy, Twitter, Scale, Heart, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PHASE_1_STEPS = [
   { icon: Search, label: 'Scanning eBay completed listings...', sub: 'Last 90 days · hammer prices only' },
   { icon: TrendingUp, label: 'Checking 130point & CardLadder...', sub: 'Cross-referencing sale history' },
-  { icon: Shield, label: 'Verifying comp authenticity...', sub: 'Filtering shill bids & outliers' },
 ];
 
 const PHASE_2_STEPS = [
