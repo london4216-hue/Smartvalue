@@ -127,16 +127,17 @@ export default function CardImageScanner({ onConfirmed }) {
     try {
       const result = await analyzeCardImage(file);
       setExtracted(result);
-      // If card has autograph (any detection state), require explicit user confirmation
       if (result.has_autograph) {
         setNeedsAutoConfirm(true);
-        // Pre-select AI's confident detection so user just taps confirm
         if (!result._auto_type_uncertain) {
           setAutoTypeConfirmed(result.is_sticker_auto ? 'sticker' : 'on_card');
         }
       }
     } catch (err) {
-      setError(err.message || "Couldn't identify the card. Try a clearer photo.");
+      const isNetwork = err.message?.toLowerCase().includes('network') || err.message?.toLowerCase().includes('fetch');
+      setError(isNetwork
+        ? "Network error — check your connection and tap 'Try again' below."
+        : (err.message || "Couldn't identify the card. Try a clearer photo."));
       setImagePreview(null);
     } finally {
       setScanning(false);
@@ -220,9 +221,18 @@ export default function CardImageScanner({ onConfirmed }) {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 text-xs text-red-500 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
+        <div className="flex items-start gap-2 text-xs text-red-500 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => { setError(''); }}
+              className="mt-1.5 text-[10px] font-semibold underline text-red-400 hover:text-red-600"
+            >
+              Try again
+            </button>
+          </div>
         </div>
       )}
 
