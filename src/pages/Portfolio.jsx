@@ -1,7 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3 } from 'lucide-react';
+import { Briefcase, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -152,6 +152,10 @@ export default function Portfolio() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+        <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back
+        </Link>
         <div className="flex items-center gap-3 mb-2">
           <Briefcase className="w-5 h-5 text-primary" />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Portfolio</h1>
