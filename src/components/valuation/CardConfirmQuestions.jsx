@@ -35,48 +35,16 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   const [compError, setCompError] = useState(null);
   const [compSource, setCompSource] = useState(null);
   
-  // Fast initial estimate on mount (no web search, ~2s), then optional background refinement
+  // Fetch real comp on mount (accurate market data, ~25-30s)
   useEffect(() => {
     if (!lastSoldPrice && !fetchingComp && extracted?.player_name && !compError) {
-      fetchFastEstimate();
+      fetchComp();
     }
   }, []);
   
-  const fetchFastEstimate = async () => {
+  const fetchComp = async () => {
     setFetchingComp(true);
     setCompError(null);
-    try {
-      // Fast estimate using gemini_3_flash (no web search, ~2-3s)
-      const estimate = await base44.integrations.Core.InvokeLLM({
-        prompt: `Estimate the most recent sold price for: ${extracted.player_name} ${extracted.card_year} ${extracted.card_set} ${extracted.grade}${extracted.variation ? ' ' + extracted.variation : ''}.
-Use training knowledge only (no web search). Return JSON: {comp_value: number (USD), sale_date: "YYYY-MM-DD" or null, confidence: "high"|"medium"|"low"}`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            comp_value: { type: ["number", "null"] },
-            sale_date: { type: ["string", "null"] },
-            confidence: { type: "string" }
-          }
-        },
-        model: 'gemini_3_flash',
-      });
-      
-      if (estimate?.comp_value && estimate.comp_value > 0) {
-        setLastSoldPrice(estimate.comp_value);
-        setLastSoldDate(estimate.sale_date || null);
-        setCompSource('Market estimate (training data)');
-      } else {
-        setCompError('Unable to estimate price');
-      }
-    } catch (err) {
-      setCompError('Enter price manually or try again');
-    } finally {
-      setFetchingComp(false);
-    }
-  };
-
-  // Optional: fetch real comp in background after user confirms
-  const fetchLiveComp = async () => {
     try {
       const result = await base44.functions.invoke('fetchLiveSoldComps', {
         player_name: extracted.player_name,
@@ -88,10 +56,14 @@ Use training knowledge only (no web search). Return JSON: {comp_value: number (U
       if (result.data?.comp_value && result.data.comp_value > 0) {
         setLastSoldPrice(result.data.comp_value);
         setLastSoldDate(result.data.sale_date || null);
-        setCompSource(result.data.source || 'Live search');
+        setCompSource(result.data.source || null);
+      } else {
+        setCompError('No recent comps found');
       }
     } catch (err) {
-      // Silent fail - keep the estimate
+      setCompError('Failed to fetch comp');
+    } finally {
+      setFetchingComp(false);
     }
   };
 
@@ -307,20 +279,9 @@ Use training knowledge only (no web search). Return JSON: {comp_value: number (U
                 ✓ ${parseFloat(lastSoldPrice).toLocaleString()} {lastSoldDate ? `on ${lastSoldDate}` : ''} — locked in as comp anchor
               </p>
               {compSource && (
-                <div className="flex items-center justify-between mt-0.5">
-                  <p className="text-[9px] text-emerald-600/70">
-                    Source: {compSource}
-                  </p>
-                  {compSource.includes('estimate') && (
-                    <button
-                      type="button"
-                      onClick={fetchLiveComp}
-                      className="text-[9px] font-semibold text-primary hover:underline"
-                    >
-                      Verify live
-                    </button>
-                  )}
-                </div>
+                <p className="text-[9px] text-emerald-600/70 mt-0.5">
+                  Source: {compSource}
+                </p>
               )}
             </div>
           ) : compError ? (
@@ -328,14 +289,14 @@ Use training knowledge only (no web search). Return JSON: {comp_value: number (U
               <p className="text-[10px] text-amber-600">{compError}</p>
               <button
                 type="button"
-                onClick={fetchFastEstimate}
+                onClick={fetchComp}
                 className="text-[10px] font-semibold text-primary hover:underline"
               >
                 Retry
               </button>
             </div>
           ) : fetchingComp ? (
-            <p className="text-[10px] text-muted-foreground px-2">Fetching estimate...</p>
+            <p className="text-[10px] text-muted-foreground px-2">Searching live market data (eBay, PWCC, Goldin, Heritage...)...</p>
           ) : (
             <p className="text-[10px] text-amber-600">⚠ Enter price (and date if known) to continue</p>
           )}
