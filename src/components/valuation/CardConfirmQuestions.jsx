@@ -205,7 +205,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
               src={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
               title="eBay Sold Listings"
               className="w-full h-full border-0"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-images allow-presentation"
             />
           </div>
           
