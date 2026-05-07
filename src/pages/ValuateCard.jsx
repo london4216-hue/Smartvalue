@@ -151,41 +151,72 @@ export default function ValuateCard() {
     setLoadingPhase(null);
     setCardInput(cardData);
 
+    let validatedCardData = cardData;
     let enrichedCardData = { ...cardData };
 
-    // If user manually entered a price — lock it in, skip fetch
+    // STEP 1: VALIDATE CARD DATA — ensure extraction is clean
+    setLoadingPhase('validating_data');
+    try {
+      const validationResp = await base44.functions.invoke('validateCardData', validatedCardData);
+      validatedCardData = validationResp.data;
+      enrichedCardData = { ...enrichedCardData, ...validatedCardData };
+    } catch (err) {
+      // If validation fails hard, inform user
+      toast({
+        title: "Data Issue",
+        description: "Card data couldn't be validated. Try re-entering details manually.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // STEP 2: FETCH & VALIDATE COMP
     if (cardData.comp_value && parseFloat(cardData.comp_value) > 0) {
       enrichedCardData._comp_confidence = 'user_provided';
       enrichedCardData._comp_tier = 'exact_match';
       enrichedCardData._comp_notes = 'User-entered real last sold price — locked in as comp anchor.';
     } else {
-      // Auto-fetch live eBay comps
       setLoadingPhase('fetching_comp');
       try {
-        const compData = await fetchRealComp(cardData);
+        const compData = await fetchRealComp(validatedCardData);
+        
+        // VALIDATE comp before accepting it
         if (compData.comp_value && compData.comp_value > 0) {
-          enrichedCardData = {
-            ...enrichedCardData,
-            comp_value: compData.comp_value,
-            cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
-            _comp_sale_date: compData.sale_date || null,
-            _comp_confidence: compData.confidence || 'medium',
-            _comp_notes: compData.notes || '',
-            _comp_tier: compData.tier || null,
-            _comp_ebay_link: compData.ebay_link || null,
-            _similar_comps: compData.similar_comps || [],
-            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
-          };
+          const compValidation = await base44.functions.invoke('validateComp', {
+            cardData: validatedCardData,
+            compData: compData
+          });
+          
+          if (compValidation.data.accept_as_anchor) {
+            enrichedCardData = {
+              ...enrichedCardData,
+              comp_value: compData.comp_value,
+              cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
+              _comp_sale_date: compData.sale_date || null,
+              _comp_confidence: compValidation.data.confidence_adjustment || compData.confidence || 'medium',
+              _comp_notes: compData.notes || '',
+              _comp_tier: compData.tier || null,
+              _similar_comps: compData.similar_comps || [],
+            };
+          } else {
+            // Comp rejected — fall back to conservative estimate
+            enrichedCardData = {
+              ...enrichedCardData,
+              _comp_tier: 'no_comp_conservative_estimate',
+              _comp_notes: compValidation.data.rejection_reason || 'Comp validation failed — using conservative estimate instead.',
+              _validation_rejected_comp: true,
+            };
+          }
         } else {
           enrichedCardData = {
             ...enrichedCardData,
             _comp_tier: compData.tier || 'no_comp_conservative_estimate',
             _comp_notes: compData.notes || '',
             _similar_comps: compData.similar_comps || [],
-            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
           };
         }
-      } catch { /* silent */ }
+      } catch { /* silent fail */ }
     }
 
     setLoadingPhase('valuing');
