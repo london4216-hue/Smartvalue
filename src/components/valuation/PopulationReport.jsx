@@ -63,100 +63,149 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
   const popAtGrade = popData.pop_at_grade || 0;
   const totalPop = popData.total_pop_all_grades || 0;
   const gradeLabel = popData.grade_requested || grade || '';
+  const isPopOne = popAtGrade === 1;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn("border rounded-xl p-5", config.bg)}
+      className={cn("border rounded-xl overflow-hidden", isPopOne ? "border-violet-500/50" : config.bg)}
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">{config.icon}</span>
-        <div>
-          <p className={cn("text-xs font-mono uppercase tracking-wider font-bold", config.color)}>
-            Population Report
-          </p>
-          <p className={cn("text-sm font-bold capitalize", config.color)}>
-            {popData.scarcity_assessment.replace(/_/g, ' ')} — {gradeLabel}
-          </p>
-        </div>
-      </div>
-
-      {/* Pop Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-        <div>
-          <p className="text-[10px] text-muted-foreground/70 mb-1">Pop @ This Grade</p>
-          <p className="text-lg font-mono font-bold text-foreground">{popAtGrade.toLocaleString()}</p>
-          {totalPop > 0 && (
-            <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-              {popPct.toFixed(1)}% of total
+      {/* POP 1 HERO BANNER */}
+      {isPopOne && (
+        <div className="bg-gradient-to-r from-violet-600 to-purple-700 px-5 py-4 flex items-center gap-3">
+          <span className="text-3xl">💎</span>
+          <div className="flex-1">
+            <p className="text-white font-black text-lg tracking-tight">1 of 1 — The Only Copy</p>
+            <p className="text-violet-200 text-xs font-medium mt-0.5">
+              Only <strong>1</strong> {gradeLabel} exists across ALL grading companies. This is the rarest possible version of this card at this grade.
             </p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-4xl font-black text-white font-mono">1</p>
+            <p className="text-violet-300 text-[10px] uppercase tracking-wider">pop</p>
+          </div>
+        </div>
+      )}
+
+      <div className={cn("p-5", isPopOne && "bg-violet-500/5")}>
+        {/* Header (non-pop-1) */}
+        {!isPopOne && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl">{config.icon}</span>
+            <div>
+              <p className={cn("text-xs font-mono uppercase tracking-wider font-bold", config.color)}>
+                Population Report
+              </p>
+              <p className={cn("text-sm font-bold capitalize", config.color)}>
+                {popData.scarcity_assessment.replace(/_/g, ' ')} — {gradeLabel}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pop 1 sub-header */}
+        {isPopOne && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xl">💎</span>
+            <div>
+              <p className="text-xs font-mono uppercase tracking-wider font-bold text-violet-500">Population Report</p>
+              <p className="text-sm font-bold text-violet-400">Ultra Rare — 1/1 at {gradeLabel}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pop Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <div className={cn("rounded-lg p-2.5 border", isPopOne ? "bg-violet-500/15 border-violet-500/40" : "bg-secondary/40 border-border/30")}>
+            <p className="text-[10px] text-muted-foreground/70 mb-1">Pop @ {gradeLabel}</p>
+            <p className={cn("text-2xl font-mono font-black", isPopOne ? "text-violet-400" : "text-foreground")}>
+              {popAtGrade.toLocaleString()}
+            </p>
+            {totalPop > 0 && !isPopOne && (
+              <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                {((popAtGrade / totalPop) * 100).toFixed(1)}% of total
+              </p>
+            )}
+            {isPopOne && <p className="text-[9px] text-violet-400/80 mt-0.5">Only one exists</p>}
+          </div>
+
+          <div>
+            <p className="text-[10px] text-muted-foreground/70 mb-1">Total Pop (All Grades)</p>
+            <p className="text-lg font-mono font-bold text-foreground">{totalPop.toLocaleString()}</p>
+            <p className="text-[9px] text-muted-foreground/60 mt-0.5">PSA + BGS + SGC</p>
+          </div>
+
+          {popData.highest_grade_achieved && (
+            <div>
+              <p className="text-[10px] text-muted-foreground/70 mb-1">Highest Grade</p>
+              <p className="text-lg font-mono font-bold text-foreground">{popData.highest_grade_achieved}</p>
+            </div>
           )}
         </div>
 
-        <div>
-          <p className="text-[10px] text-muted-foreground/70 mb-1">Total Pop (All Grades)</p>
-          <p className="text-lg font-mono font-bold text-foreground">{totalPop.toLocaleString()}</p>
-          <p className="text-[9px] text-muted-foreground/60 mt-0.5">PSA + BGS + SGC</p>
-        </div>
-
-        {popData.highest_grade_achieved && (
-          <div>
-            <p className="text-[10px] text-muted-foreground/70 mb-1">Highest Grade</p>
-            <p className="text-lg font-mono font-bold text-foreground">{popData.highest_grade_achieved}</p>
+        {/* Grader Breakdown */}
+        {popData.grader_breakdown && (
+          <div className="mb-4 pb-4 border-b border-border/20">
+            <p className="text-[10px] text-muted-foreground mb-2 uppercase font-mono">Grader Breakdown</p>
+            <div className="flex gap-3">
+              {Object.entries(popData.grader_breakdown).map(([grader, count]) => (
+                <div key={grader} className="text-center">
+                  <p className="text-xs font-semibold text-foreground">{grader}</p>
+                  <p className="text-sm font-mono font-bold text-primary">{count || '—'}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Grader Breakdown */}
-      {popData.grader_breakdown && (
-        <div className="mb-4 pb-4 border-b border-border/20">
-          <p className="text-[10px] text-muted-foreground mb-2 uppercase font-mono">Grader Breakdown</p>
-          <div className="flex gap-3">
-            {Object.entries(popData.grader_breakdown).map(([grader, count]) => (
-              <div key={grader} className="text-center">
-                <p className="text-xs font-semibold text-foreground">{grader}</p>
-                <p className="text-sm font-mono font-bold text-primary">{count || '—'}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Scarcity Insight */}
-      <div className="text-xs text-foreground/80 leading-relaxed mb-3">
-        <p>
-          {popAtGrade === 1 && "This is a one-of-one at this grade—the rarest possible copy."}
-          {popAtGrade > 1 && popAtGrade <= 5 && `Only ${popAtGrade} copies graded at this elite level.`}
-          {popAtGrade > 5 && popAtGrade <= 20 && `${popAtGrade} copies exist at this grade—very scarce.`}
-          {popAtGrade > 20 && "Solid pop at this grade—still desirable but not ultra-rare."}
-        </p>
-      </div>
-
-      {/* Grading Opportunity / Saturation Callout */}
-      {popAtGrade <= 15 && totalPop > 0 && (
-        <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-          <span className="text-base shrink-0">🏆</span>
-          <div>
-            <p className="text-xs font-bold text-emerald-500 mb-0.5">Grading Opportunity</p>
-            <p className="text-[10px] text-emerald-600/90 leading-snug">
-              Only <strong>{popAtGrade}</strong> {popData.grade_requested} copies exist across PSA, BGS & SGC. Low population = strong grading upside. A gem mint slab could command a serious premium in this thin market.
+        {/* Scarcity Insight */}
+        {!isPopOne && (
+          <div className="text-xs text-foreground/80 leading-relaxed mb-3">
+            <p>
+              {popAtGrade > 1 && popAtGrade <= 5 && `Only ${popAtGrade} copies graded at this elite level.`}
+              {popAtGrade > 5 && popAtGrade <= 20 && `${popAtGrade} copies exist at this grade—very scarce.`}
+              {popAtGrade > 20 && "Solid pop at this grade—still desirable but not ultra-rare."}
             </p>
           </div>
-        </div>
-      )}
-      {popAtGrade > 200 && (
-        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <span className="text-base shrink-0">⚠️</span>
-          <div>
-            <p className="text-xs font-bold text-amber-500 mb-0.5">High Population — Saturated Grade</p>
-            <p className="text-[10px] text-amber-600/90 leading-snug">
-              <strong>{popAtGrade.toLocaleString()}</strong> copies already graded at this level. Heavy supply compresses premiums — grading fees may not be justified unless your card is a borderline PSA 10.
-            </p>
+        )}
+
+        {/* Pop 1 value callout */}
+        {isPopOne && (
+          <div className="flex items-start gap-2 p-3 bg-violet-500/15 border border-violet-500/40 rounded-lg mb-3">
+            <span className="text-base shrink-0">🏆</span>
+            <div>
+              <p className="text-xs font-bold text-violet-400 mb-0.5">Extreme Scarcity Premium</p>
+              <p className="text-[10px] text-violet-300/90 leading-snug">
+                With only <strong>1</strong> copy at {gradeLabel}, this card commands a dramatic scarcity premium. No direct comp exists at this grade — comparable sales at lower grades significantly undervalue this slab.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Grading Opportunity (non-pop-1, low pop) */}
+        {!isPopOne && popAtGrade <= 15 && totalPop > 0 && (
+          <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+            <span className="text-base shrink-0">🏆</span>
+            <div>
+              <p className="text-xs font-bold text-emerald-500 mb-0.5">Grading Opportunity</p>
+              <p className="text-[10px] text-emerald-600/90 leading-snug">
+                Only <strong>{popAtGrade}</strong> {popData.grade_requested} copies exist across PSA, BGS & SGC. Low population = strong grading upside.
+              </p>
+            </div>
+          </div>
+        )}
+        {popAtGrade > 200 && (
+          <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <span className="text-base shrink-0">⚠️</span>
+            <div>
+              <p className="text-xs font-bold text-amber-500 mb-0.5">High Population — Saturated Grade</p>
+              <p className="text-[10px] text-amber-600/90 leading-snug">
+                <strong>{popAtGrade.toLocaleString()}</strong> copies already graded at this level. Heavy supply compresses premiums.
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* Confidence Note — always shown for AI-estimated data */}
       <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/20">
@@ -171,6 +220,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
       {popData.notes && (
         <p className="text-[9px] text-muted-foreground/70 mt-2 italic">{popData.notes}</p>
       )}
+      </div>
     </motion.div>
   );
 }

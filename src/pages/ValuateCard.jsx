@@ -158,7 +158,11 @@ async function fetchRealComp(cardData) {
 CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
 ${autoNote}
 
-Pick best tier: exact_match → adjusted_comp → similar_card_baseline (3 comps) → no_comp_conservative_estimate
+CRITICAL GRADE RULE: If this card has a grade (e.g. PSA 10, BGS 9.5), you MUST ONLY return comps for that exact grade from that exact grading company. NEVER use raw/ungraded prices as comp_value or cheapest_available for a graded card. Raw cards trade at a massive discount — mixing grades is a fatal valuation error. If no graded comp exists, set comp_value=null and tier=no_comp_conservative_estimate. Do NOT substitute a raw card price.
+
+CHEAPEST AVAILABLE RULE: cheapest_available must also be for the same grade. If you only see raw listings for a graded card, set cheapest_available=null.
+
+Pick best tier: exact_match → adjusted_comp → similar_card_baseline (3 comps, each must match the grade) → no_comp_conservative_estimate
 
 Return JSON only: tier, comp_value, cheapest_available, sale_date, confidence (high/medium/low), notes, ebay_link, similar_comps[], conservative_estimate_reasoning`,
     response_json_schema: {

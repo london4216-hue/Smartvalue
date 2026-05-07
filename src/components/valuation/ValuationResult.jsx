@@ -41,6 +41,31 @@ export default function ValuationResult({ result, onSave, onReset }) {
     ? ((cheapestAvailable - compValue) / compValue * 100).toFixed(1)
     : null;
 
+  // Build eBay search URL for this card
+  const ebaySearchUrl = (() => {
+    const parts = [
+      result.player_name,
+      result.card_year,
+      result.card_set,
+      result.variation,
+      result.serial_number ? `/${result.serial_number}` : null,
+      result.grade,
+    ].filter(Boolean).join(' ');
+    return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(parts)}&LH_Sold=0&LH_BIN=1&LH_ItemCondition=1000`;
+  })();
+
+  const ebaySoldUrl = (() => {
+    const parts = [
+      result.player_name,
+      result.card_year,
+      result.card_set,
+      result.variation,
+      result.serial_number ? `/${result.serial_number}` : null,
+      result.grade,
+    ].filter(Boolean).join(' ');
+    return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(parts)}&LH_Sold=1&LH_Complete=1`;
+  })();
+
   // Calculate gem/run alerts
   const isGem = compValue > 0 && aiValue > 0 && ((aiValue - compValue) / compValue) >= 1.0;
   const isRun = cheapestAvailable && compValue > 0 && ((cheapestAvailable - compValue) / compValue) < -0.30 && aiValue < compValue;
