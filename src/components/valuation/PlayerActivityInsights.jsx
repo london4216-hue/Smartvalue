@@ -131,10 +131,10 @@ export default function PlayerActivityInsights({ playerName, cardYear, prefetche
                   <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.assists}</p>
                 </div>
               )}
-              {insights.last_game.shooting_pct !== undefined && (
+              {insights.last_game.shooting_pct != null && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">FG%</p>
-                  <p className="text-lg font-mono font-bold text-foreground">{insights.last_game.shooting_pct.toFixed(1)}%</p>
+                  <p className="text-lg font-mono font-bold text-foreground">{Number(insights.last_game.shooting_pct).toFixed(1)}%</p>
                 </div>
               )}
             </div>
