@@ -317,7 +317,6 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      <WorstPerformers cards={cards} />
       <ValuationSummary cards={cards} />
       <CTABanner />
       <RecentAndTrending cards={cards} />
