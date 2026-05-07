@@ -27,15 +27,22 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   // Jersey match
   const [jerseyMatch, setJerseyMatch] = useState(null);
 
+  // Last sold price — user-entered, becomes the locked comp anchor
+  const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || '');
+
   const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null;
 
   const handleConfirm = () => {
+    const parsedPrice = parseFloat(lastSoldPrice);
     const updates = {
       has_autograph: autoType !== 'none',
       is_sticker_auto: autoType === 'sticker',
       _auto_type_uncertain: false,
       serial_number: isSerial === 'yes' ? serialNumber.toString().trim() : null,
       jersey_match: jerseyMatch === 'yes',
+      // Lock in the user-entered comp — never overridden by AI
+      comp_value: parsedPrice > 0 ? parsedPrice : null,
+      _comp_confidence: parsedPrice > 0 ? 'user_provided' : undefined,
     };
     onConfirm({ ...extracted, ...updates });
   };
@@ -178,6 +185,43 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
             <p className="text-[10px] font-semibold text-emerald-600">
               ✓ Jersey match premium applied — significant collector value boost
             </p>
+          )}
+        </div>
+
+        {/* ── Last Sold Price — USER ENTERED, LOCKED IN ── */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-foreground">💰 What did it last sell for?</span>
+            <span className="text-[10px] text-muted-foreground font-semibold ml-auto">Optional but recommended</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            Enter the real last sold price from eBay. This becomes the <strong>locked comp anchor</strong> — the AI will never override it.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-muted-foreground shrink-0">$</span>
+            <input
+              type="number"
+              placeholder="e.g. 556"
+              value={lastSoldPrice}
+              onChange={e => setLastSoldPrice(e.target.value)}
+              className="flex-1 h-9 px-3 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <span className="text-[10px] text-muted-foreground">USD</span>
+          </div>
+          {parseFloat(lastSoldPrice) > 0 && (
+            <p className="text-[10px] font-semibold text-emerald-600">
+              ✓ ${parseFloat(lastSoldPrice).toLocaleString()} locked in as comp — AI will NOT override this
+            </p>
+          )}
+          {!lastSoldPrice && (
+            <a
+              href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-semibold"
+            >
+              🔍 Look up sold comps on eBay →
+            </a>
           )}
         </div>
 

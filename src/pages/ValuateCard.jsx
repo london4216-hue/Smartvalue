@@ -148,39 +148,22 @@ export default function ValuateCard() {
 
   const handleValuate = async (cardData) => {
     setIsLoading(true);
+    setLoadingPhase('valuing');
     setCardInput(cardData);
 
     let enrichedCardData = { ...cardData };
 
-    if (!cardData.comp_value || parseFloat(cardData.comp_value) <= 0) {
-      setLoadingPhase('fetching_comp');
-      try {
-        const compData = await fetchRealComp(cardData);
-        if (compData.comp_value && compData.comp_value > 0) {
-          enrichedCardData = {
-            ...enrichedCardData,
-            comp_value: compData.comp_value,
-            cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
-            _comp_sale_date: compData.sale_date || null,
-            _comp_confidence: compData.confidence || 'medium',
-            _comp_notes: compData.notes || '',
-            _comp_tier: compData.tier || null,
-            _comp_ebay_link: compData.ebay_link || null,
-            _similar_comps: compData.similar_comps || [],
-            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
-          };
-        } else {
-          enrichedCardData = {
-            ...enrichedCardData,
-            _comp_tier: compData.tier || 'no_comp_conservative_estimate',
-            _comp_notes: compData.notes || '',
-            _similar_comps: compData.similar_comps || [],
-            _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
-          };
-        }
-      } catch { /* silent */ }
-    } else {
+    // If user entered a real last sold price — lock it in, skip AI comp fetch entirely
+    if (cardData.comp_value && parseFloat(cardData.comp_value) > 0) {
       enrichedCardData._comp_confidence = 'user_provided';
+      enrichedCardData._comp_tier = 'exact_match';
+      enrichedCardData._comp_notes = 'User-entered real last sold price — locked in as comp anchor.';
+    } else {
+      // No user comp provided — show "no comp" state, don't guess
+      enrichedCardData.comp_value = null;
+      enrichedCardData._comp_confidence = null;
+      enrichedCardData._comp_tier = 'no_comp_conservative_estimate';
+      enrichedCardData._comp_notes = 'No last sold price provided. Enter it manually for accurate AI valuation.';
     }
 
     setLoadingPhase('valuing');
