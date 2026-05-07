@@ -224,7 +224,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
         {/* ── Q4: Last Sold Price ── */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">Q4 — Last sale price</span>
+            <span className="text-xs font-bold text-foreground">Q4 — Comp (last sale price)</span>
             {fetchingComp ? (
               <span className="text-[10px] text-primary font-semibold ml-auto flex items-center gap-1">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
