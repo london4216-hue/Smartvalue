@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, X, Loader2 } from 'lucide-react';
 
 /**
  * Pre-valuation confirmation questions — shown after card is identified,
@@ -27,10 +28,40 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   // Jersey match
   const [jerseyMatch, setJerseyMatch] = useState(null);
 
-  // Last sold price — user-entered, becomes the locked comp anchor
-  const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || '');
+  // Last sold price — auto-fetched via backend, can be overridden
+  const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || null);
+  const [fetchingComp, setFetchingComp] = useState(false);
+  const [compError, setCompError] = useState(null);
   
-
+  // Auto-fetch comp on mount
+  useEffect(() => {
+    if (!lastSoldPrice && !fetchingComp && extracted?.player_name && !compError) {
+      fetchComp();
+    }
+  }, []);
+  
+  const fetchComp = async () => {
+    setFetchingComp(true);
+    setCompError(null);
+    try {
+      const result = await base44.functions.invoke('fetchLiveSoldComps', {
+        player_name: extracted.player_name,
+        card_year: extracted.card_year || null,
+        card_set: extracted.card_set || null,
+        grade: extracted.grade || null,
+        variation: extracted.variation || null,
+      });
+      if (result.data?.comp_value && result.data.comp_value > 0) {
+        setLastSoldPrice(result.data.comp_value);
+      } else {
+        setCompError('No recent comps found');
+      }
+    } catch (err) {
+      setCompError('Failed to fetch comp');
+    } finally {
+      setFetchingComp(false);
+    }
+  };
 
   const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null && parseFloat(lastSoldPrice) > 0;
 
@@ -193,39 +224,50 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
         {/* ── Q4: Last Sold Price ── */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">Q4 — Last sale price from eBay?</span>
-            <span className="text-[10px] text-red-500 font-semibold ml-auto">Required for accuracy</span>
+            <span className="text-xs font-bold text-foreground">Q4 — Last sale price</span>
+            {fetchingComp ? (
+              <span className="text-[10px] text-primary font-semibold ml-auto flex items-center gap-1">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                Fetching from eBay...
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground ml-auto">Auto-fetched · can edit</span>
+            )}
           </div>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Find a matching card on eBay sold listings. This becomes the <strong>locked comp anchor</strong> — the AI will never override it.
+            AI automatically searched for recent sold comps. Edit below if you found a better match on eBay.
           </p>
-          
-          {/* eBay Link */}
-          <a
-            href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg"
-          >
-            🔍 Browse eBay Sold Listings →
-          </a>
           
           {/* Price Input */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-muted-foreground shrink-0">$</span>
             <input
               type="number"
-              placeholder="e.g. 556"
-              value={lastSoldPrice}
-              onChange={e => setLastSoldPrice(e.target.value)}
+              placeholder="Loading..."
+              value={lastSoldPrice || ''}
+              onChange={e => setLastSoldPrice(parseFloat(e.target.value) || null)}
               className="flex-1 h-9 px-3 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={fetchingComp}
             />
           </div>
           
-          {parseFloat(lastSoldPrice) > 0 ? (
+          {lastSoldPrice && parseFloat(lastSoldPrice) > 0 ? (
             <p className="text-[10px] font-semibold text-emerald-600">
               ✓ ${parseFloat(lastSoldPrice).toLocaleString()} — locked in as comp anchor
             </p>
+          ) : compError ? (
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] text-amber-600">{compError}</p>
+              <button
+                type="button"
+                onClick={fetchComp}
+                className="text-[10px] font-semibold text-primary hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : fetchingComp ? (
+            <p className="text-[10px] text-muted-foreground">Searching eBay sold listings...</p>
           ) : (
             <p className="text-[10px] text-amber-600">⚠ Enter a price to continue</p>
           )}
