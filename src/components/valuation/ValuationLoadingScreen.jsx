@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { CheckCircle2, Search, TrendingUp, Zap, Activity, AlertTriangle, Trophy, Twitter, Scale, Heart, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +60,7 @@ function Step({ step, state }) {
   );
 }
 
-export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, cardData }) {
+export default function ValuationLoadingScreen({ loadingPhase, cardData }) {
   const [activeStep, setActiveStep] = useState(0);
 
   const steps = loadingPhase === 'fetching_comp' ? PHASE_1_STEPS : PHASE_2_STEPS;
@@ -122,19 +122,6 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, 
         </div>
       </div>
 
-      {/* Phase 1 comp result badge */}
-      <AnimatePresence>
-        {compFetchResult?.comp_value && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="px-6 py-3 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between"
-          >
-            <p className="text-xs text-emerald-400 font-semibold">✓ Last sold found · {compFetchResult.sale_date || 'recent'} · {compFetchResult.confidence || 'medium'} confidence</p>
-            <p className="text-lg font-mono font-bold text-emerald-400">${compFetchResult.comp_value.toLocaleString()}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Steps list — all rows rendered immediately, state flips individually */}
       <div className="px-4 py-4 space-y-1.5">
