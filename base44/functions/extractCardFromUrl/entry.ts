@@ -340,17 +340,30 @@ Return JSON only.`,
     result._ask_type = 'buy_it_now';
     result.image_url = scrapedImage || imageFromHash || null;
 
-    // Grade assessment — fire immediately, don't await sequentially
+    // Eye Appeal Assessment — centering & corners ONLY (spec: not a grading company)
     const gradePromise = result.image_url
       ? base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Sports card image: grade centering/corners/surface/edges briefly. Return estimated_grade, confidence, key_observations (2-3 short strings), grade_range.`,
+          prompt: `You are analyzing a sports card image for EYE APPEAL only — centering and corner wear.
+You are NOT a grading company. Do NOT claim to predict PSA/BGS grades.
+
+Assess ONLY:
+1. centering_description: 1 sentence describing how centered the image is within the borders (left/right/top/bottom balance)
+2. centering_score: 0-100 (100=perfect 50/50, 70=slight drift, 40=noticeable off-center, 20=heavily off-center)
+3. corners_description: 1 sentence describing the 4 corners (sharp, light wear, visible wear, heavy wear)
+4. corners_score: 0-100 (100=razor sharp, 80=very slight wear, 60=some wear, 40=visible wear, 20=heavy damage)
+5. eye_appeal_grade: A (centering≥85 AND corners≥85), B (both≥65), C (either <65), D (either <40)
+6. eye_appeal_summary: 1-2 sentence combined eye appeal summary mentioning only centering and corners
+
+Return JSON only.`,
           response_json_schema: {
             type: "object",
             properties: {
-              estimated_grade: { type: "string" },
-              confidence: { type: "string" },
-              key_observations: { type: "array", items: { type: "string" } },
-              grade_range: { type: "string" },
+              centering_description: { type: "string" },
+              centering_score: { type: "number" },
+              corners_description: { type: "string" },
+              corners_score: { type: "number" },
+              eye_appeal_grade: { type: "string" },
+              eye_appeal_summary: { type: "string" },
             }
           },
           file_urls: [result.image_url],
@@ -358,41 +371,25 @@ Return JSON only.`,
         }).catch(() => null)
       : Promise.resolve(null);
 
-    const aiGradeAssessment = await gradePromise;
+    const eyeAppealData = await gradePromise;
 
-    // Assign grade & eye appeal
-    if (aiGradeAssessment) {
-      result.ai_grade_assessment = aiGradeAssessment;
-      result.ai_grade_disclosure = 'Our AI analyzes card images using PSA, BGS, and SGC grading standards. This is an estimated projection, not a guarantee. Actual graded results may differ based on professional examination and proprietary grader standards.';
-      
-      const obsText = (aiGradeAssessment.key_observations || []).join(' ').toLowerCase();
-      const centeringScore = (() => {
-        if (obsText.includes('excellent') || obsText.includes('very good') || obsText.includes('perfect')) return 95;
-        if (obsText.includes('good') || obsText.includes('slight') && !obsText.includes('noticeable')) return 80;
-        if (obsText.includes('noticeable') || obsText.includes('off')) return 55;
-        if (obsText.includes('poor') || obsText.includes('very off')) return 20;
-        return 70;
-      })();
-      
-      const cornerScore = (() => {
-        if (obsText.includes('sharp') || obsText.includes('very sharp') || (obsText.includes('corner') && obsText.includes('sharp'))) return 95;
-        if (obsText.includes('minor wear') || obsText.includes('light wear')) return 80;
-        if (obsText.includes('corner wear') || obsText.includes('wear') || obsText.includes('soft')) return 55;
-        if (obsText.includes('damaged') || obsText.includes('heavy wear')) return 20;
-        return 70;
-      })();
-      
-      let eyeAppealGrade = 'B';
-      if (centeringScore >= 90 && cornerScore >= 90) eyeAppealGrade = 'A';
-      else if (centeringScore < 60 || cornerScore < 60) eyeAppealGrade = 'C';
-      if (centeringScore < 40 && cornerScore < 40) eyeAppealGrade = 'D';
-      
-      result.ai_eye_appeal_grade = eyeAppealGrade;
-      const centeringComment = centeringScore >= 90 ? 'Centering is excellent—image is perfectly positioned within the border.' : 
-                               centeringScore >= 75 ? 'Centering is good—image sits well within the border with minimal drift.' : 
-                               centeringScore >= 55 ? 'Centering shows noticeable drift—image is noticeably off-center, affecting visual appeal.' : 
-                               'Centering is poor—image is significantly off-center, a major flaw for collectors.';
-      result.eye_appeal_reasoning = `${centeringComment} Corners: ${cornerScore >= 90 ? 'sharp and clean' : cornerScore >= 75 ? 'show minor wear' : cornerScore >= 55 ? 'show visible wear' : 'heavily damaged'}.`;
+    if (eyeAppealData) {
+      result.ai_grade_assessment = {
+        key_observations: [
+          eyeAppealData.centering_description,
+          eyeAppealData.corners_description,
+        ].filter(Boolean),
+        centering_score: eyeAppealData.centering_score,
+        corners_score: eyeAppealData.corners_score,
+      };
+      // STRICT DISCLOSURE: centering and corners only, not a grading company
+      result.ai_grade_disclosure = 'Eye appeal score reflects centering and corner wear only as seen in this image. We are not a grading company — this is not a professional grade. Actual PSA/BGS/SGC results may differ significantly based on physical inspection under proper lighting.';
+      result.ai_eye_appeal_grade = eyeAppealData.eye_appeal_grade || 'B';
+      result.eye_appeal_reasoning = eyeAppealData.eye_appeal_summary || '';
+      result._eye_appeal_scores = {
+        centering: eyeAppealData.centering_score,
+        corners: eyeAppealData.corners_score,
+      };
     }
 
 

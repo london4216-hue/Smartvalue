@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ValuationResult from '@/components/valuation/ValuationResult';
 import PasteUrlInput from '@/components/valuation/PasteUrlInput';
 import CardImageScanner from '@/components/valuation/CardImageScanner';
-import CardInputForm from '@/components/valuation/CardInputForm';
-import { ATTRIBUTE_CATEGORIES, GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
+import { GRADE_WEIGHTS } from '@/components/valuation/AttributeCategories';
 import ValuationLoadingScreen from '@/components/valuation/ValuationLoadingScreen';
+import { Camera, Link, ChevronRight, Sparkles, Shield, TrendingUp, Zap } from 'lucide-react';
 
-// Shared serial number scarcity scoring — used in both buildPrompt and ensureNonZeroAdjustments
 function getPrintRunScore(serialNumber) {
   const n = serialNumber ? parseInt(serialNumber, 10) : null;
   if (!n || isNaN(n)) return null;
@@ -27,20 +26,10 @@ function getPrintRunScore(serialNumber) {
   return 20;
 }
 
-// The 12 highest-impact attributes — used for fast valuation
 const TOP_ATTRS = [
-  'is_rookie_year',
-  'print_run_size',
-  'is_one_of_one',
-  'auto_type',
-  'patch_quality',
-  'rpa_designation',
-  'card_brand_tier',
-  'pop_count_at_grade',
-  'player_momentum',
-  'goat_legacy_score',
-  'psa_gem_potential',
-  'variation_desirability',
+  'is_rookie_year','print_run_size','is_one_of_one','auto_type','patch_quality',
+  'rpa_designation','card_brand_tier','pop_count_at_grade','player_momentum',
+  'goat_legacy_score','psa_gem_potential','variation_desirability',
 ];
 
 function buildPrompt(cardData) {
@@ -87,7 +76,6 @@ RETURN JSON: overall_score, flip_vs_hold(strong_buy|buy|hold|sell|strong_sell), 
 function buildResponseSchema() {
   const attrProps = {};
   TOP_ATTRS.forEach(key => { attrProps[key] = { type: "number" }; });
-
   return {
     type: "object",
     properties: {
@@ -107,62 +95,30 @@ function buildResponseSchema() {
       holders_comp_calculation: { type: "object", properties: { last_sold_comp: { type: "string" }, grade_multiplier_dollars: { type: "string" }, top5_dollar_adjustments: { type: "array", items: { type: "string" } }, supporting_factors_dollars: { type: "string" }, final_holders_comp: { type: "string" } } },
       attribute_scores: { type: "object", properties: attrProps },
       other_attributes: { type: "array", items: { type: "object", properties: { label: { type: "string" }, direction: { type: "string" } } } },
-      player_activity: {
-        type: "object",
-        properties: {
-          injury_status: { type: "string" },
-          current_season_status: { type: "string" },
-          last_game: { type: "object", properties: { date: { type: "string" }, points: { type: "number" }, rebounds: { type: "number" }, assists: { type: "number" } } },
-          last_10_avg_pts: { type: "number" },
-          trend: { type: "string" },
-          top_2_news: { type: "array", items: { type: "object", properties: { date: { type: "string" }, headline: { type: "string" }, impact: { type: "string" } } } },
-        }
-      },
-      market_signals: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            emoji: { type: "string" },
-            label: { type: "string" },
-            as_of: { type: "string" },
-            items: { type: "array", items: { type: "object", properties: { label: { type: "string" }, stat: { type: "string" }, note: { type: "string" }, trend: { type: "string" } } } }
-          }
-        }
-      },
-      pop_report: {
-        type: "object",
-        properties: {
-          pop_at_grade: { type: "number" },
-          total_pop_all_grades: { type: "number" },
-          scarcity_assessment: { type: "string" },
-          grader_breakdown: { type: "object", properties: { PSA: { type: "number" }, BGS: { type: "number" }, SGC: { type: "number" } } },
-          highest_grade_achieved: { type: "string" },
-          notes: { type: "string" },
-          source_confidence: { type: "string" },
-        }
-      }
+      player_activity: { type: "object", properties: { injury_status: { type: "string" }, current_season_status: { type: "string" }, last_game: { type: "object", properties: { date: { type: "string" }, points: { type: "number" }, rebounds: { type: "number" }, assists: { type: "number" } } }, last_10_avg_pts: { type: "number" }, trend: { type: "string" }, top_2_news: { type: "array", items: { type: "object", properties: { date: { type: "string" }, headline: { type: "string" }, impact: { type: "string" } } } } } },
+      market_signals: { type: "array", items: { type: "object", properties: { emoji: { type: "string" }, label: { type: "string" }, as_of: { type: "string" }, items: { type: "array", items: { type: "object", properties: { label: { type: "string" }, stat: { type: "string" }, note: { type: "string" }, trend: { type: "string" } } } } } } },
+      pop_report: { type: "object", properties: { pop_at_grade: { type: "number" }, total_pop_all_grades: { type: "number" }, scarcity_assessment: { type: "string" }, grader_breakdown: { type: "object", properties: { PSA: { type: "number" }, BGS: { type: "number" }, SGC: { type: "number" } } }, highest_grade_achieved: { type: "string" }, notes: { type: "string" }, source_confidence: { type: "string" } } }
     }
   };
 }
 
-// Phase 1: Fetch real last-sold comp — fast, no web search, LLM uses training data
 async function fetchRealComp(cardData) {
   const { player_name, card_year, card_set, variation, serial_number, grade, has_autograph } = cardData;
   const serialStr = serial_number ? `/${serial_number}` : '';
   const autoNote = has_autograph === false ? 'No autograph — base card only comps.' : '';
-
-  const result = await base44.integrations.Core.InvokeLLM({
+  return await base44.integrations.Core.InvokeLLM({
     prompt: `Sports card comp lookup. Use your training knowledge of eBay/PWCC sold prices.
 
 CARD: ${player_name} ${card_year || ''} ${card_set || ''} ${variation || ''} ${serialStr}${grade ? ' · ' + grade : ''}
 ${autoNote}
 
-CRITICAL GRADE RULE: If this card has a grade (e.g. PSA 10, BGS 9.5), you MUST ONLY return comps for that exact grade from that exact grading company. NEVER use raw/ungraded prices as comp_value or cheapest_available for a graded card. Raw cards trade at a massive discount — mixing grades is a fatal valuation error. If no graded comp exists, set comp_value=null and tier=no_comp_conservative_estimate. Do NOT substitute a raw card price.
+CRITICAL GRADE RULE: If this card has a grade (e.g. PSA 10, BGS 9.5), you MUST ONLY return comps for that exact grade from that exact grading company. NEVER use raw/ungraded prices as comp_value or cheapest_available for a graded card. If no graded comp exists, set comp_value=null and tier=no_comp_conservative_estimate.
 
 CHEAPEST AVAILABLE RULE: cheapest_available must also be for the same grade. If you only see raw listings for a graded card, set cheapest_available=null.
 
-Pick best tier: exact_match → adjusted_comp → similar_card_baseline (3 comps, each must match the grade) → no_comp_conservative_estimate
+24-MONTH RULE: Only return comps from the last 24 months. If the most recent comp is older than 24 months, set tier=no_comp_conservative_estimate.
+
+Pick best tier: exact_match → adjusted_comp → similar_card_baseline → no_comp_conservative_estimate
 
 Return JSON only: tier, comp_value, cheapest_available, sale_date, confidence (high/medium/low), notes, ebay_link, similar_comps[], conservative_estimate_reasoning`,
     response_json_schema: {
@@ -175,84 +131,63 @@ Return JSON only: tier, comp_value, cheapest_available, sale_date, confidence (h
         confidence: { type: "string" },
         notes: { type: "string" },
         ebay_link: { type: ["string", "null"] },
-        similar_comps: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              description:  { type: "string" },
-              sold_price:   { type: "number" },
-              sale_date:    { type: "string" },
-              source:       { type: "string" },
-              ebay_link:    { type: ["string", "null"] },
-            }
-          }
-        },
+        similar_comps: { type: "array", items: { type: "object", properties: { description: { type: "string" }, sold_price: { type: "number" }, sale_date: { type: "string" }, source: { type: "string" }, ebay_link: { type: ["string", "null"] } } } },
         conservative_estimate_reasoning: { type: ["string", "null"] },
       }
     },
     add_context_from_internet: false,
     model: 'gemini_3_flash',
   });
-
-  return result;
 }
 
+const FEATURES = [
+  { icon: TrendingUp, label: '90% Comp Rule',  desc: 'AI anchors to real last-sold data' },
+  { icon: Shield,     label: '44 Attributes',  desc: 'Serial, auto, patch, pop & more' },
+  { icon: Zap,        label: 'Pop-1 Protocol', desc: 'Scarcity multipliers for rare slabs' },
+  { icon: Sparkles,   label: 'Eye Appeal AI',  desc: 'Centering & corners scored visually' },
+];
+
 export default function ValuateCard() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState(null); // 'fetching_comp' | 'valuing'
-  const [compFetchResult, setCompFetchResult] = useState(null);
-  const [result, setResult] = useState(null);
-  const [cardInput, setCardInput] = useState(null);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [scannedData, setScannedData] = useState(null);
+  const [isLoading, setIsLoading]       = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(null);
+  const [result, setResult]             = useState(null);
+  const [cardInput, setCardInput]       = useState(null);
+  const [activeTab, setActiveTab]       = useState('url');
   const { toast } = useToast();
 
   const ensureNonZeroAdjustments = (aiResult, cardData) => {
     const compValue = cardData.comp_value || 0;
     let attributeScores = aiResult.attribute_scores || {};
-    
-    // Check if all adjustments are zero
     const allZero = Object.values(attributeScores).every(score => score === -1 || score === 0 || score === 50);
-    
     if (allZero && compValue > 0) {
-      // Auto-generate scores for only the top 12 impact attributes
       attributeScores = {
-        is_rookie_year:        cardData.is_rookie_year ? 88 : 30,
-        print_run_size:        getPrintRunScore(cardData.serial_number) ?? 10,
-        is_one_of_one:         cardData.serial_number === '1' ? 100 : 0,
-        auto_type:             cardData.has_autograph ? (cardData.is_sticker_auto ? 40 : 88) : 0,
-        patch_quality:         cardData.has_patch ? 70 : 0,
-        rpa_designation:       (cardData.has_autograph && cardData.has_patch) ? 90 : 0,
-        card_brand_tier:       cardData.card_set ? 68 : 50,
-        pop_count_at_grade:    60,
-        player_momentum:       cardData.player_popularity === 'rising' ? 80 : cardData.player_popularity === 'declining' ? 25 : 60,
-        goat_legacy_score:     cardData.player_popularity === 'legend' ? 88 : 55,
-        psa_gem_potential:     cardData.psa_alignment ? 92 : cardData.ai_scan_quality === 'flawless' ? 78 : 45,
-        variation_desirability:cardData.color_matches_team ? 72 : 50,
+        is_rookie_year:         cardData.is_rookie_year ? 88 : 30,
+        print_run_size:         getPrintRunScore(cardData.serial_number) ?? 10,
+        is_one_of_one:          cardData.serial_number === '1' ? 100 : 0,
+        auto_type:              cardData.has_autograph ? (cardData.is_sticker_auto ? 40 : 88) : 0,
+        patch_quality:          cardData.has_patch ? 70 : 0,
+        rpa_designation:        (cardData.has_autograph && cardData.has_patch) ? 90 : 0,
+        card_brand_tier:        cardData.card_set ? 68 : 50,
+        pop_count_at_grade:     60,
+        player_momentum:        cardData.player_popularity === 'rising' ? 80 : cardData.player_popularity === 'declining' ? 25 : 60,
+        goat_legacy_score:      cardData.player_popularity === 'legend' ? 88 : 55,
+        psa_gem_potential:      cardData.psa_alignment ? 92 : cardData.ai_scan_quality === 'flawless' ? 78 : 45,
+        variation_desirability: cardData.color_matches_team ? 72 : 50,
       };
     }
-    
-    return {
-      ...aiResult,
-      attribute_scores: attributeScores,
-    };
+    return { ...aiResult, attribute_scores: attributeScores };
   };
 
   const handleValuate = async (cardData) => {
     setIsLoading(true);
     setCardInput(cardData);
-    setCompFetchResult(null);
 
-    // ── PHASE 1: Fetch real last-sold comp if not already provided ──────────
     let enrichedCardData = { ...cardData };
 
     if (!cardData.comp_value || parseFloat(cardData.comp_value) <= 0) {
       setLoadingPhase('fetching_comp');
       try {
         const compData = await fetchRealComp(cardData);
-        setCompFetchResult(compData);
-
         if (compData.comp_value && compData.comp_value > 0) {
           enrichedCardData = {
             ...enrichedCardData,
@@ -275,38 +210,25 @@ export default function ValuateCard() {
             _conservative_estimate_reasoning: compData.conservative_estimate_reasoning || null,
           };
         }
-      } catch {
-        // Phase 1 failed silently — proceed to valuation anyway
-      }
+      } catch { /* silent */ }
     } else {
-      // Comp already provided by user — skip Phase 1 entirely
       enrichedCardData._comp_confidence = 'user_provided';
     }
 
-    // ── PHASE 2: Full valuation ──────────────────────────────────────────────
     setLoadingPhase('valuing');
-
     const compValue = parseFloat(enrichedCardData.comp_value) || 0;
-
-    // Fast mode: comp is known, skip web search, use smaller prompt + faster model
-    const fastMode = compValue > 0;
-    const prompt = buildPrompt(enrichedCardData, fastMode);
+    const prompt = buildPrompt(enrichedCardData);
     const schema = buildResponseSchema();
 
-    // IRONCLAD: AI value MUST differ from comp by at least 8%. No exceptions.
-    // (defined here so it's available in parallel closures)
     let netSignalPct = 0;
     const enforceMinDiff = (aiVal, comp) => {
       if (!comp || comp <= 0) return aiVal > 0 ? Math.round(aiVal) : 0;
       const candidate = Math.round(aiVal);
       const diffPct = Math.abs((candidate - comp) / comp) * 100;
-      if (diffPct < 8) {
-        return netSignalPct < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
-      }
+      if (diffPct < 8) return netSignalPct < 0 ? Math.round(comp * 0.92) : Math.round(comp * 1.08);
       return candidate;
     };
 
-    // Run LLM valuation — single pass, no follow-up calls
     let aiResult = await base44.integrations.Core.InvokeLLM({
       prompt,
       response_json_schema: schema,
@@ -314,7 +236,6 @@ export default function ValuateCard() {
       model: 'gemini_3_flash',
     });
 
-    // Ensure non-zero adjustments
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
 
     const signals = aiResult.key_signals || [];
@@ -324,15 +245,10 @@ export default function ValuateCard() {
     }, 0);
 
     let finalAiValue = enforceMinDiff(parseFloat(aiResult.ai_investment_value) || 0, compValue);
-    // Use value_drivers and holders_comp_calculation directly from the LLM — no extra backend call needed
-    const backendCalc = aiResult.holders_comp_calculation || null;
 
-    // FINAL ABSOLUTE SAFETY — triple-check before setting state, no matter what path was taken
     if (compValue > 0) {
       const finalDiffPct = Math.abs((finalAiValue - compValue) / compValue) * 100;
-      if (finalDiffPct < 8) {
-        finalAiValue = netSignalPct < 0 ? Math.round(compValue * 0.92) : Math.round(compValue * 1.08);
-      }
+      if (finalDiffPct < 8) finalAiValue = netSignalPct < 0 ? Math.round(compValue * 0.92) : Math.round(compValue * 1.08);
     }
 
     const finalResult = {
@@ -340,7 +256,7 @@ export default function ValuateCard() {
       comp_value: compValue || null,
       ...aiResult,
       ai_investment_value: finalAiValue,
-      holders_comp_calculation: backendCalc,
+      holders_comp_calculation: aiResult.holders_comp_calculation || null,
       _comp_sale_date: enrichedCardData._comp_sale_date || null,
       _comp_confidence: enrichedCardData._comp_confidence || null,
       _comp_notes: enrichedCardData._comp_notes || '',
@@ -348,13 +264,11 @@ export default function ValuateCard() {
       _comp_ebay_link: enrichedCardData._comp_ebay_link || null,
       _similar_comps: enrichedCardData._similar_comps || [],
       _conservative_estimate_reasoning: enrichedCardData._conservative_estimate_reasoning || null,
-      // Pre-fetched sub-component data — no extra LLM calls needed on result page
       _player_activity: aiResult.player_activity || null,
       _market_signals: aiResult.market_signals || null,
       _pop_report: aiResult.pop_report || null,
     };
 
-    // Check alerts — fire-and-forget, never block the result
     if (compValue > 0) {
       base44.functions.invoke('checkAlerts', {
         player_name: enrichedCardData.player_name,
@@ -395,70 +309,132 @@ export default function ValuateCard() {
       analysis_summary: result.analysis_summary || '',
       in_portfolio: true,
     });
-
-    toast({
-      title: "Saved to Portfolio",
-      description: `${result.player_name} card has been added to your portfolio.`,
-    });
-  };
-
-  const handleScanned = (extracted) => {
-    // Same flow as URL confirm — go straight to valuation
-    handleValuate(extracted);
+    toast({ title: "Saved to Portfolio", description: `${result.player_name} card has been added to your portfolio.` });
   };
 
   const handleReset = () => {
     setResult(null);
     setCardInput(null);
-    setShowManualForm(false);
-    setScannedData(null);
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h1 className="text-4xl sm:text-5xl font-bold text-foreground">AI Card Valuation</h1>
-        <p className="text-base sm:text-lg text-foreground/80 mt-2">
-          Last Sold = what it sold for. AI Value = what it's <em>worth</em>. Serial number, auto type, patch quality, pop report, player thesis — every signal that moves the needle.
-        </p>
-      </motion.div>
-
-      {/* Loading State */}
+    <div className="min-h-screen bg-background">
       {isLoading && (
-        <ValuationLoadingScreen
-          loadingPhase={loadingPhase}
-          cardData={cardInput}
-        />
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <ValuationLoadingScreen loadingPhase={loadingPhase} cardData={cardInput} />
+        </div>
       )}
 
-      {/* Result */}
       {result && !isLoading && (
-        <ValuationResult
-          result={result}
-          onSave={handleSave}
-          onReset={handleReset}
-        />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          <ValuationResult result={result} onSave={handleSave} onReset={handleReset} />
+        </div>
       )}
 
-      {/* Input area */}
       {!result && !isLoading && (
-        <>
-          <PasteUrlInput onCardExtracted={handleValuate} />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
 
-          {/* Snap / Upload card image */}
-          <div className="my-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-primary mb-1">Or — Snap / Upload Your Card</p>
-            <p className="text-xs text-muted-foreground mb-3">Take a photo or upload a screenshot — AI reads the card, shows condition & eye appeal, then runs the full valuation.</p>
-            <CardImageScanner onConfirmed={handleScanned} />
-          </div>
+          {/* Hero Header */}
+          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mb-2">
+              <Sparkles className="w-3 h-3" />
+              Base-44 Engine · v1.1
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-black text-foreground tracking-tight">
+              AI Card Valuation
+            </h1>
+            <p className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
+              Last Sold = what it sold for. <strong className="text-foreground">AI Value = what it's worth.</strong> 44 attributes. Real comps. Zero guesswork.
+            </p>
+          </motion.div>
 
+          {/* Feature pills */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {FEATURES.map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="flex flex-col items-center text-center gap-1.5 p-3 bg-card border border-border/50 rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-xs font-bold text-foreground">{label}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{desc}</p>
+              </div>
+            ))}
+          </motion.div>
 
-        </>
+          {/* Input Method Tabs */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-4">
+            <div className="flex rounded-xl bg-secondary/60 p-1 gap-1">
+              <button
+                onClick={() => setActiveTab('url')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === 'url'
+                    ? 'bg-card text-foreground shadow-sm border border-border/50'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Link className="w-4 h-4" />
+                Paste URL
+              </button>
+              <button
+                onClick={() => setActiveTab('photo')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === 'photo'
+                    ? 'bg-card text-foreground shadow-sm border border-border/50'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                Snap / Upload
+              </button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {activeTab === 'url' && (
+                <motion.div key="url" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.15 }}>
+                  <PasteUrlInput onCardExtracted={handleValuate} />
+                </motion.div>
+              )}
+              {activeTab === 'photo' && (
+                <motion.div key="photo" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="bg-card border border-border/50 rounded-2xl p-5 space-y-3">
+                  <div>
+                    <p className="text-sm font-bold text-foreground mb-1">Snap or Upload Your Card</p>
+                    <p className="text-xs text-muted-foreground">AI identifies the card, scores centering & corners for eye appeal, then runs the full 44-attribute valuation.</p>
+                  </div>
+                  <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-lg">
+                    <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-600 leading-snug">
+                      <strong>Eye Appeal Disclosure:</strong> Our AI scores centering and corner wear only as a visual guide. We are not a grading company — this is not a professional grade. Actual PSA/BGS/SGC results may differ significantly.
+                    </p>
+                  </div>
+                  <CardImageScanner onConfirmed={handleValuate} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* How it works */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="bg-card border border-border/30 rounded-2xl p-5">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">How it works</p>
+            <div className="space-y-3">
+              {[
+                { n: '1', title: 'Find your comp', body: 'AI searches for the closest real completed sale within 24 months — same player, same grade, same auto type.' },
+                { n: '2', title: '90% baseline applied', body: 'AI value starts at 90% of the last sold comp per the Base-44 rule — never blindly matching the last sale.' },
+                { n: '3', title: '44-attribute adjustment', body: 'Serial number, pop report, patch quality, brand tier, player momentum — up to ±10% max swing from baseline.' },
+              ].map(({ n, title, body }) => (
+                <div key={n} className="flex gap-3 items-start">
+                  <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-[10px] font-black text-primary">{n}</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+        </div>
       )}
     </div>
   );
