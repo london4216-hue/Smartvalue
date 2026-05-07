@@ -12,29 +12,46 @@ async function analyzeCardImage(file) {
 
   // 2. Extract all card details + condition from the image
   const extraction = await base44.integrations.Core.InvokeLLM({
-    prompt: `Sports card image — extract ALL in one pass, return JSON only:
-player(required), set, year, parallel, card_number, rookie(bool/null), grade_company(PSA/BGS/SGC/CGC/null), grade_value, serial_number(number only e.g. 45 for /45), has_autograph(bool), auto_type(on_card|sticker|unknown|null), centering(1 sentence), corners(1 sentence), surface(1 sentence), edges(1 sentence), eye_appeal_grade(A/B/C/D), eye_appeal_reasoning(1 sentence).`,
+    prompt: `You are a sports card expert grader. Analyze this card image and return JSON only (no markdown).
+
+CARD IDENTIFICATION: player(required), set, year, parallel, card_number, rookie(bool/null), grade_company(PSA/BGS/SGC/CGC/null), grade_value, serial_number(number only e.g. 45 for /45), has_autograph(bool), auto_type(on_card|sticker|unknown|null)
+
+GRADING ASSESSMENT — score each of the 4 PSA/BGS grading categories on a 1–10 scale:
+- centering_score: 1-10 (10=perfectly centered, 5=moderate off-center, 1=severely miscut)
+- centering_note: 1 short sentence describing what you see
+- corners_score: 1-10 (10=razor sharp, 5=light wear, 1=heavy fraying)
+- corners_note: 1 short sentence
+- surface_score: 1-10 (10=pristine gloss/no marks, 5=minor scratches, 1=heavy damage)
+- surface_note: 1 short sentence
+- edges_score: 1-10 (10=clean/sharp, 5=minor nicks, 1=heavy chips)
+- edges_note: 1 short sentence
+
+OVERALL: eye_appeal_grade(A/B/C/D — A=gem mint, B=excellent, C=good, D=poor), eye_appeal_reasoning(1-2 sentences explaining the overall visual assessment and any PSA potential)`,
     file_urls: [file_url],
     response_json_schema: {
       type: "object",
       properties: {
-        player:           { type: ["string", "null"] },
-        set:              { type: ["string", "null"] },
-        year:             { type: ["string", "null"] },
-        parallel:         { type: ["string", "null"] },
-        card_number:      { type: ["string", "null"] },
-        rookie:           { type: ["boolean", "null"] },
-        grade_company:    { type: ["string", "null"] },
-        grade_value:      { type: ["string", "null"] },
-        serial_number:    { type: ["string", "null"] },
-        has_autograph:    { type: ["boolean", "null"] },
-        auto_type:        { type: ["string", "null"] },
-        centering:        { type: ["string", "null"] },
-        corners:          { type: ["string", "null"] },
-        surface:          { type: ["string", "null"] },
-        edges:            { type: ["string", "null"] },
-        eye_appeal_grade: { type: ["string", "null"] },
-        eye_appeal_reasoning: { type: ["string", "null"] },
+        player:              { type: ["string", "null"] },
+        set:                 { type: ["string", "null"] },
+        year:                { type: ["string", "null"] },
+        parallel:            { type: ["string", "null"] },
+        card_number:         { type: ["string", "null"] },
+        rookie:              { type: ["boolean", "null"] },
+        grade_company:       { type: ["string", "null"] },
+        grade_value:         { type: ["string", "null"] },
+        serial_number:       { type: ["string", "null"] },
+        has_autograph:       { type: ["boolean", "null"] },
+        auto_type:           { type: ["string", "null"] },
+        centering_score:     { type: ["number", "null"] },
+        centering_note:      { type: ["string", "null"] },
+        corners_score:       { type: ["number", "null"] },
+        corners_note:        { type: ["string", "null"] },
+        surface_score:       { type: ["number", "null"] },
+        surface_note:        { type: ["string", "null"] },
+        edges_score:         { type: ["number", "null"] },
+        edges_note:          { type: ["string", "null"] },
+        eye_appeal_grade:    { type: ["string", "null"] },
+        eye_appeal_reasoning:{ type: ["string", "null"] },
       }
     },
     model: 'gemini_3_flash',
@@ -66,14 +83,16 @@ player(required), set, year, parallel, card_number, rookie(bool/null), grade_com
     comp_value: null,
     cheapest_available: null,
     ai_grade_assessment: {
-      key_observations: [
-        extraction.centering,
-        extraction.corners,
-        extraction.surface,
-        extraction.edges,
-      ].filter(Boolean),
+      centering_score: extraction.centering_score || null,
+      centering_note:  extraction.centering_note  || null,
+      corners_score:   extraction.corners_score   || null,
+      corners_note:    extraction.corners_note    || null,
+      surface_score:   extraction.surface_score   || null,
+      surface_note:    extraction.surface_note    || null,
+      edges_score:     extraction.edges_score     || null,
+      edges_note:      extraction.edges_note      || null,
     },
-    ai_grade_disclosure: 'Eye appeal grade reflects our visual assessment of the card only. We are not a grading company and this is not a professional grade.',
+    ai_grade_disclosure: 'Eye appeal grade reflects our visual assessment only. We are not a grading company — this is NOT a professional grade. Actual PSA/BGS/SGC results may differ significantly.',
     ai_eye_appeal_grade: extraction.eye_appeal_grade || null,
     eye_appeal_reasoning: extraction.eye_appeal_reasoning || null,
   };
@@ -241,10 +260,15 @@ export default function CardImageScanner({ onConfirmed }) {
             exit={{ opacity: 0, y: -6 }}
             className="bg-card border border-border rounded-xl overflow-hidden"
           >
-            {/* Card image */}
+            {/* Card image — large and prominent */}
             {imagePreview && (
-              <div className="w-full bg-secondary/30 flex items-center justify-center p-3">
-                <img src={imagePreview} alt={cardSummary} className="max-h-64 w-auto object-contain rounded-lg" />
+              <div className="w-full bg-gradient-to-b from-secondary/50 to-secondary/20 flex items-center justify-center p-4 border-b border-border/30">
+                <img
+                  src={imagePreview}
+                  alt={cardSummary}
+                  className="max-h-80 w-auto object-contain rounded-xl shadow-lg"
+                  style={{ maxWidth: '100%' }}
+                />
               </div>
             )}
 
@@ -316,14 +340,16 @@ export default function CardImageScanner({ onConfirmed }) {
 
               {/* Condition Assessment */}
               {extracted.ai_grade_assessment && (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
-                  <p className="font-semibold text-primary text-sm">📐 Visual Assessment</p>
-
-                  {/* Eye appeal grade badge */}
-                  {extracted.ai_eye_appeal_grade && (
-                    <div className="flex items-center gap-3">
+                <div className="border border-primary/20 rounded-xl overflow-hidden">
+                  {/* Header with overall grade */}
+                  <div className="bg-primary/8 px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-primary uppercase tracking-wider">📐 AI Eye Appeal Assessment</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Centering · Corners · Surface · Edges</p>
+                    </div>
+                    {extracted.ai_eye_appeal_grade && (
                       <div className={cn(
-                        "inline-flex items-center justify-center rounded-full w-12 h-12 text-xl font-bold border-2 shrink-0",
+                        "flex items-center justify-center rounded-full w-14 h-14 text-2xl font-black border-2 shrink-0",
                         extracted.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
                         extracted.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
                         extracted.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
@@ -331,28 +357,46 @@ export default function CardImageScanner({ onConfirmed }) {
                       )}>
                         {extracted.ai_eye_appeal_grade}
                       </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Eye Appeal Grade</p>
-                        {extracted.eye_appeal_reasoning && (
-                          <p className="text-xs text-foreground/80 leading-snug mt-0.5">{extracted.eye_appeal_reasoning}</p>
-                        )}
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {/* 4 scored categories */}
+                    {[
+                      { key: 'centering', label: 'Centering', icon: '⬛', score: extracted.ai_grade_assessment.centering_score, note: extracted.ai_grade_assessment.centering_note },
+                      { key: 'corners',   label: 'Corners',   icon: '📐', score: extracted.ai_grade_assessment.corners_score,   note: extracted.ai_grade_assessment.corners_note },
+                      { key: 'surface',   label: 'Surface',   icon: '✨', score: extracted.ai_grade_assessment.surface_score,   note: extracted.ai_grade_assessment.surface_note },
+                      { key: 'edges',     label: 'Edges',     icon: '🔲', score: extracted.ai_grade_assessment.edges_score,     note: extracted.ai_grade_assessment.edges_note },
+                    ].map(({ key, label, icon, score, note }) => {
+                      const pct = score ? (score / 10) * 100 : 0;
+                      const barColor = score >= 9 ? 'bg-emerald-500' : score >= 7 ? 'bg-blue-500' : score >= 5 ? 'bg-amber-500' : 'bg-red-500';
+                      const scoreColor = score >= 9 ? 'text-emerald-500' : score >= 7 ? 'text-blue-500' : score >= 5 ? 'text-amber-500' : 'text-red-500';
+                      return (
+                        <div key={key}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-foreground">{icon} {label}</span>
+                            {score && <span className={cn("text-sm font-mono font-black", scoreColor)}>{score}/10</span>}
+                          </div>
+                          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+                          </div>
+                          {note && <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{note}</p>}
+                        </div>
+                      );
+                    })}
+
+                    {/* Overall reasoning */}
+                    {extracted.eye_appeal_reasoning && (
+                      <div className="pt-2 border-t border-border/20">
+                        <p className="text-xs text-foreground/80 leading-relaxed italic">"{extracted.eye_appeal_reasoning}"</p>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Key observations */}
-                  {extracted.ai_grade_assessment.key_observations?.length > 0 && (
-                    <ul className="space-y-1">
-                      {extracted.ai_grade_assessment.key_observations.map((obs, i) => (
-                        <li key={i} className="text-xs text-foreground/70 flex gap-1.5">
-                          <span className="text-primary/50 shrink-0">·</span>
-                          {obs}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  <p className="text-[9px] text-muted-foreground/60 italic">{extracted.ai_grade_disclosure}</p>
+                    {/* Disclosure */}
+                    <p className="text-[9px] text-amber-600/80 leading-snug bg-amber-500/8 border border-amber-500/20 rounded-lg p-2">
+                      ⚠️ {extracted.ai_grade_disclosure}
+                    </p>
+                  </div>
                 </div>
               )}
 
