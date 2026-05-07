@@ -19,7 +19,8 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
 
   useEffect(() => {
     if (prefetchedData) {
-      setPopData({ ...prefetchedData, grade_requested: grade });
+      // Prefetched = from training knowledge only, always mark low confidence
+      setPopData({ ...prefetchedData, grade_requested: grade, source_confidence: 'low', _is_estimated: true });
       setLoading(false);
       return;
     }
@@ -157,15 +158,15 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
         </div>
       )}
 
-      {/* Confidence Note */}
-      {popData.source_confidence === 'low' && (
-        <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/20">
-          <AlertCircle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[9px] text-amber-300/80">
-            Low confidence data. Population reports may be incomplete or outdated. Use as a guide only.
-          </p>
-        </div>
-      )}
+      {/* Confidence Note — always shown for AI-estimated data */}
+      <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border/20">
+        <AlertCircle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+        <p className="text-[9px] text-amber-300/80">
+          {popData._is_estimated
+            ? "⚠ AI-estimated figures based on training knowledge — not live PSA/BGS/SGC data. Verify actual population at PSA Registry, BGS Pop Report, or Collector Universe before making buy/sell decisions."
+            : "Low confidence data. Population reports may be incomplete or outdated. Use as a guide only."}
+        </p>
+      </div>
 
       {popData.notes && (
         <p className="text-[9px] text-muted-foreground/70 mt-2 italic">{popData.notes}</p>
