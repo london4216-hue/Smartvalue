@@ -35,12 +35,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   const [compError, setCompError] = useState(null);
   const [compSource, setCompSource] = useState(null);
   
-  // Fetch real comp on mount (accurate market data, ~25-30s)
-  useEffect(() => {
-    if (!lastSoldPrice && !fetchingComp && extracted?.player_name && !compError) {
-      fetchComp();
-    }
-  }, []);
+  // Comp fetch removed — will happen in parallel during full valuation
   
   const fetchComp = async () => {
     setFetchingComp(true);
@@ -67,7 +62,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
     }
   };
 
-  const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null && parseFloat(lastSoldPrice) > 0;
+  const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null;
 
   const handleConfirm = () => {
     const parsedPrice = parseFloat(lastSoldPrice);
@@ -226,36 +221,28 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
           )}
         </div>
 
-        {/* ── Q4: Last Sold Price & Date ── */}
+        {/* ── Q4: Last Sold Price & Date (Optional) ── */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">Q4 — Comp (last sale price & date)</span>
-            {fetchingComp ? (
-              <span className="text-[10px] text-primary font-semibold ml-auto flex items-center gap-1">
-                <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                Fetching...
-              </span>
-            ) : (
-              <span className="text-[10px] text-muted-foreground ml-auto">Auto-fetched · editable</span>
-            )}
+            <span className="text-xs font-bold text-foreground">Q4 — Comp (optional)</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">Will fetch during valuation</span>
           </div>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            AI searched major auction sites for the most recent sold comp. This price anchors the entire valuation.
+            If you know the last sale price, enter it to anchor the valuation. Otherwise, AI will search for it in parallel.
           </p>
           
           {/* Price & Date Grid */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Price</label>
+              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Price (optional)</label>
               <div className="flex items-center gap-1">
                 <span className="text-sm font-bold text-muted-foreground">$</span>
                 <input
                   type="number"
-                  placeholder="0"
+                  placeholder="Leave blank to auto-fetch"
                   value={lastSoldPrice || ''}
                   onChange={e => setLastSoldPrice(parseFloat(e.target.value) || null)}
                   className="flex-1 h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={fetchingComp}
                 />
               </div>
             </div>
@@ -267,7 +254,6 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
                 value={lastSoldDate || ''}
                 onChange={e => setLastSoldDate(e.target.value || null)}
                 className="w-full h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                disabled={fetchingComp}
               />
             </div>
           </div>
@@ -276,29 +262,11 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
           {lastSoldPrice && parseFloat(lastSoldPrice) > 0 ? (
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2">
               <p className="text-[10px] font-semibold text-emerald-600">
-                ✓ ${parseFloat(lastSoldPrice).toLocaleString()} {lastSoldDate ? `on ${lastSoldDate}` : ''} — locked in as comp anchor
+                ✓ ${parseFloat(lastSoldPrice).toLocaleString()} {lastSoldDate ? `on ${lastSoldDate}` : ''} — will use as anchor
               </p>
-              {compSource && (
-                <p className="text-[9px] text-emerald-600/70 mt-0.5">
-                  Source: {compSource}
-                </p>
-              )}
             </div>
-          ) : compError ? (
-            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
-              <p className="text-[10px] text-amber-600">{compError}</p>
-              <button
-                type="button"
-                onClick={fetchComp}
-                className="text-[10px] font-semibold text-primary hover:underline"
-              >
-                Retry
-              </button>
-            </div>
-          ) : fetchingComp ? (
-            <p className="text-[10px] text-muted-foreground px-2">Searching live market data (eBay, PWCC, Goldin, Heritage...)...</p>
           ) : (
-            <p className="text-[10px] text-amber-600">⚠ Enter price (and date if known) to continue</p>
+            <p className="text-[10px] text-muted-foreground px-2">Leave blank — AI will search live markets during valuation</p>
           )}
         </div>
 
@@ -311,7 +279,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
             className="flex-1 h-9 text-xs"
           >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-            {canConfirm ? 'Run AI Valuation →' : 'Answer all 4 questions above'}
+            {canConfirm ? 'Run AI Valuation →' : 'Answer all 3 required questions'}
           </Button>
           <Button size="sm" variant="outline" onClick={onWrongCard} className="h-9 text-xs px-3">
             <X className="w-3 h-3 mr-1" />
