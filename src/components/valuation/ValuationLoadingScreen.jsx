@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Loader2, Search, TrendingUp, Shield, Zap, Activity, AlertTriangle, Trophy, Twitter, Scale, Heart, Flame } from 'lucide-react';
+import { CheckCircle2, Search, TrendingUp, Shield, Zap, Activity, AlertTriangle, Trophy, Twitter, Scale, Heart, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PHASE_1_STEPS = [
@@ -21,23 +21,21 @@ const PHASE_2_STEPS = [
   { icon: TrendingUp, label: 'Computing AI investment value...', sub: 'Anchored to last sold · ±attribute adjustments' },
 ];
 
-function Step({ step, state, delay }) {
+function Step({ step, state }) {
   const Icon = step.icon;
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: state !== 'waiting' ? 1 : 0.35, x: 0 }}
-      transition={{ delay, duration: 0.3 }}
+    <div
+      style={{ willChange: 'opacity' }}
       className={cn(
-        'flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-500',
+        'flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all duration-300',
         state === 'done' && 'bg-emerald-500/8 border-emerald-500/25',
         state === 'active' && 'bg-primary/8 border-primary/30',
-        state === 'waiting' && 'bg-secondary/20 border-border/20',
+        state === 'waiting' && 'bg-secondary/20 border-border/20 opacity-35',
       )}
     >
       <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center">
         {state === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-        {state === 'active' && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
+        {state === 'active' && <Icon className="w-4 h-4 text-primary step-active-icon" />}
         {state === 'waiting' && <Icon className="w-4 h-4 text-muted-foreground/40" />}
       </div>
       <div className="flex-1 min-w-0">
@@ -48,6 +46,7 @@ function Step({ step, state, delay }) {
           state === 'waiting' && 'text-muted-foreground/40',
         )}>
           {step.label}
+          {state === 'active' && <span className="step-dots ml-1" />}
         </p>
         {state !== 'waiting' && (
           <p className={cn('text-[10px] mt-0.5', state === 'done' ? 'text-emerald-400/60' : 'text-muted-foreground/60')}>
@@ -56,15 +55,9 @@ function Step({ step, state, delay }) {
         )}
       </div>
       {state === 'done' && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-[10px] font-mono text-emerald-400/70 shrink-0"
-        >
-          ✓
-        </motion.span>
+        <span className="text-[10px] font-mono text-emerald-400/70 shrink-0">✓</span>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -73,10 +66,21 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, 
 
   const steps = loadingPhase === 'fetching_comp' ? PHASE_1_STEPS : PHASE_2_STEPS;
 
-  // Tick fast so the loading screen feels snappy and alive
+  // Memoize card header so it never re-renders during step ticks
+  const cardHeader = useMemo(() => {
+    if (!cardData?.player_name) return null;
+    return (
+      <div className="px-6 py-4 border-b border-border/30 bg-secondary/40">
+        <p className="text-base font-bold text-foreground">{cardData.player_name}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {[cardData.card_year, cardData.card_set, cardData.variation, cardData.serial_number ? `/${cardData.serial_number}` : null, cardData.grade].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+    );
+  }, [cardData?.player_name]);
+
   useEffect(() => {
     setActiveStep(0);
-    // ~180ms per step — breezes through all checks quickly
     const interval = setInterval(() => {
       setActiveStep(prev => Math.min(prev + 1, steps.length - 1));
     }, 180);
@@ -90,15 +94,8 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, 
       exit={{ opacity: 0 }}
       className="bg-card border border-border/50 rounded-2xl overflow-hidden"
     >
-      {/* Card identity banner */}
-      {cardData?.player_name && (
-        <div className="px-6 py-4 border-b border-border/30 bg-secondary/40">
-          <p className="text-base font-bold text-foreground">{cardData.player_name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {[cardData.card_year, cardData.card_set, cardData.variation, cardData.serial_number ? `/${cardData.serial_number}` : null, cardData.grade].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-      )}
+      {/* Card identity banner — memoized, never re-renders */}
+      {cardHeader}
 
       {/* Header bar */}
       <div className="px-6 py-5 border-b border-border/30 bg-primary/5">
@@ -140,14 +137,13 @@ export default function ValuationLoadingScreen({ loadingPhase, compFetchResult, 
         )}
       </AnimatePresence>
 
-      {/* Steps list */}
+      {/* Steps list — all rows rendered immediately, state flips individually */}
       <div className="px-4 py-4 space-y-1.5">
         {steps.map((step, i) => (
           <Step
             key={step.label}
             step={step}
             state={i < activeStep ? 'done' : i === activeStep ? 'active' : 'waiting'}
-            delay={i * 0.05}
           />
         ))}
       </div>

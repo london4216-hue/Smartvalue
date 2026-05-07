@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Loader2, X, CheckCircle2, ScanLine, ImagePlus, AlertCircle } from 'lucide-react';
+import { Camera, X, CheckCircle2, ImagePlus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -162,66 +162,72 @@ export default function CardImageScanner({ onConfirmed }) {
 
   return (
     <div className="space-y-3">
-      {/* Upload buttons — only show if no image yet */}
-      {!imagePreview && !scanning && (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/70 transition-all text-primary"
-          >
-            <Camera className="w-7 h-7" />
-            <span className="text-xs font-semibold">Take Photo</span>
-            <span className="text-[10px] text-primary/60">Use your camera</span>
-          </button>
+      {/* Upload buttons — hidden via CSS when image selected, never unmounted */}
+      <div
+        className={cn("grid grid-cols-2 gap-3", (imagePreview || scanning) && "hidden")}
+        style={{ willChange: 'opacity' }}
+      >
+        <button
+          type="button"
+          onClick={() => cameraRef.current?.click()}
+          className="flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/70 transition-all text-primary"
+        >
+          <Camera className="w-7 h-7" />
+          <span className="text-xs font-semibold">Take Photo</span>
+          <span className="text-[10px] text-primary/60">Use your camera</span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => galleryRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            className={cn(
-              "flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed transition-all",
-              dragging
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <ImagePlus className="w-7 h-7" />
-            <span className="text-xs font-semibold">Upload Screenshot</span>
-            <span className="text-[10px] text-muted-foreground/60">From camera roll or desktop</span>
-          </button>
+        <button
+          type="button"
+          onClick={() => galleryRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={cn(
+            "flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed transition-all",
+            dragging
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <ImagePlus className="w-7 h-7" />
+          <span className="text-xs font-semibold">Upload Screenshot</span>
+          <span className="text-[10px] text-muted-foreground/60">From camera roll or desktop</span>
+        </button>
 
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => processFile(e.target.files[0])} />
-          <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => processFile(e.target.files[0])} />
-        </div>
-      )}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => processFile(e.target.files[0])} />
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => processFile(e.target.files[0])} />
+      </div>
 
       {/* Error */}
       {error && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="flex items-center gap-2 text-xs text-red-500 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <div className="flex items-center gap-2 text-xs text-red-500 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
-        </motion.div>
+        </div>
       )}
 
-      {/* Scanning overlay with image preview */}
+      {/* Optimistic skeleton — shown instantly as soon as image is selected, before AI returns */}
       {imagePreview && scanning && (
-        <div className="relative rounded-xl overflow-hidden border-2 border-primary h-56">
-          <img src={imagePreview} alt="Card" className="w-full h-full object-contain bg-secondary/20" />
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-            <motion.div
-              className="absolute left-0 right-0 h-0.5 bg-primary/80"
-              animate={{ top: ['10%', '90%', '10%'] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-            />
-            <div className="relative z-10 text-center">
-              <Loader2 className="w-7 h-7 text-primary animate-spin mx-auto mb-2" />
-              <p className="text-sm font-mono text-primary font-semibold">AI analyzing card...</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Detecting player · condition · grade · centering</p>
+        <div className="rounded-xl overflow-hidden border-2 border-primary/60" style={{ willChange: 'opacity' }}>
+          {/* Real image shows immediately — no blank box */}
+          <div className="relative h-56 bg-secondary/20">
+            <img src={imagePreview} alt="Card" loading="eager" className="w-full h-full object-contain" />
+            {/* Scan line overlay — CSS animation only */}
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+              <div className="scan-line" />
+              <div className="relative z-10 text-center">
+                <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-sm font-mono text-primary font-semibold">AI analyzing card<span className="step-dots" /></p>
+                <p className="text-[10px] text-muted-foreground mt-1">Detecting player · condition · grade · centering</p>
+              </div>
             </div>
+          </div>
+          {/* Skeleton shimmer rows below image */}
+          <div className="p-4 space-y-2 bg-card">
+            <div className="h-3 w-2/3 rounded bg-secondary animate-pulse" />
+            <div className="h-3 w-1/2 rounded bg-secondary animate-pulse" />
+            <div className="h-3 w-3/4 rounded bg-secondary animate-pulse" />
           </div>
         </div>
       )}

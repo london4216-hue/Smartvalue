@@ -84,6 +84,34 @@
   }
 }
 
+/* Scan line animation — CSS only */
+@keyframes scan-sweep {
+  0%   { top: 8%;  }
+  50%  { top: 88%; }
+  100% { top: 8%;  }
+}
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: hsl(var(--primary) / 0.8);
+  animation: scan-sweep 1.8s linear infinite;
+  will-change: top;
+}
+
+/* Loading dots for active step — CSS only, no JS */
+@keyframes step-dots {
+  0%, 20%  { content: '.';   }
+  40%      { content: '..';  }
+  60%, 100%{ content: '...'; }
+}
+.step-dots::after {
+  content: '.';
+  animation: step-dots 1.2s steps(1) infinite;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
