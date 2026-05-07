@@ -117,18 +117,22 @@ export default function ValuationResult({ result, onSave, onReset }) {
               </p>
             </div>
           </div>
-          {cheapestAvailable > aiValue && (
-            <div className="text-right shrink-0">
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {cheapestAvailable > aiValue ? (
               <p className="text-lg font-bold text-red-500">⚠️ Overpriced</p>
-              <p className="text-sm text-red-600 mt-0.5">Above fair value</p>
-            </div>
-          )}
-          {cheapestAvailable <= aiValue && (
-            <div className="text-right shrink-0">
+            ) : (
               <p className="text-lg font-bold text-emerald-500">✓ Good Deal</p>
-              <p className="text-sm text-emerald-600 mt-0.5">Below AI value</p>
-            </div>
-          )}
+            )}
+            <a
+              href={ebaySearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg"
+            >
+              <ExternalLink className="w-3 h-3" />
+              View on eBay
+            </a>
+          </div>
         </motion.div>
       )}
 
@@ -257,9 +261,20 @@ export default function ValuationResult({ result, onSave, onReset }) {
                    <p className="text-xs text-muted-foreground mt-1">
                      What someone actually paid · {result._comp_sale_date ? (() => { const d = result._comp_sale_date; const parts = d.match(/(\d{4})-(\d{2})-(\d{2})/); return parts ? new Date(+parts[1], +parts[2]-1, +parts[3]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : d; })() : 'Most recent completed sale'}
                    </p>
+                   <div className="flex items-center gap-2 mt-1.5">
+                     <a
+                       href={ebaySoldUrl}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+                     >
+                       <ExternalLink className="w-2.5 h-2.5" />
+                       Verify on eBay sold listings
+                     </a>
+                   </div>
                    {result._comp_confidence !== 'user_provided' && result._comp_confidence !== 'high' && (
-                     <p className="text-[9px] text-amber-400/80 mt-1">
-                       ⚠ AI-estimated from training data — verify on eBay sold listings before transacting.
+                     <p className="text-[9px] text-amber-400/80 mt-0.5">
+                       ⚠ AI-estimated from training data — verify before transacting.
                      </p>
                    )}
                  </>
@@ -334,6 +349,27 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 {cheapestAvailable < compValue && (
                   <p className="text-xs text-amber-500 mt-1">⚠ Cheaper than last sale — suppresses value</p>
                 )}
+                <div className="flex gap-2 mt-2 pt-2 border-t border-border/20">
+                  <a
+                    href={ebaySearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" />
+                    Buy on eBay
+                  </a>
+                  <span className="text-muted-foreground/40">·</span>
+                  <a
+                    href={ebaySoldUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:underline"
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" />
+                    Verify sold comps
+                  </a>
+                </div>
               </div>
             )}
 
