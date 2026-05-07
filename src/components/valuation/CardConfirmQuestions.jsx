@@ -30,11 +30,9 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   // Last sold price — user-entered, becomes the locked comp anchor
   const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || '');
   
-  // eBay comp lookup
-  const [ebayCompUrl, setEbayCompUrl] = useState('');
-  const [showEbayFrame, setShowEbayFrame] = useState(false);
 
-  const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null;
+
+  const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null && parseFloat(lastSoldPrice) > 0;
 
   const handleConfirm = () => {
     const parsedPrice = parseFloat(lastSoldPrice);
@@ -192,30 +190,28 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
           )}
         </div>
 
-        {/* ── Last Sold Price — FRAMED EBAY LOOKUP ── */}
-        <div className="space-y-3">
+        {/* ── Q4: Last Sold Price ── */}
+        <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">💰 Confirm last sale price from eBay</span>
-            <span className="text-[10px] text-muted-foreground font-semibold ml-auto">Required for accuracy</span>
+            <span className="text-xs font-bold text-foreground">Q4 — Last sale price from eBay?</span>
+            <span className="text-[10px] text-red-500 font-semibold ml-auto">Required for accuracy</span>
           </div>
-          
-          {/* eBay Frame — Auto-shown */}
-          <div className="border border-border/50 rounded-lg overflow-hidden bg-secondary/10 h-64">
-            <iframe
-              src={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
-              title="eBay Sold Listings"
-              className="w-full h-full border-0"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-images allow-presentation"
-            />
-          </div>
-          
           <p className="text-[10px] text-muted-foreground leading-snug">
-            👆 Browse sold listings above. Find a matching card, copy the final sale price, and enter it below.
+            Find a matching card on eBay sold listings. This becomes the <strong>locked comp anchor</strong> — the AI will never override it.
           </p>
+          
+          {/* eBay Link */}
+          <a
+            href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([extracted?.player_name, extracted?.card_year, extracted?.card_set, extracted?.variation, extracted?.grade].filter(Boolean).join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg"
+          >
+            🔍 Browse eBay Sold Listings →
+          </a>
           
           {/* Price Input */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-muted-foreground shrink-0">Last Sold:</span>
             <span className="text-sm font-bold text-muted-foreground shrink-0">$</span>
             <input
               type="number"
@@ -244,7 +240,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
             className="flex-1 h-9 text-xs"
           >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-            {canConfirm ? 'Run AI Valuation →' : 'Answer all 3 questions above'}
+            {canConfirm ? 'Run AI Valuation →' : 'Answer all 4 questions above'}
           </Button>
           <Button size="sm" variant="outline" onClick={onWrongCard} className="h-9 text-xs px-3">
             <X className="w-3 h-3 mr-1" />
