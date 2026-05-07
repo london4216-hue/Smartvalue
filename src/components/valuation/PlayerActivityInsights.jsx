@@ -4,70 +4,39 @@ import { motion } from 'framer-motion';
 import { Loader2, TrendingUp, TrendingDown, AlertTriangle, Newspaper, Calendar, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function PlayerActivityInsights({ playerName, cardYear }) {
-  const [loading, setLoading] = useState(true);
-  const [insights, setInsights] = useState(null);
+export default function PlayerActivityInsights({ playerName, cardYear, prefetchedData }) {
+  const [loading, setLoading] = useState(!prefetchedData);
+  const [insights, setInsights] = useState(prefetchedData || null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchInsights = async () => {
-      if (!playerName) {
-        setLoading(false);
-        return;
-      }
+    // If we already have prefetched data, skip the LLM call entirely
+    if (prefetchedData) {
+      setInsights(prefetchedData);
+      setLoading(false);
+      return;
+    }
+    if (!playerName) { setLoading(false); return; }
 
+    const fetchInsights = async () => {
       try {
         const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a sports analyst. Today is ${today}. Gather CURRENT, VERIFIED information about ${playerName}.
-
-        Return ONLY facts you are confident about. Do NOT fabricate stats or news.
-        Include real dates for all news items (e.g. "May 2, 2026" or "April 28, 2026").
-
-        Return JSON: last_game (date, points, rebounds, assists, shooting_pct, performance), last_10_games (avg_points, trend, games_played), current_season_status, injury_status, top_3_news [{date, headline, impact_on_value}], off_season_insights.
-        If a field is unknown or uncertain, omit it or return null — do not guess.`,
+          prompt: `Sports analyst. Today is ${today}. Return VERIFIED data about ${playerName}. JSON only: injury_status, current_season_status, last_game:{date,points,rebounds,assists}, last_10_avg_pts, trend, top_2_news:[{date,headline,impact}]`,
           response_json_schema: {
             type: "object",
             properties: {
-              last_game: {
-                type: "object",
-                properties: {
-                  date: { type: "string" },
-                  points: { type: "number" },
-                  rebounds: { type: "number" },
-                  assists: { type: "number" },
-                  shooting_pct: { type: "number" },
-                  performance: { type: "string" }
-                }
-              },
-              last_10_games: {
-                type: "object",
-                properties: {
-                  avg_points: { type: "number" },
-                  trend: { type: "string" },
-                  games_played: { type: "number" }
-                }
-              },
-              current_season_status: { type: "string" },
               injury_status: { type: "string" },
-              top_3_news: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    date: { type: "string" },
-                    headline: { type: "string" },
-                    impact_on_value: { type: "string" }
-                  }
-                }
-              },
-              off_season_insights: { type: "string" }
+              current_season_status: { type: "string" },
+              last_game: { type: "object", properties: { date: { type: "string" }, points: { type: "number" }, rebounds: { type: "number" }, assists: { type: "number" } } },
+              last_10_avg_pts: { type: "number" },
+              trend: { type: "string" },
+              top_2_news: { type: "array", items: { type: "object", properties: { date: { type: "string" }, headline: { type: "string" }, impact: { type: "string" } } } },
             }
           },
-          add_context_from_internet: true,
+          add_context_from_internet: false,
           model: 'gemini_3_flash',
         });
-
         setInsights(result);
       } catch (err) {
         setError(err.message);
@@ -77,7 +46,7 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
     };
 
     fetchInsights();
-  }, [playerName]);
+  }, [playerName, prefetchedData]);
 
   if (loading) {
     return (
@@ -94,8 +63,13 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
 
   const hasRecentGame = insights.last_game?.date;
   const isOffSeason = insights.current_season_status?.toLowerCase().includes('off');
-  const isInjured = insights.injury_status?.toLowerCase().includes('out') || 
+  const isInjured = insights.injury_status?.toLowerCase().includes('out') ||
                     insights.injury_status?.toLowerCase().includes('injured');
+  // Support both old schema (top_3_news) and new folded schema (top_2_news)
+  const newsItems = insights.top_3_news || insights.top_2_news || [];
+  // Support both old (last_10_games.avg_points) and new (last_10_avg_pts)
+  const avg10 = insights.last_10_games?.avg_points ?? insights.last_10_avg_pts;
+  const trend10 = insights.last_10_games?.trend ?? insights.trend;
 
   return (
     <motion.div
@@ -173,36 +147,36 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
         )}
 
         {/* Last 10 Games Trend */}
-        {insights.last_10_games && (
+        {(avg10 || trend10) && (
           <div className="bg-secondary/50 rounded-lg p-4 border border-border/30">
             <div className="flex items-center gap-2 mb-3">
-              {insights.last_10_games.trend?.toLowerCase().includes('up') ? (
+              {trend10?.toLowerCase().includes('up') ? (
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               ) : (
                 <TrendingDown className="w-3.5 h-3.5 text-red-400" />
               )}
               <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Last 10 Games</p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Avg Points</p>
-                <p className="text-lg font-mono font-bold text-foreground">{insights.last_10_games.avg_points}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Games</p>
-                <p className="text-lg font-mono font-bold text-foreground">{insights.last_10_games.games_played}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Trend</p>
-                <p className={cn(
-                  "text-lg font-mono font-bold capitalize",
-                  insights.last_10_games.trend?.toLowerCase().includes('up') ? 'text-emerald-400' :
-                  insights.last_10_games.trend?.toLowerCase().includes('down') ? 'text-red-400' :
-                  'text-muted-foreground'
-                )}>
-                  {insights.last_10_games.trend}
-                </p>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              {avg10 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Avg Points</p>
+                  <p className="text-lg font-mono font-bold text-foreground">{avg10}</p>
+                </div>
+              )}
+              {trend10 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Trend</p>
+                  <p className={cn(
+                    "text-lg font-mono font-bold capitalize",
+                    trend10?.toLowerCase().includes('up') ? 'text-emerald-400' :
+                    trend10?.toLowerCase().includes('down') ? 'text-red-400' :
+                    'text-muted-foreground'
+                  )}>
+                    {trend10}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -215,15 +189,15 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
           </div>
         )}
 
-        {/* Top 3 Latest News */}
-        {insights.top_3_news && insights.top_3_news.length > 0 && (
+        {/* Latest News */}
+        {newsItems.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-3">
               <Newspaper className="w-3.5 h-3.5 text-primary" />
               <p className="text-xs font-mono uppercase tracking-wider text-primary">Latest News</p>
             </div>
             <div className="space-y-2">
-              {insights.top_3_news.slice(0, 3).map((news, idx) => (
+              {newsItems.slice(0, 3).map((news, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -8 }}
@@ -236,9 +210,9 @@ export default function PlayerActivityInsights({ playerName, cardYear }) {
                     <p className="text-xs font-mono text-muted-foreground">{news.date}</p>
                   </div>
                   <p className="text-xs font-semibold text-foreground mb-1">{news.headline}</p>
-                  {news.impact_on_value && (
+                  {(news.impact_on_value || news.impact) && (
                     <p className="text-xs text-muted-foreground italic">
-                      💡 {news.impact_on_value}
+                      💡 {news.impact_on_value || news.impact}
                     </p>
                   )}
                 </motion.div>

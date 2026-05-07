@@ -146,15 +146,16 @@ export default function ValuationResult({ result, onSave, onReset }) {
         holdersCompCalc={result.holders_comp_calculation || null}
       />
 
-      {/* Player Activity Intelligence — Real-time stats & news */}
-      <PlayerActivityInsights playerName={result.player_name} cardYear={result.card_year} />
+      {/* Player Activity Intelligence — pre-fetched, no extra LLM call */}
+      <PlayerActivityInsights playerName={result.player_name} cardYear={result.card_year} prefetchedData={result._player_activity} />
 
-      {/* Population Report — Scarcity intel */}
+      {/* Population Report — pre-fetched, no extra LLM call */}
       <PopulationReport 
         playerName={result.player_name}
         grade={result.grade}
         cardYear={result.card_year}
         cardSet={result.card_set}
+        prefetchedData={result._pop_report}
       />
 
       {/* Key Signals — GOTCHA attributes up top */}
@@ -162,8 +163,8 @@ export default function ValuationResult({ result, onSave, onReset }) {
          <KeySignals signals={result.key_signals} flipVsHold={result.flip_vs_hold} />
        )}
 
-      {/* Contextual Market Signals */}
-      <ContextualSignals playerName={result.player_name} cardYear={result.card_year} cardSet={result.card_set} />
+      {/* Contextual Market Signals — pre-fetched */}
+      <ContextualSignals playerName={result.player_name} cardYear={result.card_year} cardSet={result.card_set} prefetchedData={result._market_signals} />
 
       {/* Hero Card */}
       <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">

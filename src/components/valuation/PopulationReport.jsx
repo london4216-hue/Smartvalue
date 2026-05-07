@@ -12,18 +12,20 @@ const SCARCITY_CONFIG = {
   common: { color: 'text-muted-foreground', bg: 'bg-secondary/50 border-border/30', icon: '📋' }
 };
 
-export default function PopulationReport({ playerName, grade, cardYear, cardSet }) {
-  const [loading, setLoading] = useState(true);
-  const [popData, setPopData] = useState(null);
+export default function PopulationReport({ playerName, grade, cardYear, cardSet, prefetchedData }) {
+  const [loading, setLoading] = useState(!prefetchedData && !!playerName && !!grade);
+  const [popData, setPopData] = useState(prefetchedData || null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchPopReport = async () => {
-      if (!playerName || !grade) {
-        setLoading(false);
-        return;
-      }
+    if (prefetchedData) {
+      setPopData({ ...prefetchedData, grade_requested: grade });
+      setLoading(false);
+      return;
+    }
+    if (!playerName || !grade) { setLoading(false); return; }
 
+    const fetchPopReport = async () => {
       try {
         const response = await base44.functions.invoke('getPopulationReport', {
           player_name: playerName,
@@ -40,7 +42,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
     };
 
     fetchPopReport();
-  }, [playerName, grade, cardYear, cardSet]);
+  }, [playerName, grade, cardYear, cardSet, prefetchedData]);
 
   if (loading) {
     return (
@@ -59,6 +61,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
   const popPct = popData.pop_percentage || 0;
   const popAtGrade = popData.pop_at_grade || 0;
   const totalPop = popData.total_pop_all_grades || 0;
+  const gradeLabel = popData.grade_requested || grade || '';
 
   return (
     <motion.div
@@ -74,7 +77,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet 
             Population Report
           </p>
           <p className={cn("text-sm font-bold capitalize", config.color)}>
-            {popData.scarcity_assessment.replace(/_/g, ' ')} — {popData.grade_requested}
+            {popData.scarcity_assessment.replace(/_/g, ' ')} — {gradeLabel}
           </p>
         </div>
       </div>

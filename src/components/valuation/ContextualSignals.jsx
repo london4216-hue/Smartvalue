@@ -54,70 +54,31 @@ function SectionCard({ section, index }) {
   );
 }
 
-export default function ContextualSignals({ playerName, cardYear, cardSet }) {
-  const [sections, setSections] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function ContextualSignals({ playerName, cardYear, cardSet, prefetchedData }) {
+  // prefetchedData is already an array of sections from the main valuation call
+  const [sections, setSections] = useState(Array.isArray(prefetchedData) && prefetchedData.length > 0 ? prefetchedData : null);
+  const [loading, setLoading] = useState(!prefetchedData && !!playerName);
 
   useEffect(() => {
+    if (prefetchedData && Array.isArray(prefetchedData) && prefetchedData.length > 0) {
+      setSections(prefetchedData);
+      setLoading(false);
+      return;
+    }
     if (!playerName) { setLoading(false); return; }
 
     const fetch = async () => {
       try {
         const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Today is ${today}. You are a sports card market analyst. Return REAL, CURRENT, VERIFIED data about this player's card market.
-
-Player: ${playerName}
-Card Year: ${cardYear || 'unknown'}
-Card Set: ${cardSet || 'unknown'}
-
-Return 2-3 sections of market signals. Each section must have real data with specific numbers and dates.
-IMPORTANT: Only include data you are confident is accurate. If unsure about a specific stat, omit it. Do NOT fabricate numbers.
-Every "note" field MUST include a date or time reference (e.g. "eBay sold data, Apr 2025" or "as of May 2026").
-
-Return JSON array of sections:
-[
-  {
-    "emoji": "📈",
-    "label": "Live Market Activity",
-    "as_of": "May 2026",
-    "items": [
-      { "label": "...", "stat": "...", "note": "... (source + date)", "trend": "up|down|neutral" }
-    ]
-  }
-]
-
-Focus on: recent eBay sold volume, price range last 90 days, player career status, set prestige, population data if known.
-Return only verified facts. Mark anything estimated with "(est.)" in the note.`,
+          prompt: `Today is ${today}. Card market analyst. Player: ${playerName} | Year: ${cardYear||'?'} | Set: ${cardSet||'?'}. Return 2-3 market signal sections. JSON: {sections:[{emoji,label,as_of,items:[{label,stat,note,trend:up|down|neutral}]}]}`,
           response_json_schema: {
             type: "object",
             properties: {
-              sections: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    emoji: { type: "string" },
-                    label: { type: "string" },
-                    as_of: { type: "string" },
-                    items: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          label: { type: "string" },
-                          stat:  { type: "string" },
-                          note:  { type: "string" },
-                          trend: { type: "string" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+              sections: { type: "array", items: { type: "object", properties: { emoji: { type: "string" }, label: { type: "string" }, as_of: { type: "string" }, items: { type: "array", items: { type: "object", properties: { label: { type: "string" }, stat: { type: "string" }, note: { type: "string" }, trend: { type: "string" } } } } } } }
             }
           },
-          add_context_from_internet: true,
+          add_context_from_internet: false,
           model: 'gemini_3_flash',
         });
         if (result?.sections?.length > 0) setSections(result.sections);
@@ -129,7 +90,7 @@ Return only verified facts. Mark anything estimated with "(est.)" in the note.`,
     };
 
     fetch();
-  }, [playerName, cardYear, cardSet]);
+  }, [playerName, cardYear, cardSet, prefetchedData]);
 
   if (loading) {
     return (
