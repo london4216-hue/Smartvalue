@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
       : `SCRAPING RETURNED NO RESULTS — use your training knowledge of recent eBay sold comps for this card.`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card pricing expert. Find the most recent REAL sold price for this exact card based on your training knowledge.
+      prompt: `You are a sports card pricing expert. Find the MOST RECENT REAL SOLD PRICE for this exact card right now.
 
 CARD: ${cardDescription}
 
@@ -153,14 +153,14 @@ GRADE RULE: ${grade ? `Card is graded ${grade}. ONLY return comps for this EXACT
 AUTOGRAPH RULE: ${has_autograph === false ? 'BASE CARD — NO autograph. Do NOT use auto/signed comps.' : 'May have auto — match accordingly.'}
 SERIAL RULE: ${serial_number ? `Serialized /${serial_number} — only match same print run.` : 'Not serialized.'}
 
-Find the MOST RECENT sold price you know about (eBay, PWCC, Goldin, Heritage, Comc, etc). Within 6-12 months is ideal.
+Search eBay sold, PWCC, Goldin, Heritage, Comc for the most recent actual completed sale. Return the real price someone actually paid.
 
 Return JSON:
 - comp_value: most recent sold price in USD (number) or null if not found
 - sale_date: date of comp "YYYY-MM-DD" or "MM/YYYY"
-- confidence: "high" if exact match, "medium" if estimated, "low" if very uncertain
-- source: marketplace name (eBay, PWCC, Goldin, Heritage, Comc, etc.)
-- notes: 1 sentence on data source
+- confidence: "high" | "medium" | "low"
+- source: marketplace name
+- notes: 1 sentence
 - tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"`,
       response_json_schema: {
         type: "object",
@@ -173,8 +173,8 @@ Return JSON:
           tier: { type: "string" }
         }
       },
-      add_context_from_internet: false,
-      model: 'gemini_3_flash',
+      add_context_from_internet: true,
+      model: 'gemini_3_1_pro',
     });
 
     return Response.json({
