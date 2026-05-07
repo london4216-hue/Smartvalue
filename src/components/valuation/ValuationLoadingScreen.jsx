@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 const PHASE_1_STEPS = [
   { icon: Search, label: 'Scanning eBay completed listings...', sub: 'Last 90 days · hammer prices only' },
-  { icon: TrendingUp, label: 'Checking 130point & CardLadder...', sub: 'Cross-referencing sale history' },
+  { icon: TrendingUp, label: 'Mining 44 data points across the market...', sub: 'Serial · grade · auto · patch · pop · momentum · brand tier · scarcity · set prestige · player thesis · risk · liquidity' },
 ];
 
 const PHASE_2_STEPS = [
@@ -115,7 +115,7 @@ export default function ValuationLoadingScreen({ loadingPhase, cardData }) {
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
               {loadingPhase === 'fetching_comp'
-                ? 'Hunting real last-sold prices across eBay, 130pt, CardLadder...'
+                ? 'Hunting real last-sold prices · mining 44 data points across card DNA, scarcity, momentum & risk...'
                 : 'Running 44-attribute model · injury check · social scan · legal screen...'}
             </p>
           </div>
