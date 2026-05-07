@@ -7,27 +7,19 @@ import { cn } from '@/lib/utils';
 
 // Takes a batch of attributes and scores them via LLM, returns adjustments + new AI value
 async function scoreNextAttributes(cardData, attributeBatch, currentAiValue) {
-  const attrList = attributeBatch.map(a => `"${a.key || a.label}": (${a.label}, current direction hint: ${a.direction})`).join('\n');
+  const attrList = attributeBatch.map(a => `- ${a.label} (direction hint: ${a.direction || 'unknown'})`).join('\n');
 
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are scoring additional card attributes for a sports card valuation.
+    prompt: `Sports card secondary attribute scoring. Return JSON only.
 
-CARD: ${cardData.player_name} ${cardData.card_year || ''} ${cardData.card_set || ''} ${cardData.variation || ''} ${cardData.grade || ''}
-CURRENT AI VALUE: $${currentAiValue}
-LAST SOLD COMP: $${cardData.comp_value || 0}
+Card: ${cardData.player_name} ${[cardData.card_year, cardData.card_set, cardData.variation, cardData.grade].filter(Boolean).join(' ')}
+Current AI Value: $${currentAiValue} | Last Sold: $${cardData.comp_value || 0}
 
-Score ONLY these ${attributeBatch.length} attributes (0-100, or -1 if N/A):
+Score these ${attributeBatch.length} attributes (secondary signals — small adjustments, max ±6% each, most ±1-3%):
 ${attrList}
 
-For each attribute, provide:
-- score (0-100 or -1)
-- percent_adjustment (e.g. "+3%" or "-2%" — SMALL adjustments, max ±8% per attribute, most will be ±1-4%)
-- dollar_adjustment (e.g. "+$12" or "-$8")
-- reason (1 sentence)
-
-Then compute new_ai_value = current AI value after applying all adjustments. Keep changes modest — these are secondary attributes, not primary value drivers.
-
-Return JSON only.`,
+For each: label, score (0-100 or -1 if N/A), percent_adjustment ("+2%" etc), dollar_adjustment ("+$15" etc), direction (bullish/bearish/neutral), reason (1 short sentence).
+Then: new_ai_value after all adjustments, net_change_summary (1 sentence).`,
     response_json_schema: {
       type: "object",
       properties: {
