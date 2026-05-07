@@ -348,8 +348,41 @@ export default function ValuateCard() {
             </p>
           </motion.div>
 
+          {/* ── INTAKE: URL INPUT ── */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Link className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-lg font-bold text-foreground">Cut & Paste Your Listing URL to Valuate</p>
+            </div>
+            <p className="text-xs text-muted-foreground pl-7">Paste any eBay, COMC, or marketplace link — AI extracts all card details automatically.</p>
+            <PasteUrlInput onCardExtracted={handleValuate} />
+          </motion.div>
+
+          {/* ── DIVIDER ── */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }} className="flex items-center gap-4">
+            <div className="flex-1 h-px bg-border/60" />
+            <span className="text-sm font-bold text-muted-foreground px-2">OR</span>
+            <div className="flex-1 h-px bg-border/60" />
+          </motion.div>
+
+          {/* ── INTAKE: PHOTO / UPLOAD ── */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="bg-card border border-border/50 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Camera className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-lg font-bold text-foreground">Take Photo or Upload Card Image</p>
+            </div>
+            <p className="text-xs text-muted-foreground">AI identifies the card, scores centering & corners for eye appeal, then runs the full 44-attribute valuation.</p>
+            <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-lg">
+              <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-600 leading-snug">
+                <strong>Eye Appeal Disclosure:</strong> Our AI scores centering and corner wear only as a visual guide. We are not a grading company — this is not a professional grade. Actual PSA/BGS/SGC results may differ significantly.
+              </p>
+            </div>
+            <CardImageScanner onConfirmed={handleValuate} />
+          </motion.div>
+
           {/* Feature pills */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.22 }} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {FEATURES.map(({ icon: Icon, label, desc }) => (
               <div key={label} className="flex flex-col items-center text-center gap-1.5 p-3 bg-card border border-border/50 rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -361,59 +394,8 @@ export default function ValuateCard() {
             ))}
           </motion.div>
 
-          {/* Input Method Tabs */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-4">
-            <div className="flex rounded-xl bg-secondary/60 p-1 gap-1">
-              <button
-                onClick={() => setActiveTab('url')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === 'url'
-                    ? 'bg-card text-foreground shadow-sm border border-border/50'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Link className="w-4 h-4" />
-                Paste URL
-              </button>
-              <button
-                onClick={() => setActiveTab('photo')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === 'photo'
-                    ? 'bg-card text-foreground shadow-sm border border-border/50'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Camera className="w-4 h-4" />
-                Snap / Upload
-              </button>
-            </div>
-
-            <AnimatePresence mode="wait">
-              {activeTab === 'url' && (
-                <motion.div key="url" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.15 }}>
-                  <PasteUrlInput onCardExtracted={handleValuate} />
-                </motion.div>
-              )}
-              {activeTab === 'photo' && (
-                <motion.div key="photo" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }} className="bg-card border border-border/50 rounded-2xl p-5 space-y-3">
-                  <div>
-                    <p className="text-sm font-bold text-foreground mb-1">Snap or Upload Your Card</p>
-                    <p className="text-xs text-muted-foreground">AI identifies the card, scores centering & corners for eye appeal, then runs the full 44-attribute valuation.</p>
-                  </div>
-                  <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-lg">
-                    <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-600 leading-snug">
-                      <strong>Eye Appeal Disclosure:</strong> Our AI scores centering and corner wear only as a visual guide. We are not a grading company — this is not a professional grade. Actual PSA/BGS/SGC results may differ significantly.
-                    </p>
-                  </div>
-                  <CardImageScanner onConfirmed={handleValuate} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
           {/* How it works */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="bg-card border border-border/30 rounded-2xl p-5">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.28 }} className="bg-card border border-border/30 rounded-2xl p-5">
             <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">How it works</p>
             <div className="space-y-3">
               {[
