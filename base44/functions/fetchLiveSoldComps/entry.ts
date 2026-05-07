@@ -145,28 +145,28 @@ Deno.serve(async (req) => {
       : `SCRAPING RETURNED NO RESULTS — use your training knowledge of recent eBay sold comps for this card.`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card market expert. Find the best real comparable sold price for this card.
+      prompt: `You are a sports card pricing expert. Search eBay completed/sold listings RIGHT NOW and find the most recent real sold price for this exact card.
 
 CARD: ${cardDescription}
-${scrapedPricesText}
 
-GRADE RULE: If the card has a grade (e.g. PSA 10, BGS 9.5), ONLY use comps for that EXACT grade. Never use raw/ungraded prices as comp_value for a graded card.
+Search eBay sold listings for: "${cardDescription} sold"
+Also search: "site:ebay.com ${cardDescription} sold"
 
-AUTOGRAPH RULE: ${has_autograph === false ? 'This is a BASE CARD with NO autograph. Do NOT use auto/signed comps.' : 'Card may have an auto — match accordingly.'}
+GRADE RULE: ${grade ? `Card is graded ${grade}. ONLY return comps for this EXACT grade. Never use raw/ungraded prices.` : 'Card is raw/ungraded.'}
+AUTOGRAPH RULE: ${has_autograph === false ? 'BASE CARD — NO autograph. Do NOT use auto/signed comps.' : 'May have auto — match accordingly.'}
+SERIAL RULE: ${serial_number ? `Serialized /${serial_number} — only match same print run.` : 'Not serialized.'}
 
-SERIAL NUMBER RULE: ${serial_number ? `This is serialized /${serial_number}. Only use comps for the same print run.` : 'Not serialized.'}
+Return the most recent REAL completed sale price you can find. Be specific with dates.
 
-From the scraped prices above (or your training knowledge if none), pick the single BEST matching completed sale and return:
-- comp_value: the best match price (number, not string) — must be a real completed sale price
-- cheapest_available: lowest current BIN/asking price you know of (or null)
-- sale_date: approximate date of the comp (YYYY-MM-DD or "approx MM/YYYY")  
-- confidence: "high" if exact match from scrape, "medium" if close match, "low" if estimated from training
-- source: "ebay_scraped" if from scrape data above, "training_knowledge" if from AI memory
-- notes: 1 sentence about the comp quality
-- similar_comps: array of up to 3 other relevant comps [{description, sold_price, sale_date}]
+Return JSON:
+- comp_value: most recent sold price in USD (number) or null if truly not found
+- cheapest_available: lowest current asking/BIN price in USD or null
+- sale_date: date of comp "YYYY-MM-DD" or "approx MM/YYYY"
+- confidence: "high" if recent exact match, "medium" if close, "low" if estimated
+- source: where you found this price
+- notes: 1 sentence on data quality
 - tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"
-
-Return JSON only.`,
+- similar_comps: up to 3 recent comps [{description, sold_price, sale_date}]`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -190,8 +190,8 @@ Return JSON only.`,
           }
         }
       },
-      add_context_from_internet: false,
-      model: 'gemini_3_flash',
+      add_context_from_internet: true,
+      model: 'gemini_3_1_pro',
     });
 
     return Response.json({
