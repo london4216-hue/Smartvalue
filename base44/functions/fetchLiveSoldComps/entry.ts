@@ -145,60 +145,36 @@ Deno.serve(async (req) => {
       : `SCRAPING RETURNED NO RESULTS — use your training knowledge of recent eBay sold comps for this card.`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card pricing expert. Search ALL major card marketplaces RIGHT NOW and find the most recent REAL sold price for this exact card.
+      prompt: `You are a sports card pricing expert. Find the most recent REAL sold price for this exact card based on your training knowledge.
 
 CARD: ${cardDescription}
-
-SEARCH EVERYWHERE:
-- eBay sold listings: "site:ebay.com ${cardDescription} sold"
-- PWCC Auctions: "site:pwccauctions.com ${cardDescription}"
-- Goldin Auctions: "site:goldinauctions.com ${cardDescription}"
-- Heritage Auctions: "site:heritageauctions.com ${cardDescription}"
-- Comc: "site:comc.com ${cardDescription} sold"
-- 4Corners: "site:4cornersgradedcards.com ${cardDescription}"
-- Plus any other major auction sites
 
 GRADE RULE: ${grade ? `Card is graded ${grade}. ONLY return comps for this EXACT grade. Never use raw/ungraded prices.` : 'Card is raw/ungraded.'}
 AUTOGRAPH RULE: ${has_autograph === false ? 'BASE CARD — NO autograph. Do NOT use auto/signed comps.' : 'May have auto — match accordingly.'}
 SERIAL RULE: ${serial_number ? `Serialized /${serial_number} — only match same print run.` : 'Not serialized.'}
 
-Find the MOST RECENT completed sale across ANY marketplace. Recent = within last 6-12 months preferred, but older is fine if recent doesn't exist.
+Find the MOST RECENT sold price you know about (eBay, PWCC, Goldin, Heritage, Comc, etc). Within 6-12 months is ideal.
 
 Return JSON:
-- comp_value: most recent sold price in USD (number) or null if truly not found
-- cheapest_available: lowest current asking price across all platforms or null
-- sale_date: date of comp "YYYY-MM-DD" or "approx MM/YYYY"
-- confidence: "high" if recent exact match, "medium" if close match, "low" if estimated
-- source: which marketplace/site (eBay, PWCC, Goldin, Heritage, Comc, etc.)
-- notes: 1-2 sentences on data quality and where price came from
-- tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"
-- similar_comps: up to 5 recent comps from different platforms [{description, sold_price, sale_date, source}]`,
+- comp_value: most recent sold price in USD (number) or null if not found
+- sale_date: date of comp "YYYY-MM-DD" or "MM/YYYY"
+- confidence: "high" if exact match, "medium" if estimated, "low" if very uncertain
+- source: marketplace name (eBay, PWCC, Goldin, Heritage, Comc, etc.)
+- notes: 1 sentence on data source
+- tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"`,
       response_json_schema: {
         type: "object",
         properties: {
           comp_value: { type: ["number", "null"] },
-          cheapest_available: { type: ["number", "null"] },
           sale_date: { type: ["string", "null"] },
           confidence: { type: "string" },
           source: { type: "string" },
           notes: { type: "string" },
-          tier: { type: "string" },
-          similar_comps: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                description: { type: "string" },
-                sold_price: { type: "number" },
-                sale_date: { type: "string" },
-                source: { type: "string" },
-              }
-            }
-          }
+          tier: { type: "string" }
         }
       },
-      add_context_from_internet: true,
-      model: 'gemini_3_1_pro',
+      add_context_from_internet: false,
+      model: 'gemini_3_flash',
     });
 
     return Response.json({
