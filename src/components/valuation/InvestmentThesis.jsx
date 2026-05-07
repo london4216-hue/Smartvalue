@@ -30,6 +30,13 @@ const ACTION_CONFIG = {
     bg: 'bg-red-500/10 border-red-500/20',
     icon: DollarSign,
     thesis: (comp, ai) => `This card is significantly overpriced. The market paid too much. Skip it and find a better deal.`
+  },
+  hold: {
+    label: '⏸ Hold — Fair Value',
+    color: 'text-primary',
+    bg: 'bg-primary/10 border-primary/20',
+    icon: Minus,
+    thesis: (comp, ai) => `This card is trading near fair value. No strong buy or sell signal — hold if you own it, or wait for a better entry price.`
   }
 };
 
