@@ -145,28 +145,34 @@ Deno.serve(async (req) => {
       : `SCRAPING RETURNED NO RESULTS — use your training knowledge of recent eBay sold comps for this card.`;
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card pricing expert. Search eBay completed/sold listings RIGHT NOW and find the most recent real sold price for this exact card.
+      prompt: `You are a sports card pricing expert. Search ALL major card marketplaces RIGHT NOW and find the most recent REAL sold price for this exact card.
 
 CARD: ${cardDescription}
 
-Search eBay sold listings for: "${cardDescription} sold"
-Also search: "site:ebay.com ${cardDescription} sold"
+SEARCH EVERYWHERE:
+- eBay sold listings: "site:ebay.com ${cardDescription} sold"
+- PWCC Auctions: "site:pwccauctions.com ${cardDescription}"
+- Goldin Auctions: "site:goldinauctions.com ${cardDescription}"
+- Heritage Auctions: "site:heritageauctions.com ${cardDescription}"
+- Comc: "site:comc.com ${cardDescription} sold"
+- 4Corners: "site:4cornersgradedcards.com ${cardDescription}"
+- Plus any other major auction sites
 
 GRADE RULE: ${grade ? `Card is graded ${grade}. ONLY return comps for this EXACT grade. Never use raw/ungraded prices.` : 'Card is raw/ungraded.'}
 AUTOGRAPH RULE: ${has_autograph === false ? 'BASE CARD — NO autograph. Do NOT use auto/signed comps.' : 'May have auto — match accordingly.'}
 SERIAL RULE: ${serial_number ? `Serialized /${serial_number} — only match same print run.` : 'Not serialized.'}
 
-Return the most recent REAL completed sale price you can find. Be specific with dates.
+Find the MOST RECENT completed sale across ANY marketplace. Recent = within last 6-12 months preferred, but older is fine if recent doesn't exist.
 
 Return JSON:
 - comp_value: most recent sold price in USD (number) or null if truly not found
-- cheapest_available: lowest current asking/BIN price in USD or null
+- cheapest_available: lowest current asking price across all platforms or null
 - sale_date: date of comp "YYYY-MM-DD" or "approx MM/YYYY"
-- confidence: "high" if recent exact match, "medium" if close, "low" if estimated
-- source: where you found this price
-- notes: 1 sentence on data quality
+- confidence: "high" if recent exact match, "medium" if close match, "low" if estimated
+- source: which marketplace/site (eBay, PWCC, Goldin, Heritage, Comc, etc.)
+- notes: 1-2 sentences on data quality and where price came from
 - tier: "exact_match" | "adjusted_comp" | "similar_card_baseline" | "no_comp_conservative_estimate"
-- similar_comps: up to 3 recent comps [{description, sold_price, sale_date}]`,
+- similar_comps: up to 5 recent comps from different platforms [{description, sold_price, sale_date, source}]`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -185,6 +191,7 @@ Return JSON:
                 description: { type: "string" },
                 sold_price: { type: "number" },
                 sale_date: { type: "string" },
+                source: { type: "string" },
               }
             }
           }
