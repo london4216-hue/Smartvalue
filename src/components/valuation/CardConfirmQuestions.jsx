@@ -28,10 +28,12 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
   // Jersey match
   const [jerseyMatch, setJerseyMatch] = useState(null);
 
-  // Last sold price — auto-fetched via backend, can be overridden
+  // Last sold price & date — auto-fetched via backend, can be overridden
   const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || null);
+  const [lastSoldDate, setLastSoldDate] = useState(extracted?._comp_sale_date || null);
   const [fetchingComp, setFetchingComp] = useState(false);
   const [compError, setCompError] = useState(null);
+  const [compSource, setCompSource] = useState(null);
   
   // Auto-fetch comp on mount
   useEffect(() => {
@@ -53,6 +55,8 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
       });
       if (result.data?.comp_value && result.data.comp_value > 0) {
         setLastSoldPrice(result.data.comp_value);
+        setLastSoldDate(result.data.sale_date || null);
+        setCompSource(result.data.source || null);
       } else {
         setCompError('No recent comps found');
       }
@@ -73,8 +77,9 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
       _auto_type_uncertain: false,
       serial_number: isSerial === 'yes' ? serialNumber.toString().trim() : null,
       jersey_match: jerseyMatch === 'yes',
-      // Lock in the user-entered comp — never overridden by AI
       comp_value: parsedPrice > 0 ? parsedPrice : null,
+      _comp_sale_date: lastSoldDate || null,
+      _comp_source: compSource || null,
       _comp_confidence: parsedPrice > 0 ? 'user_provided' : undefined,
     };
     onConfirm({ ...extracted, ...updates });
@@ -221,55 +226,79 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
           )}
         </div>
 
-        {/* ── Q4: Last Sold Price ── */}
+        {/* ── Q4: Last Sold Price & Date ── */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">Q4 — Comp (last sale price)</span>
+            <span className="text-xs font-bold text-foreground">Q4 — Comp (last sale price & date)</span>
             {fetchingComp ? (
               <span className="text-[10px] text-primary font-semibold ml-auto flex items-center gap-1">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                Fetching from eBay...
+                Fetching...
               </span>
             ) : (
-              <span className="text-[10px] text-muted-foreground ml-auto">Auto-fetched · can edit</span>
+              <span className="text-[10px] text-muted-foreground ml-auto">Auto-fetched · editable</span>
             )}
           </div>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            AI automatically searched for recent sold comps. Edit below if you found a better match on eBay.
+            AI searched major auction sites for the most recent sold comp. This price anchors the entire valuation.
           </p>
           
-          {/* Price Input */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-muted-foreground shrink-0">$</span>
-            <input
-              type="number"
-              placeholder="Loading..."
-              value={lastSoldPrice || ''}
-              onChange={e => setLastSoldPrice(parseFloat(e.target.value) || null)}
-              className="flex-1 h-9 px-3 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              disabled={fetchingComp}
-            />
+          {/* Price & Date Grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Price</label>
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-bold text-muted-foreground">$</span>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={lastSoldPrice || ''}
+                  onChange={e => setLastSoldPrice(parseFloat(e.target.value) || null)}
+                  className="flex-1 h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  disabled={fetchingComp}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Date</label>
+              <input
+                type="text"
+                placeholder="MM/YYYY or YYYY-MM-DD"
+                value={lastSoldDate || ''}
+                onChange={e => setLastSoldDate(e.target.value || null)}
+                className="w-full h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={fetchingComp}
+              />
+            </div>
           </div>
           
+          {/* Status */}
           {lastSoldPrice && parseFloat(lastSoldPrice) > 0 ? (
-            <p className="text-[10px] font-semibold text-emerald-600">
-              ✓ ${parseFloat(lastSoldPrice).toLocaleString()} — locked in as comp anchor
-            </p>
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2">
+              <p className="text-[10px] font-semibold text-emerald-600">
+                ✓ ${parseFloat(lastSoldPrice).toLocaleString()} {lastSoldDate ? `on ${lastSoldDate}` : ''} — locked in as comp anchor
+              </p>
+              {compSource && (
+                <p className="text-[9px] text-emerald-600/70 mt-0.5">
+                  Source: {compSource}
+                </p>
+              )}
+            </div>
           ) : compError ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
               <p className="text-[10px] text-amber-600">{compError}</p>
               <button
                 type="button"
                 onClick={fetchComp}
                 className="text-[10px] font-semibold text-primary hover:underline"
               >
-                Try again
+                Retry
               </button>
             </div>
           ) : fetchingComp ? (
-            <p className="text-[10px] text-muted-foreground">Searching eBay sold listings...</p>
+            <p className="text-[10px] text-muted-foreground px-2">Searching eBay, PWCC, Goldin, Heritage, Comc...</p>
           ) : (
-            <p className="text-[10px] text-amber-600">⚠ Enter a price to continue</p>
+            <p className="text-[10px] text-amber-600">⚠ Enter price (and date if known) to continue</p>
           )}
         </div>
 
