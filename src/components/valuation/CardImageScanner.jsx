@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, X, CheckCircle2, ImagePlus, AlertCircle } from 'lucide-react';
+import { Camera, ImagePlus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import CardConfirmQuestions from './CardConfirmQuestions';
 
 // Runs the same full analysis pipeline as extractCardFromUrl but from an image
 async function analyzeCardImage(file) {
@@ -106,9 +107,6 @@ export default function CardImageScanner({ onConfirmed }) {
   const [imagePreview, setImagePreview] = useState(null);
   const [extracted, setExtracted]       = useState(null);
   const [error, setError]               = useState('');
-  // null = not needed, 'on_card' | 'sticker' | null(unset) = user selection
-  const [autoTypeConfirmed, setAutoTypeConfirmed] = useState(null); // null means not yet confirmed
-  const [needsAutoConfirm, setNeedsAutoConfirm] = useState(false);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
 
@@ -116,8 +114,6 @@ export default function CardImageScanner({ onConfirmed }) {
     if (!file || !file.type.startsWith('image/')) return;
     setError('');
     setExtracted(null);
-    setAutoTypeConfirmed(null);
-    setNeedsAutoConfirm(false);
 
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target.result);
@@ -127,12 +123,6 @@ export default function CardImageScanner({ onConfirmed }) {
     try {
       const result = await analyzeCardImage(file);
       setExtracted(result);
-      if (result.has_autograph) {
-        setNeedsAutoConfirm(true);
-        if (!result._auto_type_uncertain) {
-          setAutoTypeConfirmed(result.is_sticker_auto ? 'sticker' : 'on_card');
-        }
-      }
     } catch (err) {
       const isNetwork = err.message?.toLowerCase().includes('network') || err.message?.toLowerCase().includes('fetch');
       setError(isNetwork
@@ -155,20 +145,14 @@ export default function CardImageScanner({ onConfirmed }) {
     setExtracted(null);
     setError('');
     setScanning(false);
-    setNeedsAutoConfirm(false);
-    setAutoTypeConfirmed(null);
   };
 
-  const handleConfirm = () => {
-    // Bake the confirmed auto type into the data before sending
-    const finalData = needsAutoConfirm && autoTypeConfirmed
-      ? { ...extracted, is_sticker_auto: autoTypeConfirmed === 'sticker', _auto_type_uncertain: false }
-      : extracted;
+  const handleConfirm = (finalData) => {
     onConfirmed(finalData);
   };
 
   const handleWrongCard = () => {
-    onConfirmed({ ...extracted, _needs_correction: true });
+    handleReset();
   };
 
   const cardSummary = extracted ? [
@@ -261,176 +245,24 @@ export default function CardImageScanner({ onConfirmed }) {
         </div>
       )}
 
-      {/* Confirmation card — same UX as PasteUrlInput */}
+      {/* Confirmation — 3 critical questions */}
       <AnimatePresence>
         {extracted && !scanning && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="bg-card border border-border rounded-xl overflow-hidden"
           >
-            {/* Card image — large and prominent */}
-            {imagePreview && (
-              <div className="w-full bg-gradient-to-b from-secondary/50 to-secondary/20 flex items-center justify-center p-4 border-b border-border/30">
-                <img
-                  src={imagePreview}
-                  alt={cardSummary}
-                  className="max-h-80 w-auto object-contain rounded-xl shadow-lg"
-                  style={{ maxWidth: '100%' }}
-                />
-              </div>
-            )}
-
-            <div className="p-4 space-y-3">
-              <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                  ✦ AI identified this card — is this correct?
-                </p>
-                <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
-              </div>
-
-              {/* Auto type confirmation — always required when autograph detected */}
-              {needsAutoConfirm && (
-                <div className={cn(
-                  "p-3 rounded-lg border space-y-2",
-                  autoTypeConfirmed
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-amber-500/10 border-amber-500/40"
-                )}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">✍️</span>
-                    <p className="text-xs font-bold text-foreground">Autograph Type — confirm before valuation</p>
-                    <span className="text-[10px] text-red-500 font-semibold ml-auto">Required</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-snug">
-                    On-card autos are worth <strong>40–200% more</strong> than sticker autos. This is a critical value driver.
-                    {!extracted._auto_type_uncertain && autoTypeConfirmed && (
-                      <span className="text-primary ml-1">AI detected: <strong>{autoTypeConfirmed === 'sticker' ? 'Sticker Auto' : 'On-Card Auto'}</strong> — confirm or correct below.</span>
-                    )}
-                    {extracted._auto_type_uncertain && (
-                      <span className="text-amber-600 ml-1">AI couldn't determine type from the image — please select manually.</span>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAutoTypeConfirmed('on_card')}
-                      className={cn(
-                        "flex-1 h-9 rounded-lg text-xs font-semibold border-2 transition-all",
-                        autoTypeConfirmed === 'on_card'
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : "bg-transparent border-border text-muted-foreground hover:border-emerald-500/60 hover:text-emerald-600"
-                      )}
-                    >
-                      ✅ On-Card Auto
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAutoTypeConfirmed('sticker')}
-                      className={cn(
-                        "flex-1 h-9 rounded-lg text-xs font-semibold border-2 transition-all",
-                        autoTypeConfirmed === 'sticker'
-                          ? "bg-amber-500 border-amber-500 text-white"
-                          : "bg-transparent border-border text-muted-foreground hover:border-amber-500/60 hover:text-amber-600"
-                      )}
-                    >
-                      🏷️ Sticker Auto
-                    </button>
-                  </div>
-                  {autoTypeConfirmed && (
-                    <p className={cn("text-[10px] font-semibold", autoTypeConfirmed === 'on_card' ? "text-emerald-600" : "text-amber-600")}>
-                      {autoTypeConfirmed === 'on_card'
-                        ? "✓ On-card auto confirmed — premium value applied"
-                        : "✓ Sticker auto confirmed — discount applied to AI value"}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Condition Assessment */}
-              {extracted.ai_grade_assessment && (
-                <div className="border border-primary/20 rounded-xl overflow-hidden">
-                  {/* Header with overall grade */}
-                  <div className="bg-primary/8 px-4 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-primary uppercase tracking-wider">📐 AI Eye Appeal Assessment</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Centering · Corners · Surface · Edges</p>
-                    </div>
-                    {extracted.ai_eye_appeal_grade && (
-                      <div className={cn(
-                        "flex items-center justify-center rounded-full w-14 h-14 text-2xl font-black border-2 shrink-0",
-                        extracted.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
-                        extracted.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
-                        extracted.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
-                        'bg-red-500/10 border-red-500 text-red-500'
-                      )}>
-                        {extracted.ai_eye_appeal_grade}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    {/* 4 scored categories */}
-                    {[
-                      { key: 'centering', label: 'Centering', icon: '⬛', score: extracted.ai_grade_assessment.centering_score, note: extracted.ai_grade_assessment.centering_note },
-                      { key: 'corners',   label: 'Corners',   icon: '📐', score: extracted.ai_grade_assessment.corners_score,   note: extracted.ai_grade_assessment.corners_note },
-                      { key: 'surface',   label: 'Surface',   icon: '✨', score: extracted.ai_grade_assessment.surface_score,   note: extracted.ai_grade_assessment.surface_note },
-                      { key: 'edges',     label: 'Edges',     icon: '🔲', score: extracted.ai_grade_assessment.edges_score,     note: extracted.ai_grade_assessment.edges_note },
-                    ].map(({ key, label, icon, score, note }) => {
-                      const pct = score ? (score / 10) * 100 : 0;
-                      const barColor = score >= 9 ? 'bg-emerald-500' : score >= 7 ? 'bg-blue-500' : score >= 5 ? 'bg-amber-500' : 'bg-red-500';
-                      const scoreColor = score >= 9 ? 'text-emerald-500' : score >= 7 ? 'text-blue-500' : score >= 5 ? 'text-amber-500' : 'text-red-500';
-                      return (
-                        <div key={key}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-semibold text-foreground">{icon} {label}</span>
-                            {score && <span className={cn("text-sm font-mono font-black", scoreColor)}>{score}/10</span>}
-                          </div>
-                          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
-                          </div>
-                          {note && <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{note}</p>}
-                        </div>
-                      );
-                    })}
-
-                    {/* Overall reasoning */}
-                    {extracted.eye_appeal_reasoning && (
-                      <div className="pt-2 border-t border-border/20">
-                        <p className="text-xs text-foreground/80 leading-relaxed italic">"{extracted.eye_appeal_reasoning}"</p>
-                      </div>
-                    )}
-
-                    {/* Disclosure */}
-                    <p className="text-[9px] text-amber-600/80 leading-snug bg-amber-500/8 border border-amber-500/20 rounded-lg p-2">
-                      ⚠️ {extracted.ai_grade_disclosure}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
-                <Button
-                  size="sm"
-                  onClick={handleConfirm}
-                  disabled={needsAutoConfirm && !autoTypeConfirmed}
-                  className="flex-1 h-9 text-xs"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                  {needsAutoConfirm && !autoTypeConfirmed ? 'Select auto type above' : 'Yes, run AI valuation'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-9 text-xs px-3">
-                  <X className="w-3 h-3 mr-1" />
-                  Wrong — fix it
-                </Button>
-              </div>
-
-              <button onClick={handleReset} className="w-full text-[10px] text-muted-foreground hover:text-foreground underline text-center">
-                Scan a different card
-              </button>
-            </div>
+            <CardConfirmQuestions
+              extracted={extracted}
+              imagePreview={imagePreview}
+              cardSummary={cardSummary}
+              onConfirm={handleConfirm}
+              onWrongCard={handleWrongCard}
+            />
+            <button onClick={handleReset} className="w-full mt-2 text-[10px] text-muted-foreground hover:text-foreground underline text-center">
+              Scan a different card
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

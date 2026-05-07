@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Link as LinkIcon, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Loader2, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import CardConfirmQuestions from './CardConfirmQuestions';
 
 // Detect eBay short links from iOS/Android app Share sheet
 function isEbayShortLink(url) {
@@ -73,16 +74,13 @@ export default function PasteUrlInput({ onCardExtracted }) {
     }
   };
 
-  const handleConfirm = () => {
-    onCardExtracted(extracted);
+  const handleConfirm = (finalData) => {
+    onCardExtracted(finalData);
     setUrl('');
     setExtracted(null);
   };
 
   const handleWrongCard = () => {
-    if (extracted) {
-      onCardExtracted({ ...extracted, _needs_correction: true });
-    }
     setExtracted(null);
     setError('');
     setUrl('');
@@ -172,101 +170,21 @@ export default function PasteUrlInput({ onCardExtracted }) {
             </motion.div>
           )}
 
-          {/* Confirmation step — Card Visual Preview */}
+          {/* Confirmation step — 3 critical questions + card preview */}
           <AnimatePresence>
             {extracted && (
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="mt-3 bg-card border border-border rounded-xl overflow-hidden"
+                className="mt-3"
               >
-                {/* Card Image */}
-                {extracted.image_url && (
-                  <div className="w-full bg-secondary/30 flex items-center justify-center p-3">
-                    <img
-                      src={extracted.image_url}
-                      alt={cardSummary}
-                      className="max-h-64 w-auto object-contain rounded-lg"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-
-                {/* Card Details */}
-                <div className="p-4 space-y-3">
-                  <div>
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                      ✦ AI identified this card — is this correct?
-                    </p>
-                    <p className="text-sm font-bold text-foreground leading-snug">{cardSummary}</p>
-                  </div>
-
-                  {/* AI Centering & Cornering Feedback */}
-                  {extracted.ai_grade_assessment && (
-                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                      <p className="font-semibold text-primary text-sm mb-2">📐 Condition Assessment</p>
-                      {extracted.eye_appeal_reasoning && (
-                        <p className={cn(
-                          "text-xs leading-snug",
-                          extracted.eye_appeal_reasoning.includes('excellent') || extracted.eye_appeal_reasoning.includes('sharp') ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-                        )}>
-                          {extracted.eye_appeal_reasoning}
-                        </p>
-                      )}
-                      {extracted.ai_eye_appeal_grade && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-[10px] text-muted-foreground">Grade:</span>
-                          <div className={cn(
-                            "inline-flex items-center justify-center rounded-full w-10 h-10 text-lg font-bold border-2",
-                            extracted.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
-                            extracted.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
-                            extracted.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
-                            'bg-red-500/10 border-red-500 text-red-500'
-                          )}>
-                            {extracted.ai_eye_appeal_grade}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Pricing + Ask/Comp Delta Warning */}
-                  {(extracted.comp_value || extracted.cheapest_available) && (
-                    <div className="space-y-2">
-                      <div className="p-2.5 bg-secondary/50 rounded-lg">
-                        <p className="text-xs text-muted-foreground">
-                          {extracted.comp_value ? `💰 Last sold: $${extracted.comp_value.toLocaleString()}` : ''}
-                          {extracted.comp_value && extracted.cheapest_available ? ' · ' : ''}
-                          {extracted.cheapest_available ? `Ask: $${extracted.cheapest_available.toLocaleString()}` : ''}
-                        </p>
-                      </div>
-                      {extracted.comp_value && extracted.cheapest_available && extracted.cheapest_available > extracted.comp_value && extracted.cheapest_available - extracted.comp_value > 10 && (
-                        <div className="flex items-start gap-2 p-2.5 bg-red-500/15 border border-red-500/40 rounded-lg">
-                          <span className="text-lg shrink-0">🚨</span>
-                          <div>
-                            <p className="text-xs font-bold text-red-600">Warning</p>
-                            <p className="text-[10px] text-red-600/80 leading-tight">Asking price much higher than last sold or AI value</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" onClick={handleConfirm} className="flex-1 h-8 text-xs">
-                      <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                      Yes, correct
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleWrongCard} className="h-8 text-xs px-3">
-                      <X className="w-3 h-3 mr-1" />
-                      Wrong — fix it
-                    </Button>
-                  </div>
-                </div>
+                <CardConfirmQuestions
+                  extracted={extracted}
+                  cardSummary={cardSummary}
+                  onConfirm={handleConfirm}
+                  onWrongCard={handleWrongCard}
+                />
               </motion.div>
             )}
           </AnimatePresence>

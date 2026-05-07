@@ -55,7 +55,7 @@ ${gradeSection}
 ${serialSection}
 ${similarCompsSection}
 ${cardData._comp_tier === 'no_comp_conservative_estimate' ? 'NO COMP: use market knowledge, flag uncertainty.' : ''}
-SIGNALS: RC=${cardData.is_rookie_year?'YES':'no'} | Set tier=${cardData.card_set||'unknown'} (NT/Flawless=90-100,Prizm/Select=65-85,Base=10-35) | Player=${cardData.player_popularity||'unknown'} | Auto=${cardData.has_autograph?(cardData.is_sticker_auto?'sticker(30-55)':'on-card(85-100)'):'none'} | Patch=${cardData.has_patch?'yes':'none'}${cardData.scan_notes?` | Scan notes: ${cardData.scan_notes}`:''}
+SIGNALS: RC=${cardData.is_rookie_year?'YES':'no'} | Set tier=${cardData.card_set||'unknown'} (NT/Flawless=90-100,Prizm/Select=65-85,Base=10-35) | Player=${cardData.player_popularity||'unknown'} | Auto=${cardData.has_autograph?(cardData.is_sticker_auto?'sticker(30-55)':'on-card(85-100)'):'none'} | Patch=${cardData.has_patch?'yes':'none'}${cardData.jersey_match?' | JERSEY NUMBER MATCH=YES (+15-25% collector premium)':''}${cardData.scan_notes?` | Scan notes: ${cardData.scan_notes}`:''}
 
 SCORE THESE 12 ATTRIBUTES (0-100, -1=N/A):
 is_rookie_year, print_run_size, is_one_of_one, auto_type, patch_quality, rpa_designation, card_brand_tier, pop_count_at_grade, player_momentum, goat_legacy_score, psa_gem_potential, variation_desirability
