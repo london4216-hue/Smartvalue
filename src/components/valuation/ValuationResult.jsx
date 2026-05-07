@@ -14,7 +14,6 @@ import ValuationBreakdown from './ValuationBreakdown';
 import CompEvidence from './CompEvidence';
 import PlayerActivityInsights from './PlayerActivityInsights';
 import PopulationReport from './PopulationReport';
-import DeepDiveAttributes from './DeepDiveAttributes';
 import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
 import ValuationTransparencyHeader from './ValuationTransparencyHeader';
 
@@ -540,11 +539,6 @@ export default function ValuationResult({ result, onSave, onReset }) {
           eyeAppealReasoning={result.eye_appeal_reasoning}
           aiGradeAssessment={result.ai_grade_assessment}
         />
-      )}
-
-      {/* Deep Dive — score additional attributes in rounds of 5 */}
-      {result.other_attributes?.length > 0 && (
-        <DeepDiveAttributes result={result} />
       )}
 
       {/* Actions */}

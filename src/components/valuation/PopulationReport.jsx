@@ -19,8 +19,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
 
   useEffect(() => {
     if (prefetchedData) {
-      // Prefetched = from training knowledge only, always mark low confidence
-      setPopData({ ...prefetchedData, grade_requested: grade, source_confidence: 'low', _is_estimated: true });
+      setPopData({ ...prefetchedData, grade_requested: grade, _is_estimated: true });
       setLoading(false);
       return;
     }
