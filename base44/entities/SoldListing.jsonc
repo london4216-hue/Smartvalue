@@ -4,7 +4,7 @@
   "properties": {
     "search_query": {
       "type": "string",
-      "description": "The search query used to find this listing"
+      "description": "The exact search query used"
     },
     "title": {
       "type": "string",
@@ -16,7 +16,7 @@
     },
     "last_sold_date": {
       "type": "string",
-      "description": "Date the item sold (YYYY-MM-DD or readable format)"
+      "description": "Date item sold YYYY-MM-DD"
     },
     "validation_link": {
       "type": "string",
@@ -24,17 +24,27 @@
     },
     "item_id": {
       "type": "string",
-      "description": "eBay item ID"
+      "description": "eBay numeric item ID"
     },
     "is_most_recent": {
       "type": "boolean",
-      "description": "Whether this is the most recent sale in the search batch",
-      "default": false
+      "default": false,
+      "description": "Most recent validated sale in this search batch"
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": [
+        "exact_match_verified",
+        "excluded"
+      ],
+      "default": "exact_match_verified",
+      "description": "Result of strict match validation"
     }
   },
   "required": [
     "search_query",
     "title",
-    "last_sold_price"
+    "last_sold_price",
+    "validation_link"
   ]
 }
