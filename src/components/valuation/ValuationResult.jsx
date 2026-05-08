@@ -1,572 +1,400 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark, Shield, ShoppingCart, ExternalLink, Gem, AlertTriangle, Zap, Clock, Search } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark,
+  Shield, ExternalLink, Gem, AlertTriangle, Zap, ChevronDown, ChevronUp,
+  Search, ShoppingCart,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import ScoreGauge from './ScoreGauge';
 import BestBuyModal from './BestBuyModal';
-import AttributeBreakdown from './AttributeBreakdown';
-import AttributeImpactView from './AttributeImpactView';
-import KeySignals from './KeySignals';
+import ValueDriversList from './ValueDriversList';
 import ContextualSignals from './ContextualSignals';
-import InvestmentThesis from './InvestmentThesis';
-import ValuationBreakdown from './ValuationBreakdown';
-import CompEvidence from './CompEvidence';
 import PlayerActivityInsights from './PlayerActivityInsights';
 import PopulationReport from './PopulationReport';
-import { GRADE_WEIGHTS, GRADE_TIER_LABELS } from './AttributeCategories';
-import ValuationTransparencyHeader from './ValuationTransparencyHeader';
+import CompEvidence from './CompEvidence';
 
-const RECOMMENDATION_CONFIG = {
-  strong_buy: { label: 'Strong Buy', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20', icon: TrendingUp },
-  buy: { label: 'Buy', color: 'text-emerald-300', bg: 'bg-emerald-300/10 border-emerald-300/20', icon: TrendingUp },
-  hold: { label: 'Hold', color: 'text-primary', bg: 'bg-primary/10 border-primary/20', icon: Minus },
-  sell: { label: 'Sell', color: 'text-amber-400', bg: 'bg-amber-400/10 border-amber-400/20', icon: TrendingDown },
-  strong_sell: { label: 'Strong Sell', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20', icon: TrendingDown },
+const REC = {
+  strong_buy:  { label: 'Strong Buy',  color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/30',  icon: TrendingUp },
+  buy:         { label: 'Buy',         color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/30',  icon: TrendingUp },
+  hold:        { label: 'Hold',        color: 'text-primary',     bg: 'bg-primary/10 border-primary/30',          icon: Minus },
+  sell:        { label: 'Sell',        color: 'text-amber-500',   bg: 'bg-amber-500/10 border-amber-500/30',      icon: TrendingDown },
+  strong_sell: { label: 'Strong Sell', color: 'text-red-500',     bg: 'bg-red-500/10 border-red-500/30',          icon: TrendingDown },
 };
+
+function formatDate(str) {
+  if (!str) return '';
+  try {
+    const m = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return str;
+  } catch (_) { return str; }
+}
+
+function Accordion({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-border/50 rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 bg-card hover:bg-secondary/30 transition-colors"
+      >
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 pt-1 bg-card border-t border-border/30">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function ValuationResult({ result, onSave, onReset }) {
   const [showBestBuy, setShowBestBuy] = useState(false);
-  const rec = RECOMMENDATION_CONFIG[result.flip_vs_hold] || RECOMMENDATION_CONFIG.hold;
+
+  const rec = REC[result.flip_vs_hold] || REC.hold;
   const RecIcon = rec.icon;
 
   const compValue = result.comp_value || 0;
-  const aiValue = result.ai_investment_value || 0;
+  const aiValue   = result.ai_investment_value || 0;
   const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
-  const gradeInfo = result.grade && GRADE_WEIGHTS[result.grade] ? GRADE_WEIGHTS[result.grade] : null;
-  const gradeTier = gradeInfo ? GRADE_TIER_LABELS[gradeInfo.tier] : null;
-  const gradeAdjustedComp = gradeInfo && compValue ? (compValue * gradeInfo.multiplier).toFixed(0) : null;
-  const cheapestAvailable = result.cheapest_available || null;
-  const cheapestVsComp = cheapestAvailable && compValue > 0
-    ? ((cheapestAvailable - compValue) / compValue * 100).toFixed(1)
-    : null;
+  const cheapest  = result.cheapest_available || null;
+  const cheapestVsAi = cheapest && aiValue > 0 ? ((cheapest - aiValue) / aiValue * 100) : null;
 
-  // Build eBay search URL for this card
-  const ebaySearchUrl = (() => {
-    const parts = [
-      result.player_name,
-      result.card_year,
-      result.card_set,
-      result.variation,
-      result.serial_number ? `/${result.serial_number}` : null,
-      result.grade,
-    ].filter(Boolean).join(' ');
-    return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(parts)}&LH_Sold=0&LH_BIN=1&LH_ItemCondition=1000`;
-  })();
+  // Card identity line
+  const identityLine = [result.card_year, result.card_set, result.variation, result.grade]
+    .filter(Boolean).join(' · ');
 
-  const ebaySoldUrl = (() => {
-    const parts = [
-      result.player_name,
-      result.card_year,
-      result.card_set,
-      result.variation,
-      result.serial_number ? `/${result.serial_number}` : null,
-      result.grade,
-    ].filter(Boolean).join(' ');
-    return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(parts)}&LH_Sold=1&LH_Complete=1`;
-  })();
+  // eBay URLs
+  const ebayParts = encodeURIComponent(
+    [result.player_name, result.card_year, result.card_set, result.variation,
+      result.serial_number ? `/${result.serial_number}` : null, result.grade].filter(Boolean).join(' ')
+  );
+  const ebaySoldUrl   = `https://www.ebay.com/sch/i.html?_nkw=${ebayParts}&LH_Sold=1&LH_Complete=1`;
+  const ebayBuyUrl    = `https://www.ebay.com/sch/i.html?_nkw=${ebayParts}&LH_BIN=1&LH_ItemCondition=1000`;
 
-  // Calculate gem/run alerts
-  const isGem = compValue > 0 && aiValue > 0 && ((aiValue - compValue) / compValue) >= 1.0;
-  const isRun = cheapestAvailable && compValue > 0 && ((cheapestAvailable - compValue) / compValue) < -0.30 && aiValue < compValue;
+  // Risk flags
+  const isGem       = compValue > 0 && aiValue > 0 && (aiValue - compValue) / compValue >= 1.0;
+  const isBust      = result.bust_risk;
+  const isTreasure  = result.possible_treasure;
+  const overpricedPct = cheapestVsAi;
 
-  // Overpriced warning: cheapest available vs AI value
-  const cheapestVsAi = cheapestAvailable && aiValue > 0
-    ? ((cheapestAvailable - aiValue) / aiValue * 100)
-    : null;
-  const getOverpricedWarning = (pct) => {
-    if (pct === null || pct <= 0) return null;
-    if (pct <= 5)   return { label: 'Slightly Overpriced',   color: 'text-yellow-500',  bg: 'bg-yellow-500/10 border-yellow-500/30',  icon: '⚠️', tip: 'Asking price is marginally above AI fair value. Minor negotiation may close the gap.' };
-    if (pct <= 15)  return { label: 'Overpriced',             color: 'text-orange-400',  bg: 'bg-orange-400/10 border-orange-400/30',  icon: '⚠️', tip: 'Seller is asking noticeably more than AI fair value. Watch for price drops or seek competing listings.' };
-    if (pct <= 30)  return { label: 'Significantly Overpriced', color: 'text-red-400',   bg: 'bg-red-400/10 border-red-400/30',        icon: '🚨', tip: 'Asking price meaningfully exceeds AI fair value. Strong-arm a counteroffer or pass — better deals likely exist.' };
-    return           { label: 'Severely Overpriced',           color: 'text-red-500',    bg: 'bg-red-500/10 border-red-500/40',        icon: '🚨', tip: 'Asking price is dramatically above what the market and AI data support. Avoid unless unique circumstances justify the premium.' };
-  };
-  const overpricedWarning = getOverpricedWarning(cheapestVsAi);
+  // Card attributes for the collapsed section
+  const attrs = [
+    { label: 'Year',   value: result.card_year },
+    { label: 'Set',    value: result.card_set },
+    { label: 'Grade',  value: result.grade },
+    { label: 'Parallel', value: result.variation },
+    { label: 'Serial', value: result.serial_number ? `/${result.serial_number}` : null },
+    { label: 'Card #', value: result.card_number },
+  ].filter(a => a.value);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      {/* Price Comparison Banner — Always visible at top */}
-      {cheapestAvailable && (
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }} 
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            "border rounded-2xl p-5 flex items-center justify-between gap-4",
-            cheapestAvailable > aiValue 
-              ? "bg-red-500/10 border-red-500/40" 
-              : "bg-emerald-500/10 border-emerald-500/30"
-          )}
-        >
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-1">
-              Current Asking Price
-            </p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-mono font-bold text-foreground">
-                ${cheapestAvailable.toLocaleString()}
-              </p>
-              <p className={cn(
-                "text-sm font-mono font-bold",
-                cheapestAvailable > aiValue ? "text-red-500" : "text-emerald-500"
-              )}>
-                {cheapestAvailable > aiValue ? '+' : ''}{cheapestVsAi.toFixed(1)}% vs AI value
-              </p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 pb-10">
+
+      {/* ═══════════════════════════════════════════════════
+          SECTION 1 — CARD IDENTITY (Hero Zone)
+      ══════════════════════════════════════════════════════ */}
+      <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+
+        {/* Card Image */}
+        {result.image_url && (
+          <div className="flex justify-center bg-gradient-to-b from-secondary/60 to-secondary/20 px-6 pt-6 pb-4">
+            <img
+              src={result.image_url}
+              alt={result.player_name}
+              className="max-h-64 w-auto object-contain rounded-xl shadow-xl"
+            />
+          </div>
+        )}
+
+        <div className="px-5 py-5 space-y-3">
+          {/* Player name + rec badge */}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <h1 className="text-2xl font-black text-foreground leading-tight">{result.player_name}</h1>
+            <div className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold shrink-0', rec.bg)}>
+              <RecIcon className={cn('w-3.5 h-3.5', rec.color)} />
+              <span className={rec.color}>{rec.label}</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            {cheapestAvailable > aiValue ? (
-              <p className="text-lg font-bold text-red-500">⚠️ Overpriced</p>
-            ) : (
-              <p className="text-lg font-bold text-emerald-500">✓ Good Deal</p>
+
+          {/* Identity line */}
+          {identityLine && (
+            <p className="text-sm text-muted-foreground font-medium">{identityLine}</p>
+          )}
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1.5">
+            {result.is_rookie_year && (
+              <span className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">🏆 Rookie</span>
             )}
-            <a
-              href={ebaySearchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg"
-            >
-              <ExternalLink className="w-3 h-3" />
-              View on eBay
+            {result.grade && (
+              <span className="inline-flex items-center bg-primary/10 border border-primary/30 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">{result.grade}</span>
+            )}
+            {result.variation && (
+              <span className="inline-flex items-center bg-secondary border border-border text-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">{result.variation}</span>
+            )}
+            {result.serial_number && (
+              <span className="inline-flex items-center bg-purple-500/10 border border-purple-500/30 text-purple-600 text-[10px] font-bold px-2 py-0.5 rounded-full">/{result.serial_number}</span>
+            )}
+            {result.has_autograph && (
+              <span className="inline-flex items-center bg-blue-500/10 border border-blue-500/30 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {result.is_sticker_auto ? '🏷 Sticker Auto' : '✍️ On-Card Auto'}
+              </span>
+            )}
+          </div>
+
+          {/* Last Sold strip */}
+          {compValue > 0 && (
+            <div className="flex items-center justify-between bg-secondary/50 border border-border/50 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Last Sold</span>
+                <span className="text-base font-black font-mono text-foreground">${compValue.toLocaleString()}</span>
+                {result._comp_sale_date && (
+                  <span className="text-xs text-muted-foreground">· {formatDate(result._comp_sale_date)}</span>
+                )}
+              </div>
+              <a href={ebaySoldUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-primary font-semibold hover:underline">
+                <ExternalLink className="w-2.5 h-2.5" />
+                Verify
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════
+          SECTION 2 — VALUE ENGINE (Primary)
+      ══════════════════════════════════════════════════════ */}
+      <div className="bg-card border border-border/50 rounded-2xl p-5 space-y-5">
+
+        {/* AI Value + Rec */}
+        <div className="text-center space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">AI Smart Value</p>
+          <p className="text-6xl font-black font-mono text-primary leading-none">
+            ${aiValue.toLocaleString()}
+          </p>
+          {valueDiff !== null && (
+            <p className={cn(
+              'text-sm font-semibold',
+              parseFloat(valueDiff) >= 0 ? 'text-emerald-500' : 'text-red-400'
+            )}>
+              {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs last sale
+            </p>
+          )}
+          {/* Range / Confidence */}
+          {result.projections?.one_year && (
+            <p className="text-xs text-muted-foreground mt-1">
+              12-month target: <span className="font-semibold text-foreground">{result.projections.one_year}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Overpriced / deal band */}
+        {cheapest && overpricedPct !== null && (
+          <div className={cn(
+            'flex items-center justify-between gap-3 rounded-xl border px-4 py-3',
+            overpricedPct > 0
+              ? 'bg-red-500/5 border-red-500/30'
+              : 'bg-emerald-500/5 border-emerald-500/30'
+          )}>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Current Asking</p>
+              <p className="text-lg font-mono font-bold text-foreground">${cheapest.toLocaleString()}</p>
+            </div>
+            <div className="text-right">
+              <p className={cn('text-sm font-bold', overpricedPct > 0 ? 'text-red-500' : 'text-emerald-500')}>
+                {overpricedPct > 0 ? '⚠️ Overpriced' : '✓ Good Deal'}
+              </p>
+              <p className={cn('text-xs font-mono', overpricedPct > 0 ? 'text-red-400' : 'text-emerald-400')}>
+                {overpricedPct > 0 ? '+' : ''}{overpricedPct.toFixed(1)}% vs AI value
+              </p>
+            </div>
+            <a href={ebayBuyUrl} target="_blank" rel="noopener noreferrer"
+              className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors">
+              <ShoppingCart className="w-3 h-3" />
+              Buy
             </a>
           </div>
-        </motion.div>
-      )}
+        )}
 
-      {/* Overpriced Warning — At the top */}
-      {overpricedWarning && (
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className={`border rounded-2xl p-5 flex gap-4 items-start ${overpricedWarning.bg}`}>
-          <span className="text-xl shrink-0 mt-0.5">{overpricedWarning.icon}</span>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <p className={`text-sm font-bold ${overpricedWarning.color}`}>{overpricedWarning.label}</p>
-              <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-full border ${overpricedWarning.bg} ${overpricedWarning.color}`}>
-                +{cheapestVsAi.toFixed(1)}% above AI value
-              </span>
+        {/* Top 5 Value Drivers */}
+        {result.value_drivers?.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Top Value Drivers</p>
+            <ValueDriversList drivers={result.value_drivers} compValue={compValue} />
+          </div>
+        )}
+
+        {/* Risk alerts — inline, no paragraphs */}
+        <div className="space-y-2">
+          {isGem && (
+            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5">
+              <Gem className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="text-sm font-semibold text-amber-700">Gem Found — AI value 100%+ above last sale</span>
             </div>
-            <p className="text-sm text-foreground/80 leading-relaxed">{overpricedWarning.tip}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Asking ${cheapestAvailable.toLocaleString()} · AI Fair Value ${aiValue.toLocaleString()}
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Transparency Header — Base-44 audit trail + confidence score */}
-      <ValuationTransparencyHeader result={result} />
-
-      {/* Investment Thesis — Last Sale vs AI Value */}
-      <InvestmentThesis
-        compValue={compValue}
-        aiValue={aiValue}
-        flipVsHold={result.flip_vs_hold}
-        cheapestAvailable={cheapestAvailable}
-      />
-
-      {/* Comp Evidence — source proof for the anchor price */}
-      <CompEvidence result={result} />
-
-      {/* Dollar Waterfall — HOW the AI value was built */}
-      <ValuationBreakdown
-        compValue={compValue}
-        aiValue={result.ai_investment_value}
-        valueDrivers={result.value_drivers || []}
-        holdersCompCalc={result.holders_comp_calculation || null}
-      />
-
-      {/* Player Activity Intelligence — pre-fetched, no extra LLM call */}
-      <PlayerActivityInsights playerName={result.player_name} cardYear={result.card_year} prefetchedData={result._player_activity} />
-
-      {/* Population Report — pre-fetched, no extra LLM call */}
-      <PopulationReport 
-        playerName={result.player_name}
-        grade={result.grade}
-        cardYear={result.card_year}
-        cardSet={result.card_set}
-        prefetchedData={result._pop_report}
-      />
-
-      {/* Key Signals — GOTCHA attributes up top */}
-       {result.key_signals && result.key_signals.length > 0 && (
-         <KeySignals signals={result.key_signals} flipVsHold={result.flip_vs_hold} />
-       )}
-
-      {/* Contextual Market Signals — pre-fetched */}
-      <ContextualSignals playerName={result.player_name} cardYear={result.card_year} cardSet={result.card_set} prefetchedData={result._market_signals} />
-
-      {/* Hero Card */}
-      <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8">
-        {/* Player & Card Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{result.player_name}</h2>
-            <p className="text-base text-muted-foreground mt-1">
-              {[result.card_year, result.card_set, result.variation, result.grade].filter(Boolean).join(' · ')}
-            </p>
-          </div>
-          <div className={cn("flex items-center gap-2 px-4 py-2 rounded-full border", rec.bg)}>
-            <RecIcon className={cn("w-4 h-4", rec.color)} />
-            <span className={cn("text-sm font-semibold", rec.color)}>{rec.label}</span>
-          </div>
+          )}
+          {isTreasure && (
+            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-2.5">
+              <Zap className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span className="text-sm font-semibold text-emerald-700">Possible Treasure — strong upside signals</span>
+            </div>
+          )}
+          {isBust && (
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-sm font-semibold text-red-700">Bust Risk — multiple bearish flags</span>
+            </div>
+          )}
         </div>
 
-        {/* Score + Values Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <ScoreGauge score={result.overall_score} label="Investment Score" />
+        {/* CTA row */}
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+          <Button onClick={() => setShowBestBuy(true)} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
+            <Search className="w-3.5 h-3.5 mr-1.5" />
+            Find Best Buy
+          </Button>
+          <Button onClick={onSave} className="flex-1 h-10 rounded-xl text-sm">
+            <Bookmark className="w-3.5 h-3.5 mr-1.5" />
+            Save to Portfolio
+          </Button>
+          <Button onClick={onReset} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
+            <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
+            New Valuation
+          </Button>
+        </div>
+      </div>
 
-            {/* Eye Appeal Grade Badge */}
-            {result.ai_eye_appeal_grade && (
-              <div className="flex flex-col items-center gap-2">
-                <div className={cn(
-                  "flex items-center justify-center rounded-full w-20 h-20 text-4xl font-bold border-2",
-                  result.ai_eye_appeal_grade === 'A' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' :
-                  result.ai_eye_appeal_grade === 'B' ? 'bg-blue-500/10 border-blue-500 text-blue-500' :
-                  result.ai_eye_appeal_grade === 'C' ? 'bg-amber-500/10 border-amber-500 text-amber-500' :
-                  'bg-red-500/10 border-red-500 text-red-500'
-                )}>
-                  {result.ai_eye_appeal_grade}
+      {/* ═══════════════════════════════════════════════════
+          SECTION 3 — SUPPORTING FACTORS (Collapsed)
+      ══════════════════════════════════════════════════════ */}
+
+      {/* Market Activity */}
+      {(result._market_signals?.length > 0 || result._player_activity) && (
+        <Accordion title="📈 Market Activity">
+          <div className="space-y-4 pt-2">
+            <PlayerActivityInsights
+              playerName={result.player_name}
+              cardYear={result.card_year}
+              prefetchedData={result._player_activity}
+            />
+            <ContextualSignals
+              playerName={result.player_name}
+              cardYear={result.card_year}
+              cardSet={result.card_set}
+              prefetchedData={result._market_signals}
+            />
+          </div>
+        </Accordion>
+      )}
+
+      {/* Comparable Sales */}
+      <Accordion title="🔁 Comparable Sales">
+        <div className="pt-2 space-y-3">
+          <CompEvidence result={result} />
+          {result._similar_comps?.length > 0 && (
+            <div className="space-y-2">
+              {result._similar_comps.slice(0, 3).map((c, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 bg-secondary/40 border border-border/40 rounded-xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{c.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(c.sold_date)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-black font-mono text-foreground">${c.sold_price?.toLocaleString()}</span>
+                    {c.item_url && (
+                      <a href={c.item_url} target="_blank" rel="noopener noreferrer"
+                        className="text-primary hover:opacity-70">
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs font-semibold text-muted-foreground">
-                  Eye Appeal Grade
+              ))}
+            </div>
+          )}
+        </div>
+      </Accordion>
+
+      {/* Card Attributes */}
+      {attrs.length > 0 && (
+        <Accordion title="🃏 Card Attributes">
+          <div className="pt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {attrs.map(a => (
+              <div key={a.label} className="bg-secondary/40 border border-border/40 rounded-xl px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{a.label}</p>
+                <p className="text-sm font-bold text-foreground mt-0.5">{a.value}</p>
+              </div>
+            ))}
+            {result.has_autograph !== undefined && (
+              <div className="bg-secondary/40 border border-border/40 rounded-xl px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Auto</p>
+                <p className="text-sm font-bold text-foreground mt-0.5">
+                  {result.has_autograph ? (result.is_sticker_auto ? 'Sticker' : 'On-Card') : 'None'}
                 </p>
               </div>
             )}
           </div>
+          {result._pop_report && (
+            <div className="mt-4">
+              <PopulationReport
+                playerName={result.player_name}
+                grade={result.grade}
+                cardYear={result.card_year}
+                cardSet={result.card_set}
+                prefetchedData={result._pop_report}
+              />
+            </div>
+          )}
+        </Accordion>
+      )}
 
-          <div className="space-y-3">
-            {/* Last Sale */}
-             <div className={`rounded-xl p-3 border ${compValue > 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/30'}`}>
-               <div className="flex items-center justify-between mb-1">
-                 <p className="text-xs font-semibold text-muted-foreground">
-                   Last Sold (90% Anchor)
-                 </p>
-                 {compValue > 0 && (
-                   <span className={cn(
-                     "text-xs font-mono px-1.5 py-0.5 rounded border",
-                     result._comp_confidence === 'high' ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' :
-                     result._comp_confidence === 'user_provided' ? 'text-primary border-primary/30 bg-primary/10' :
-                     'text-amber-400 border-amber-400/30 bg-amber-400/10'
-                   )}>
-                     {result._comp_confidence === 'user_provided' ? '✓ User Entered' :
-                      result._comp_confidence === 'high' ? '✓ High Confidence' :
-                      result._comp_confidence === 'medium' ? '~ Medium Confidence' : '⚠ Low Confidence'}
-                   </span>
-                 )}
-               </div>
-               {compValue > 0 ? (
-                 <>
-                   <p className="text-2xl font-mono font-bold text-emerald-500">${compValue.toLocaleString()}</p>
-                   <p className="text-xs text-muted-foreground mt-1">
-                     What someone actually paid · {result._comp_sale_date ? (() => { const d = result._comp_sale_date; const parts = d.match(/(\d{4})-(\d{2})-(\d{2})/); return parts ? new Date(+parts[1], +parts[2]-1, +parts[3]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : d; })() : 'Most recent completed sale'}
-                   </p>
-                   <div className="flex items-center gap-2 mt-1.5">
-                     <a
-                       href={ebaySoldUrl}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
-                     >
-                       <ExternalLink className="w-2.5 h-2.5" />
-                       Verify on eBay sold listings
-                     </a>
-                   </div>
-                   {result._comp_confidence !== 'user_provided' && result._comp_confidence !== 'high' && (
-                     <p className="text-[9px] text-amber-400/80 mt-0.5">
-                       ⚠ AI-estimated from training data — verify before transacting.
-                     </p>
-                   )}
-                 </>
-               ) : (
-                 <>
-                   <p className="text-lg font-mono font-bold text-red-400">No comp found</p>
-                   <p className="text-xs text-red-400 mt-1">
-                     ⚠ AI searched but could not find a real completed sale. AI Value is estimated from market knowledge only — treat with caution.
-                   </p>
-                 </>
-               )}
-             </div>
-
-            {/* AI-Driven Projections */}
-             {result.projections && (result.projections.one_year || result.projections.three_year || result.projections.five_year) && (
-               <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                 <p className="text-xs font-semibold text-emerald-600 mb-2">
-                   Projected Value Range
-                 </p>
-                 <div className="space-y-1.5">
-                   {result.projections.one_year && (
-                     <div className="flex justify-between items-center text-sm">
-                       <span className="text-muted-foreground">1 Year</span>
-                       <span className="font-mono font-bold text-foreground">{result.projections.one_year}</span>
-                     </div>
-                   )}
-                   {result.projections.three_year && (
-                     <div className="flex justify-between items-center text-sm">
-                       <span className="text-muted-foreground">3 Year</span>
-                       <span className="font-mono font-bold text-emerald-400">{result.projections.three_year}</span>
-                     </div>
-                   )}
-                   {result.projections.five_year && (
-                     <div className="flex justify-between items-center text-sm">
-                       <span className="text-muted-foreground">5 Year</span>
-                       <span className="font-mono font-bold text-emerald-300">{result.projections.five_year}</span>
-                     </div>
-                   )}
-                 </div>
-               </div>
-             )}
-            {/* Cheapest Available */}
-            {cheapestAvailable && (
-              <div className={cn(
-                "rounded-xl p-3 border",
-                cheapestAvailable < compValue
-                  ? "bg-amber-500/5 border-amber-500/20"
-                  : "bg-secondary/50 border-border/50"
-              )}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <ShoppingCart className="w-3 h-3 text-muted-foreground" />
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Cheapest Available Now
-                  </p>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <p className={cn(
-                    "text-lg font-mono font-bold",
-                    cheapestAvailable < compValue ? "text-amber-400" : "text-foreground"
-                  )}>
-                    ${cheapestAvailable.toLocaleString()}
-                  </p>
-                  {cheapestVsComp && (
-                    <span className={cn(
-                      "text-xs font-mono",
-                      parseFloat(cheapestVsComp) < 0 ? "text-amber-400" : "text-emerald-400"
-                    )}>
-                      {parseFloat(cheapestVsComp) >= 0 ? '+' : ''}{cheapestVsComp}% vs comp
-                    </span>
-                  )}
-                </div>
-                {cheapestAvailable < compValue && (
-                  <p className="text-xs text-amber-500 mt-1">⚠ Cheaper than last sale — suppresses value</p>
-                )}
-                <div className="flex gap-2 mt-2 pt-2 border-t border-border/20">
-                  <a
-                    href={ebaySearchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
-                  >
-                    <ExternalLink className="w-2.5 h-2.5" />
-                    Buy on eBay
-                  </a>
-                  <span className="text-muted-foreground/40">·</span>
-                  <a
-                    href={ebaySoldUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:underline"
-                  >
-                    <ExternalLink className="w-2.5 h-2.5" />
-                    Verify sold comps
-                  </a>
-                </div>
+      {/* Risk Flags — only if triggered */}
+      {(isBust || isGem || result._comp_anomaly_flag || overpricedPct > 30) && (
+        <Accordion title="🚩 Risk Flags" defaultOpen>
+          <div className="pt-2 space-y-2">
+            {result.bust_risk_text && (
+              <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/20 rounded-xl p-3">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 leading-snug">{result.bust_risk_text}</p>
               </div>
             )}
-
-            {/* Grade-Adjusted Comp */}
-            {gradeInfo && gradeAdjustedComp && (
-              <div className="bg-secondary/80 rounded-xl p-3 border border-border/50">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Shield className="w-3 h-3 text-muted-foreground" />
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Grade-Adjusted ({gradeInfo.multiplier}× {result.grade?.split(' ')[0]})
-                  </p>
-                  {gradeTier && (
-                    <span className={cn("text-xs font-semibold ml-auto", gradeTier.color)}>
-                      {gradeTier.label}
-                    </span>
-                  )}
-                </div>
-                <p className="text-lg font-mono font-bold text-foreground">
-                  ${parseInt(gradeAdjustedComp).toLocaleString()}
+            {result.possible_treasure_text && (
+              <div className="flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                <Gem className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-emerald-700 leading-snug">{result.possible_treasure_text}</p>
+              </div>
+            )}
+            {result._comp_anomaly_flag && result._comp_anomaly_reason && (
+              <div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 leading-snug">{result._comp_anomaly_reason}</p>
+              </div>
+            )}
+            {overpricedPct > 30 && cheapest && (
+              <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/20 rounded-xl p-3">
+                <Shield className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 leading-snug">
+                  Asking price ${cheapest.toLocaleString()} is {overpricedPct.toFixed(0)}% above AI value. Avoid or negotiate hard.
                 </p>
               </div>
             )}
-            {/* AI Value */}
-             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
-               <div className="space-y-2">
-                 <div>
-                   <p className="text-xs font-semibold text-primary mb-0.5">
-                     AI Investment Value
-                   </p>
-                   <div className="flex items-baseline gap-2">
-                     <p className="text-2xl font-mono font-bold text-primary">
-                       ${aiValue.toLocaleString()}
-                     </p>
-                     {valueDiff && (
-                       <span className={cn(
-                         "text-xs font-mono font-semibold",
-                         parseFloat(valueDiff) >= 0 ? "text-emerald-400" : "text-red-400"
-                       )}>
-                         {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs comp
-                       </span>
-                     )}
-                   </div>
-                 </div>
-                 <p className="text-[9px] text-primary/70 leading-tight">
-                   What this card is worth to a long-term holder based on grade, rarity, player demand & market signals. Accounts for PSA potential, condition, and collector interest.
-                 </p>
-                 {/* Pro Tip */}
-                 <div className="mt-2 pt-2 border-t border-primary/15 flex items-start gap-1.5">
-                   <span className="text-[10px] shrink-0">💡</span>
-                   <p className="text-[9px] text-primary/60 leading-tight">
-                     <strong className="text-primary/80">Pro Tip:</strong> Check the Population Report below — low PSA/BGS pop at this grade = rare opportunity to grade and flip at a premium. High pop = saturated, harder to stand out.
-                   </p>
-                 </div>
-               </div>
-             </div>
           </div>
-
-
-        </div>
-      </div>
-
-
-
-      {/* GEM ALERT: Value 100%+ over comp */}
-      {isGem && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-5 flex gap-4 items-start">
-          <span className="text-3xl shrink-0 mt-0.5">💎</span>
-          <div>
-            <p className="text-sm font-bold text-amber-400 mb-1">Found a Gem</p>
-            <p className="text-sm text-amber-700 leading-relaxed">
-              AI value is <strong>100%+ above</strong> last sale price. This card has massive upside potential based on market signals, rarity, and player demand. Strong buy if you believe in the thesis.
-            </p>
-            <p className="text-xs text-muted-foreground mt-2 font-mono">
-              Last Sale: ${compValue.toLocaleString()} → AI Value: ${aiValue.toLocaleString()} (+{valueDiff}%)
-            </p>
-          </div>
-        </motion.div>
+        </Accordion>
       )}
-
-      {/* RUN ALERT: Massive discount + falling value */}
-      {isRun && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/40 rounded-2xl p-5 flex gap-4 items-start">
-          <span className="text-3xl shrink-0 mt-0.5">🚩</span>
-          <div>
-            <p className="text-sm font-bold text-red-400 mb-1">Run From It</p>
-            <p className="text-sm text-red-700 leading-relaxed">
-              Cheapest available is <strong>30%+ below</strong> last sale, AND AI value doesn't justify buying. Market has cooled significantly. Avoid unless you're speculating on a reversal.
-            </p>
-            <p className="text-xs text-muted-foreground mt-2 font-mono">
-              Last Sale: ${compValue.toLocaleString()} → Current Ask: ${cheapestAvailable.toLocaleString()} ({cheapestVsComp}%)
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Possible Treasure Found Alert */}
-      {result.possible_treasure && result.possible_treasure_text && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-emerald-500/10 border border-emerald-500/40 rounded-2xl p-5 flex gap-4 items-start">
-          <Gem className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-emerald-400 mb-1">Possible Treasure Found</p>
-            <p className="text-sm text-emerald-700 leading-relaxed">{result.possible_treasure_text}</p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Bust Risk Alert */}
-      {result.bust_risk && result.bust_risk_text && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/40 rounded-2xl p-5 flex gap-4 items-start">
-          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-red-400 mb-1">Bust Risk</p>
-            <p className="text-sm text-red-700 leading-relaxed">{result.bust_risk_text}</p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Trader Recommendation + Liquidity */}
-      {(result.trader_recommendation || result.liquidity_score) && (
-        <div className="bg-card border border-border/50 rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {result.trader_recommendation && (
-            <div className="flex gap-3 items-start">
-              <Zap className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Trader Recommendation</p>
-                <p className="text-sm text-foreground leading-relaxed">{result.trader_recommendation}</p>
-              </div>
-            </div>
-          )}
-          {result.liquidity_score && (
-            <div className="flex gap-3 items-start">
-              <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Liquidity Score</p>
-                <p className="text-sm text-foreground leading-relaxed capitalize">{result.liquidity_score}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Analysis Summary */}
-      {result.analysis_summary && (
-        <div className="bg-card border border-border/50 rounded-2xl p-6">
-          <h3 className="text-sm font-bold text-foreground mb-3">
-            AI Investment Analysis
-          </h3>
-          <p className="text-base text-foreground/85 leading-relaxed">
-            {result.analysis_summary}
-          </p>
-        </div>
-      )}
-
-      {/* Attribute Impact View — Why This Price? */}
-      {result.attribute_impact_view?.categories && (
-        <AttributeImpactView 
-          categories={result.attribute_impact_view.categories}
-          imageUrl={result.image_url}
-          eyeAppealGrade={result.ai_eye_appeal_grade}
-          eyeAppealReasoning={result.eye_appeal_reasoning}
-          aiGradeAssessment={result.ai_grade_assessment}
-        />
-      )}
-
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button
-          onClick={() => setShowBestBuy(true)}
-          variant="outline"
-          className="flex-1 h-12 rounded-xl border-border/50"
-        >
-          <Search className="w-4 h-4 mr-2" />
-          Find Best Buy
-        </Button>
-        <Button
-          onClick={onSave}
-          className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Bookmark className="w-4 h-4 mr-2" />
-          Save to Portfolio
-        </Button>
-        <Button
-          onClick={onReset}
-          variant="outline"
-          className="flex-1 h-12 rounded-xl border-border/50"
-        >
-          <ArrowRight className="w-4 h-4 mr-2" />
-          Valuate Another Card
-        </Button>
-      </div>
 
       <BestBuyModal
         isOpen={showBestBuy}
