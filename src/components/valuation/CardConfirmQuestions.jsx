@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, X, Loader2 } from 'lucide-react';
+import { CheckCircle2, X } from 'lucide-react';
 
 /**
- * Pre-valuation confirmation questions — shown after card is identified,
- * before running the AI valuation. Captures 3 crucial value drivers:
+ * Pre-valuation confirmation questions — 3 crucial value drivers:
  *  1. Auto type (on-card / sticker / no auto)
  *  2. Serial number (yes → enter number / no)
  *  3. Jersey match (yes / no / N/A)
+ * Comp is fetched automatically during the valuation step.
  */
 export default function CardConfirmQuestions({ extracted, imagePreview, onConfirm, onWrongCard, cardSummary }) {
-  // Auto
   const [autoType, setAutoType] = useState(
     extracted?.has_autograph === false ? 'none'
     : extracted?.is_sticker_auto ? 'sticker'
@@ -20,64 +18,25 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
     : null
   );
 
-  // Serial
   const initialSerial = extracted?.serial_number || null;
   const [isSerial, setIsSerial] = useState(initialSerial ? 'yes' : null);
   const [serialNumber, setSerialNumber] = useState(initialSerial || '');
-
-  // Jersey match
   const [jerseyMatch, setJerseyMatch] = useState(null);
 
-  // Last sold price & date — auto-fetched via backend, can be overridden
-  const [lastSoldPrice, setLastSoldPrice] = useState(extracted?.comp_value || null);
-  const [lastSoldDate, setLastSoldDate] = useState(extracted?._comp_sale_date || null);
-  const [fetchingComp, setFetchingComp] = useState(false);
-  const [compError, setCompError] = useState(null);
-  const [compSource, setCompSource] = useState(null);
-  
-  // Comp fetch removed — will happen in parallel during full valuation
-  
-  const fetchComp = async () => {
-    setFetchingComp(true);
-    setCompError(null);
-    try {
-      const result = await base44.functions.invoke('fetchLiveSoldComps', {
-        player_name: extracted.player_name,
-        card_year: extracted.card_year || null,
-        card_set: extracted.card_set || null,
-        grade: extracted.grade || null,
-        variation: extracted.variation || null,
-      });
-      if (result.data?.comp_value && result.data.comp_value > 0) {
-        setLastSoldPrice(result.data.comp_value);
-        setLastSoldDate(result.data.sale_date || null);
-        setCompSource(result.data.source || null);
-      } else {
-        setCompError('No recent comps found');
-      }
-    } catch (err) {
-      setCompError('Failed to fetch comp');
-    } finally {
-      setFetchingComp(false);
-    }
-  };
-
-  const canConfirm = autoType !== null && isSerial !== null && (isSerial === 'no' || serialNumber.toString().trim() !== '') && jerseyMatch !== null;
+  const canConfirm = autoType !== null
+    && isSerial !== null
+    && (isSerial === 'no' || serialNumber.toString().trim() !== '')
+    && jerseyMatch !== null;
 
   const handleConfirm = () => {
-    const parsedPrice = parseFloat(lastSoldPrice);
-    const updates = {
+    onConfirm({
+      ...extracted,
       has_autograph: autoType !== 'none',
       is_sticker_auto: autoType === 'sticker',
       _auto_type_uncertain: false,
       serial_number: isSerial === 'yes' ? serialNumber.toString().trim() : null,
       jersey_match: jerseyMatch === 'yes',
-      comp_value: parsedPrice > 0 ? parsedPrice : null,
-      _comp_sale_date: lastSoldDate || null,
-      _comp_source: compSource || null,
-      _comp_confidence: parsedPrice > 0 ? 'user_provided' : undefined,
-    };
-    onConfirm({ ...extracted, ...updates });
+    });
   };
 
   return (
@@ -221,55 +180,6 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
           )}
         </div>
 
-        {/* ── Q4: Last Sold Price & Date (Optional) ── */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-foreground">Q4 — Comp (optional)</span>
-            <span className="text-[10px] text-muted-foreground ml-auto">Will fetch during valuation</span>
-          </div>
-          <p className="text-[10px] text-muted-foreground leading-snug">
-            If you know the last sale price, enter it to anchor the valuation. Otherwise, AI will search for it in parallel.
-          </p>
-          
-          {/* Price & Date Grid */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Price (optional)</label>
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-bold text-muted-foreground">$</span>
-                <input
-                  type="number"
-                  placeholder="Leave blank to auto-fetch"
-                  value={lastSoldPrice || ''}
-                  onChange={e => setLastSoldPrice(parseFloat(e.target.value) || null)}
-                  className="flex-1 h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-[9px] font-semibold text-muted-foreground block mb-1">Sale Date</label>
-              <input
-                type="text"
-                placeholder="MM/YYYY or YYYY-MM-DD"
-                value={lastSoldDate || ''}
-                onChange={e => setLastSoldDate(e.target.value || null)}
-                className="w-full h-9 px-2 text-sm font-mono border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          </div>
-          
-          {/* Status */}
-          {lastSoldPrice && parseFloat(lastSoldPrice) > 0 ? (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2">
-              <p className="text-[10px] font-semibold text-emerald-600">
-                ✓ ${parseFloat(lastSoldPrice).toLocaleString()} {lastSoldDate ? `on ${lastSoldDate}` : ''} — will use as anchor
-              </p>
-            </div>
-          ) : (
-            <p className="text-[10px] text-muted-foreground px-2">Leave blank — AI will search live markets during valuation</p>
-          )}
-        </div>
-
         {/* Actions */}
         <div className="flex gap-2 pt-1">
           <Button
@@ -279,7 +189,7 @@ export default function CardConfirmQuestions({ extracted, imagePreview, onConfir
             className="flex-1 h-9 text-xs"
           >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-            {canConfirm ? 'Run AI Valuation →' : 'Answer all 3 required questions'}
+            {canConfirm ? 'Run AI Valuation →' : 'Answer all 3 questions above'}
           </Button>
           <Button size="sm" variant="outline" onClick={onWrongCard} className="h-9 text-xs px-3">
             <X className="w-3 h-3 mr-1" />
