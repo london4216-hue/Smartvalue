@@ -48,6 +48,7 @@ function buildPrompt(cardData) {
   return `NBA CARD VALUATION — ONE PASS, JSON ONLY, NO MARKDOWN.
 
 CARD: ${cardData.player_name} | ${[cardData.card_year, cardData.card_set, cardData.variation, serialNum?`/${serialNum}`:null, cardData.grade].filter(Boolean).join(' · ')}
+${cardData._smart_value_hint ? `SMARTVALUE ENGINE (rule-based): $${cardData._smart_value_hint.toLocaleString()} — anchor: ${cardData._anchor_source || 'comps'}. TREAT THIS AS A HARD FLOOR/CEILING REFERENCE — your ai_investment_value should stay within 20% of SmartValue unless you have strong contradicting signals.` : ''}
 LAST SOLD (ANCHOR 90%): $${comp || 'UNKNOWN'} — ai_investment_value MUST differ ≥8% from this.
 ${cardData.cheapest_available ? `CHEAPEST AVAILABLE: $${cardData.cheapest_available} (hard ceiling if below comp unless pop<10)` : ''}
 ${scanSection}
@@ -103,9 +104,28 @@ function buildResponseSchema() {
 }
 
 async function fetchRealComp(cardData) {
-  // Use live eBay scraping backend function for real sold comps
-  const response = await base44.functions.invoke('fetchLiveSoldComps', cardData);
-  return response.data;
+  // SmartValue Engine: canonical identity → exact last sold → comps → rule-based value
+  const response = await base44.functions.invoke('smartValueEngine', cardData);
+  const d = response.data;
+  // Map SmartValue output to the shape ValuateCard expects
+  return {
+    comp_value:      d.comp_value ?? d.last_sold?.last_sold_price ?? null,
+    sale_date:       d.sale_date  ?? d.last_sold?.last_sold_date  ?? null,
+    last_sold_url:   d.last_sold_url ?? d.last_sold?.last_sold_url ?? null,
+    match_confidence: d.match_confidence ?? d.last_sold?.match_confidence ?? 0,
+    confidence:      d.confidence >= 80 ? 'high' : d.confidence >= 50 ? 'medium' : 'low',
+    tier:            d.tier ?? 'no_comp_conservative_estimate',
+    notes:           d.confidence_factors?.join(' · ') || '',
+    similar_comps:   d.similar_comps || [],
+    anomaly_flag:    false,
+    anomaly_reason:  null,
+    _ebay_search_url: d._ebay_search_url || null,
+    // Surface SmartValue as a hint to the AI (AI still runs its own model)
+    _smart_value_hint: d.smart_value || null,
+    _anchor_source:  d.anchor_source || null,
+    _value_drivers:  d.value_drivers || [],
+    _identity:       d.identity || null,
+  };
 }
 
 const FEATURES = [
@@ -203,6 +223,10 @@ export default function ValuateCard() {
               _comp_anomaly_flag: compData.anomaly_flag || false,
               _comp_anomaly_reason: compData.anomaly_reason || null,
               _ebay_search_url: compData._ebay_search_url || null,
+              _smart_value_hint: compData._smart_value_hint || null,
+              _anchor_source: compData._anchor_source || null,
+              _value_drivers: compData._value_drivers || [],
+              _identity: compData._identity || null,
             };
           } else {
             // Comp rejected — fall back to conservative estimate
