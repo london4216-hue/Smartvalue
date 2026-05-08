@@ -198,6 +198,11 @@ export default function ValuateCard() {
               _comp_notes: compData.notes || '',
               _comp_tier: compData.tier || null,
               _similar_comps: compData.similar_comps || [],
+              last_sold_url: compData.last_sold_url || null,
+              _comp_match_confidence: compData.match_confidence ?? null,
+              _comp_anomaly_flag: compData.anomaly_flag || false,
+              _comp_anomaly_reason: compData.anomaly_reason || null,
+              _ebay_search_url: compData._ebay_search_url || null,
             };
           } else {
             // Comp rejected — fall back to conservative estimate
@@ -266,6 +271,11 @@ export default function ValuateCard() {
       _comp_notes: enrichedCardData._comp_notes || '',
       _comp_tier: enrichedCardData._comp_tier || null,
       _comp_ebay_link: enrichedCardData._comp_ebay_link || null,
+      last_sold_url: enrichedCardData.last_sold_url || null,
+      _comp_match_confidence: enrichedCardData._comp_match_confidence ?? null,
+      _comp_anomaly_flag: enrichedCardData._comp_anomaly_flag || false,
+      _comp_anomaly_reason: enrichedCardData._comp_anomaly_reason || null,
+      _ebay_search_url: enrichedCardData._ebay_search_url || null,
       _similar_comps: enrichedCardData._similar_comps || [],
       _conservative_estimate_reasoning: enrichedCardData._conservative_estimate_reasoning || null,
       _player_activity: aiResult.player_activity || null,
