@@ -1,13 +1,15 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BarChart3, Search, Briefcase, TrendingUp, Menu, X, Bell } from 'lucide-react';
+import { BarChart3, Search, Briefcase, TrendingUp, Menu, X, Bell, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: BarChart3 },
-  { path: '/valuate', label: 'Valuate Card', icon: Search },
+  { path: '/last-sold', label: 'Last Sold', icon: Search },
+  { path: '/valuate', label: 'Valuate Card', icon: TrendingUp },
   { path: '/portfolio', label: 'Portfolio', icon: Briefcase },
   { path: '/alerts', label: 'Alerts', icon: Bell },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function AppLayout() {

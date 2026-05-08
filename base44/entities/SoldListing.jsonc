@@ -1,0 +1,40 @@
+{
+  "name": "SoldListing",
+  "type": "object",
+  "properties": {
+    "search_query": {
+      "type": "string",
+      "description": "The search query used to find this listing"
+    },
+    "title": {
+      "type": "string",
+      "description": "Full eBay listing title"
+    },
+    "last_sold_price": {
+      "type": "number",
+      "description": "Actual sold price in USD"
+    },
+    "last_sold_date": {
+      "type": "string",
+      "description": "Date the item sold (YYYY-MM-DD or readable format)"
+    },
+    "validation_link": {
+      "type": "string",
+      "description": "Direct eBay item URL for user verification"
+    },
+    "item_id": {
+      "type": "string",
+      "description": "eBay item ID"
+    },
+    "is_most_recent": {
+      "type": "boolean",
+      "description": "Whether this is the most recent sale in the search batch",
+      "default": false
+    }
+  },
+  "required": [
+    "search_query",
+    "title",
+    "last_sold_price"
+  ]
+}

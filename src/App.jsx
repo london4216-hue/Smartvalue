@@ -11,6 +11,8 @@ import ValuateCard from '@/pages/ValuateCard';
 import Portfolio from '@/pages/Portfolio';
 import CardDetail from '@/pages/CardDetail';
 import Alerts from '@/pages/Alerts';
+import LastSoldSearch from '@/pages/LastSoldSearch';
+import Settings from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,6 +46,8 @@ const AuthenticatedApp = () => {
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/card/:id" element={<CardDetail />} />
         <Route path="/alerts" element={<Alerts />} />
+        <Route path="/last-sold" element={<LastSoldSearch />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
