@@ -105,8 +105,14 @@ function buildResponseSchema() {
 }
 
 async function fetchRealComp(cardData) {
-  // SmartValue Engine: canonical identity → exact last sold → comps → rule-based value
-  const response = await base44.functions.invoke('smartValueEngine', cardData);
+  // SmartValue Engine with a hard 25s timeout so the valuation never hangs
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 25000)
+  );
+  const response = await Promise.race([
+    base44.functions.invoke('smartValueEngine', cardData),
+    timeoutPromise,
+  ]);
   const d = response.data;
   // Map SmartValue output to the shape ValuateCard expects
   return {
@@ -171,6 +177,18 @@ export default function ValuateCard() {
     setIsLoading(true);
     setLoadingPhase('fetching_comp');
     setCardInput(cardData);
+    try {
+      await _runValuation(cardData);
+    } catch (err) {
+      console.error('Valuation failed:', err);
+      toast({ title: 'Valuation error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+      setLoadingPhase(null);
+    }
+  };
+
+  const _runValuation = async (cardData) => {
 
     let enrichedCardData = { ...cardData };
 
@@ -180,8 +198,13 @@ export default function ValuateCard() {
       enrichedCardData._comp_tier = 'exact_match';
       enrichedCardData._comp_notes = 'User-entered real last sold price — locked in as comp anchor.';
     } else {
-      // Fetch comp — no separate validation step, extraction already cleaned the data
-      const compResult = await fetchRealComp(cardData);
+      // Fetch comp — hard 25s timeout so the valuation never hangs
+      let compResult = null;
+      try {
+        compResult = await fetchRealComp(cardData);
+      } catch (_) {
+        // timeout or network error — proceed without comp
+      }
 
       const compData = compResult;
       if (compData?.comp_value && compData.comp_value > 0) {
@@ -215,7 +238,6 @@ export default function ValuateCard() {
     }
 
     setLoadingPhase('valuing');
-    // Pop report fetch fires in background — doesn't block valuation
     const compValue = parseFloat(enrichedCardData.comp_value) || 0;
     const prompt = buildPrompt(enrichedCardData);
     const schema = buildResponseSchema();
@@ -229,13 +251,19 @@ export default function ValuateCard() {
       return candidate;
     };
 
-    // Single fast model call for the full valuation — Gemini Flash is fast and accurate enough
-    const primaryLLM = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: schema,
-      add_context_from_internet: false,
-      model: 'gemini_3_flash',
-    });
+    // Single fast model call for the full valuation — hard 30s timeout as safety net
+    const llmTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('llm_timeout')), 30000)
+    );
+    const primaryLLM = await Promise.race([
+      base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: schema,
+        add_context_from_internet: false,
+        model: 'gemini_3_flash',
+      }),
+      llmTimeout,
+    ]);
 
     let aiResult = primaryLLM || {};
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
@@ -295,8 +323,6 @@ export default function ValuateCard() {
     }
 
     setResult(finalResult);
-    setIsLoading(false);
-    setLoadingPhase(null);
   };
 
   const handleSave = useCallback(async () => {
