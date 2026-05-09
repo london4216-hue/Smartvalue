@@ -86,9 +86,14 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
   const totalPop = popData.total_pop_all_grades || 0;
   const gradeLabel = popData.grade_requested || grade || '';
   const isPopOne = popAtGrade === 1;
-  const isHighestGraded = popData.highest_grade_achieved &&
-    gradeLabel && popData.highest_grade_achieved.toString().trim() === gradeLabel.toString().trim();
-  const isPopOneHighestGraded = isPopOne && isHighestGraded;
+  // Pop Higher = copies graded ABOVE this grade. If pop_higher > 0, higher graded copies exist.
+  const popHigher = popData.pop_higher ?? null;
+  const hasHigherGraded = popHigher !== null ? popHigher > 0 : (
+    popData.highest_grade_achieved &&
+    gradeLabel &&
+    popData.highest_grade_achieved.toString().trim() !== gradeLabel.toString().trim()
+  );
+  const isPopOneHighestGraded = isPopOne && !hasHigherGraded;
 
   return (
     <motion.div
@@ -107,18 +112,18 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
           <span className="text-3xl">{isPopOneHighestGraded ? '👑' : '💎'}</span>
           <div className="flex-1">
             <p className="text-white font-black text-lg tracking-tight">
-              {isPopOneHighestGraded ? 'Pop 1 — Highest Graded Copy' : '1 of 1 — The Only Copy'}
+              {isPopOneHighestGraded ? 'Pop 1 — Highest Graded Copy' : 'Pop 1 at This Grade'}
             </p>
             <p className={cn("text-xs font-medium mt-0.5", isPopOneHighestGraded ? "text-yellow-100" : "text-violet-200")}>
               {isPopOneHighestGraded
                 ? `Only 1 copy at ${gradeLabel} — AND it's the highest grade ever awarded out of ${totalPop > 0 ? totalPop : '?'} total submitted. Absolute ceiling on this card.`
-                : `Only 1 copy at ${gradeLabel} exists across ALL grading companies.`}
+                : `Only 1 copy at ${gradeLabel}${popHigher !== null ? `, but ${popHigher} cop${popHigher === 1 ? 'y' : 'ies'} graded higher exist` : ' — higher grades may exist'}. Strong but not the ceiling.`}
             </p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-4xl font-black text-white font-mono">1</p>
             <p className={cn("text-[10px] uppercase tracking-wider", isPopOneHighestGraded ? "text-yellow-200" : "text-violet-300")}>
-              {isPopOneHighestGraded ? 'highest' : 'pop'}
+              {isPopOneHighestGraded ? 'highest' : 'at grade'}
             </p>
           </div>
         </div>
@@ -143,10 +148,13 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
         {/* Pop 1 sub-header */}
         {isPopOne && (
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">💎</span>
+            <span className="text-xl">{isPopOneHighestGraded ? '👑' : '💎'}</span>
             <div>
-              <p className="text-xs font-mono uppercase tracking-wider font-bold text-violet-500">Population Report</p>
-              <p className="text-sm font-bold text-violet-400">Ultra Rare — 1/1 at {gradeLabel}</p>
+              <p className={cn("text-xs font-mono uppercase tracking-wider font-bold", isPopOneHighestGraded ? "text-amber-500" : "text-violet-500")}>Population Report</p>
+              <p className={cn("text-sm font-bold", isPopOneHighestGraded ? "text-amber-500" : "text-violet-400")}>
+                {isPopOneHighestGraded ? `Ultra Rare — Highest Graded` : `Rare — Pop 1 at ${gradeLabel}`}
+                {!isPopOneHighestGraded && popHigher !== null && ` · ${popHigher} higher`}
+              </p>
             </div>
           </div>
         )}
@@ -172,7 +180,18 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
             <p className="text-[9px] text-muted-foreground/60 mt-0.5">PSA + BGS + SGC</p>
           </div>
 
-          {popData.highest_grade_achieved && (
+          {popHigher !== null && (
+            <div className={cn("rounded-lg p-2.5 border", popHigher === 0 ? "bg-amber-500/10 border-amber-500/30" : "bg-secondary/40 border-border/30")}>
+              <p className="text-[10px] text-muted-foreground/70 mb-1">Pop Higher</p>
+              <p className={cn("text-2xl font-mono font-black", popHigher === 0 ? "text-amber-500" : "text-foreground")}>
+                {popHigher}
+              </p>
+              <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                {popHigher === 0 ? 'None — this IS the top' : `cop${popHigher === 1 ? 'y' : 'ies'} above`}
+              </p>
+            </div>
+          )}
+          {popHigher === null && popData.highest_grade_achieved && (
             <div>
               <p className="text-[10px] text-muted-foreground/70 mb-1">Highest Grade</p>
               <p className="text-lg font-mono font-bold text-foreground">{popData.highest_grade_achieved}</p>
@@ -214,15 +233,17 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
               ? "bg-amber-500/15 border-amber-500/40"
               : "bg-violet-500/15 border-violet-500/40"
           )}>
-            <span className="text-base shrink-0">{isPopOneHighestGraded ? '👑' : '🏆'}</span>
+            <span className="text-base shrink-0">{isPopOneHighestGraded ? '👑' : '💎'}</span>
             <div>
               <p className={cn("text-xs font-bold mb-0.5", isPopOneHighestGraded ? "text-amber-500" : "text-violet-400")}>
-                {isPopOneHighestGraded ? 'Pop 1 + Highest Graded = Maximum Scarcity Premium' : 'Extreme Scarcity Premium'}
+                {isPopOneHighestGraded
+                  ? 'Pop 1 + Highest Graded = Maximum Scarcity Premium'
+                  : `Pop 1 at ${gradeLabel} — But Higher Grades Exist`}
               </p>
               <p className={cn("text-[10px] leading-snug", isPopOneHighestGraded ? "text-amber-700/90" : "text-violet-300/90")}>
                 {isPopOneHighestGraded
-                  ? `This is the single highest-graded copy in existence out of ${totalPop > 0 ? totalPop : '?'} total submitted. No higher grade has ever been achieved — this is the ceiling. Valuation algorithms should apply a significant premium above all lower-grade comps.`
-                  : `With only 1 copy at ${gradeLabel}, this card commands a dramatic scarcity premium. No direct comp exists at this grade — comparable sales at lower grades significantly undervalue this slab.`}
+                  ? `This is the single highest-graded copy in existence out of ${totalPop > 0 ? totalPop : '?'} total submitted. No higher grade has ever been achieved — this is the ceiling. AI valuation applies maximum scarcity premium.`
+                  : `Only 1 copy exists at ${gradeLabel}${popHigher !== null ? `, but ${popHigher} cop${popHigher === 1 ? 'y has' : 'ies have'} been graded higher` : ', but higher graded copies may exist'}. Strong scarcity at this grade — but NOT the ceiling of the card's potential. AI valuation applies a moderate (not maximum) premium.`}
               </p>
             </div>
           </div>
