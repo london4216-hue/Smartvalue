@@ -242,14 +242,49 @@ export default function ValuateCard() {
       return candidate;
     };
 
-    let aiResult = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: schema,
-      add_context_from_internet: false,
-      model: 'gemini_3_flash',
-    });
+    // Run primary (Gemini) + cross-check (GPT) in parallel for better accuracy
+    const [primaryLLM, crossCheckLLM] = await Promise.allSettled([
+      base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: schema,
+        add_context_from_internet: false,
+        model: 'gemini_3_flash',
+      }),
+      base44.integrations.Core.InvokeLLM({
+        prompt: prompt + '\n\nIMPORTANT: You are a second independent AI validator. Return your own unbiased analysis.',
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            ai_investment_value: { type: 'number' },
+            overall_score: { type: 'number' },
+            flip_vs_hold: { type: 'string' },
+          }
+        },
+        add_context_from_internet: false,
+        model: 'gpt_5_mini',
+      }),
+    ]);
 
+    let aiResult = primaryLLM.status === 'fulfilled' ? primaryLLM.value : {};
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
+
+    // Cross-check: if GPT gives a meaningfully different value, average them and note disagreement
+    if (crossCheckLLM.status === 'fulfilled' && crossCheckLLM.value?.ai_investment_value > 0) {
+      const gptValue = parseFloat(crossCheckLLM.value.ai_investment_value);
+      const geminiValue = parseFloat(aiResult.ai_investment_value) || 0;
+      if (geminiValue > 0) {
+        const diffPct = Math.abs(gptValue - geminiValue) / Math.max(geminiValue, 1);
+        if (diffPct < 0.25) {
+          // Models agree within 25% — average them for a more accurate result
+          aiResult.ai_investment_value = Math.round((geminiValue + gptValue) / 2);
+          aiResult._cross_check_agreement = 'high';
+        } else {
+          // Models disagree — flag it but lean on primary (Gemini has more context)
+          aiResult._cross_check_agreement = 'low';
+          aiResult._cross_check_gpt_value = gptValue;
+        }
+      }
+    }
 
     const signals = aiResult.key_signals || [];
     netSignalPct = signals.reduce((sum, sig) => {
