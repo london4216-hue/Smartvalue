@@ -59,9 +59,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // VALIDATION LAYER: Run strict LLM re-check on extracted card data
-    const validationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card data validator. A card extraction function returned this data. Your job is to validate and fix it.
+    // VALIDATION LAYER: Two models in parallel, reconcile for highest accuracy
+    const validationPrompt = `You are a sports card data validator. A card extraction function returned this data. Validate and fix it.
 
 EXTRACTED DATA:
 - player_name: ${cardData.player_name || 'null'}
@@ -74,48 +73,67 @@ EXTRACTED DATA:
 - has_autograph: ${cardData.has_autograph || 'false'}
 - has_patch: ${cardData.has_patch || 'false'}
 
-VALIDATION RULES:
-1. Player name MUST be a real NBA/sports player (not a team, set name, or brand). If wrong, CORRECT it.
-2. Card year MUST be 4 digits (2020-2025) or season format (2020-21). If missing or wrong, try to infer.
-3. Card set MUST be a real set (Prizm, Optic, Select, Mosaic, etc). If misspelled, correct it.
-4. Grade MUST be format like "PSA 10", "BGS 9.5", "Raw", etc. If malformed, fix it.
-5. Serial number MUST be a valid print run (1-10000). If invalid, set to null.
-6. Variation MUST be a real parallel (Silver, Gold, Cracked Ice, etc). If wrong, nullify.
+RULES:
+1. player_name MUST be a real NBA/sports player. Correct if wrong.
+2. card_year MUST be 4 digits or season format (2020-21). Infer if missing.
+3. card_set MUST be a real set (Prizm, Optic, Select, etc). Fix misspellings.
+4. grade MUST be "PSA 10", "BGS 9.5", "Raw", etc. Fix if malformed.
+5. serial_number MUST be a valid print run 1-10000. Null if invalid.
+6. variation MUST be a real parallel. Null if wrong.
 
-RETURN JSON with:
-- is_valid: true if data is clean and usable, false if fatal errors
-- player_name: corrected player name
-- card_year: corrected year or null
-- card_set: corrected set or null
-- grade: corrected grade or null
-- variation: corrected variation or null
-- serial_number: valid number or null
-- is_rookie_year: boolean
-- has_autograph: boolean
-- has_patch: boolean
-- warnings: array of issues found and fixed (e.g. ["Player name was blank, kept as extracted", "Grade was malformed, corrected to PSA 10"])
-- confidence: "high" if data is clean, "medium" if minor fixes applied, "low" if multiple corrections needed
-- suggestions: array of optional follow-ups (e.g. "Verify serial number in photos")`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          is_valid: { type: "boolean" },
-          player_name: { type: "string" },
-          card_year: { type: ["string", "null"] },
-          card_set: { type: ["string", "null"] },
-          grade: { type: ["string", "null"] },
-          variation: { type: ["string", "null"] },
-          serial_number: { type: ["string", "null"] },
-          is_rookie_year: { type: "boolean" },
-          has_autograph: { type: "boolean" },
-          has_patch: { type: "boolean" },
-          warnings: { type: "array", items: { type: "string" } },
-          confidence: { type: "string" },
-          suggestions: { type: "array", items: { type: "string" } },
-        }
-      },
-      model: 'gemini_3_flash'
-    });
+Return JSON only.`;
+
+    const validationSchema = {
+      type: "object",
+      properties: {
+        is_valid: { type: "boolean" },
+        player_name: { type: "string" },
+        card_year: { type: ["string", "null"] },
+        card_set: { type: ["string", "null"] },
+        grade: { type: ["string", "null"] },
+        variation: { type: ["string", "null"] },
+        serial_number: { type: ["string", "null"] },
+        is_rookie_year: { type: "boolean" },
+        has_autograph: { type: "boolean" },
+        has_patch: { type: "boolean" },
+        warnings: { type: "array", items: { type: "string" } },
+        confidence: { type: "string" },
+        suggestions: { type: "array", items: { type: "string" } },
+      }
+    };
+
+    const [v1, v2] = await Promise.allSettled([
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: validationPrompt,
+        response_json_schema: validationSchema,
+        model: 'gemini_3_flash',
+      }),
+      base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: validationPrompt + '\n\nBe especially careful about grade format, serial number, and whether the player name is correct.',
+        response_json_schema: validationSchema,
+        model: 'gpt_5_mini',
+      }),
+    ]);
+
+    const res1 = v1.status === 'fulfilled' ? v1.value : null;
+    const res2 = v2.status === 'fulfilled' ? v2.value : null;
+
+    // Reconcile: for critical fields, if models disagree use GPT (more accurate on facts), else merge
+    const validationResult = {
+      is_valid: (res1?.is_valid ?? true) && (res2?.is_valid ?? true),
+      player_name: res1?.player_name === res2?.player_name ? res1?.player_name : (res2?.player_name || res1?.player_name),
+      card_year: res1?.card_year === res2?.card_year ? res1?.card_year : (res2?.card_year || res1?.card_year),
+      card_set: res1?.card_set === res2?.card_set ? res1?.card_set : (res2?.card_set || res1?.card_set),
+      grade: res1?.grade === res2?.grade ? res1?.grade : (res2?.grade || res1?.grade),
+      variation: res1?.variation === res2?.variation ? res1?.variation : (res2?.variation || res1?.variation),
+      serial_number: res1?.serial_number === res2?.serial_number ? res1?.serial_number : (res2?.serial_number || res1?.serial_number),
+      is_rookie_year: res1?.is_rookie_year || res2?.is_rookie_year || false,
+      has_autograph: res1?.has_autograph || res2?.has_autograph || false,
+      has_patch: res1?.has_patch || res2?.has_patch || false,
+      warnings: [...(res1?.warnings || []), ...(res2?.warnings || []).filter(w => !(res1?.warnings || []).includes(w))],
+      confidence: (res1?.confidence === 'high' && res2?.confidence === 'high') ? 'high' : (res1?.confidence || res2?.confidence || 'medium'),
+      suggestions: res1?.suggestions || res2?.suggestions || [],
+    };
 
     if (!validationResult.is_valid || !validationResult.player_name) {
       return Response.json({
@@ -127,7 +145,6 @@ RETURN JSON with:
 
     const colorMatch = detectTeamColorMatch(validationResult.player_name, validationResult.variation);
 
-    // Return cleaned & validated card data
     return Response.json({
       ...cardData,
       player_name: validationResult.player_name,
@@ -143,6 +160,7 @@ RETURN JSON with:
       _validation_confidence: validationResult.confidence,
       _validation_warnings: validationResult.warnings,
       _validation_suggestions: validationResult.suggestions,
+      _models_agreed: res1?.player_name === res2?.player_name && res1?.grade === res2?.grade,
     });
 
   } catch (error) {

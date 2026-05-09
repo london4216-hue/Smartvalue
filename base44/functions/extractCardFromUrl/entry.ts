@@ -238,68 +238,90 @@ Deno.serve(async (req) => {
       scrapedTitle = urlHints.skw;
     }
 
-    // STRICT CARD IDENTIFICATION — Use LLM to parse scraped title ONLY
+    // STRICT CARD IDENTIFICATION — Two models in parallel, reconciled for accuracy
     let result = null;
-    
+
+    const cardIdSchema = {
+      type: "object",
+      properties: {
+        player: { type: ["string", "null"] },
+        set: { type: ["string", "null"] },
+        year: { type: ["string", "null"] },
+        parallel: { type: ["string", "null"] },
+        card_number: { type: ["string", "null"] },
+        rookie: { type: ["boolean", "null"] },
+        grade_company: { type: ["string", "null"] },
+        grade_value: { type: ["string", "null"] },
+        serial_number: { type: ["string", "null"] }
+      }
+    };
+
     if (scrapedTitle) {
       try {
-        const identificationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `SYSTEM INSTRUCTION — FOLLOW EXACTLY. OUTPUT JSON ONLY. NO MARKDOWN. NO COMMENTARY.
+        const idPrompt = `Extract card details from this listing text. Return JSON only, no markdown.
 
-Your #1 priority is SPEED and ACCURACY when scraping.
+LISTING: "${scrapedTitle}"
 
-You MUST extract the following in ONE PASS ONLY from the listing text below.
-You MUST NOT run multi-pass logic, re-check, or infer missing fields.
-Return null for anything not clearly stated.
-
-LISTING TEXT: "${scrapedTitle}"
-
-Extract exactly:
-- player: Real player name (not brand/set) — required, null if unclear
-- set: Card set (Prizm, Optic, Select, Mosaic, etc)
+Extract:
+- player: Real NBA/sports player name — required, null if unclear
+- set: Card set (Prizm, Optic, Select, Mosaic, National Treasures, etc)
 - year: Card year (2023, 2023-24, etc)
-- parallel: Color/variant (Silver, Green, Gold, Red, Cracked Ice, etc)
+- parallel: Color/variant (Silver, Green, Gold, Red, Cracked Ice, Hyper, etc)
 - card_number: Card # if present
-- rookie: true if RC/rookie mentioned, false otherwise, null if unknown
-- grade_company: PSA, BGS, SGC, CGC if graded
-- grade_value: Grade number (10, 9.5, 8, etc)
-- serial_number: Serial # if present
+- rookie: true if RC/Rookie mentioned, false otherwise, null if unknown
+- grade_company: PSA, BGS, SGC, CGC if graded — null otherwise
+- grade_value: Grade number (10, 9.5, 8, etc) — null if not graded
+- serial_number: Print run number only (e.g. 25 for /25) — null if not serialized`;
 
-OUTPUT JSON ONLY:`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              player: { type: ["string", "null"] },
-              set: { type: ["string", "null"] },
-              year: { type: ["string", "null"] },
-              parallel: { type: ["string", "null"] },
-              card_number: { type: ["string", "null"] },
-              rookie: { type: ["boolean", "null"] },
-              grade_company: { type: ["string", "null"] },
-              grade_value: { type: ["string", "null"] },
-              serial_number: { type: ["string", "null"] }
-            }
-          },
-          model: 'gemini_3_flash'
-        });
+        // Run Gemini + GPT in parallel for dual-model card identification
+        const [r1, r2] = await Promise.allSettled([
+          base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: idPrompt,
+            response_json_schema: cardIdSchema,
+            model: 'gemini_3_flash',
+          }),
+          base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: idPrompt + '\n\nDouble-check your answer — be precise about grade, serial number, and parallel.',
+            response_json_schema: cardIdSchema,
+            model: 'gpt_5_mini',
+          }),
+        ]);
 
-        if (identificationResult?.player) {
-          const parallel = identificationResult.parallel || null;
+        const id1 = r1.status === 'fulfilled' ? r1.value : null;
+        const id2 = r2.status === 'fulfilled' ? r2.value : null;
+
+        // Reconcile: prefer the field that both models agree on; use GPT as tiebreaker for specifics
+        const reconciled = {
+          player:        id1?.player || id2?.player || null,
+          set:           id1?.set || id2?.set || null,
+          year:          id1?.year || id2?.year || null,
+          // For critical specifics (grade, serial, parallel) — both must agree or defer to GPT
+          parallel:      id1?.parallel === id2?.parallel ? id1?.parallel : (id2?.parallel || id1?.parallel || null),
+          card_number:   id1?.card_number || id2?.card_number || null,
+          rookie:        id1?.rookie ?? id2?.rookie ?? false,
+          grade_company: id1?.grade_company === id2?.grade_company ? id1?.grade_company : (id2?.grade_company || id1?.grade_company || null),
+          grade_value:   id1?.grade_value === id2?.grade_value ? id1?.grade_value : (id2?.grade_value || id1?.grade_value || null),
+          serial_number: id1?.serial_number === id2?.serial_number ? id1?.serial_number : (id2?.serial_number || id1?.serial_number || null),
+        };
+
+        if (reconciled.player) {
+          const parallel = reconciled.parallel || null;
           result = {
-            player_name: identificationResult.player,
-            card_year: identificationResult.year || null,
-            card_set: identificationResult.set || null,
-            card_number: identificationResult.card_number || null,
+            player_name: reconciled.player,
+            card_year: reconciled.year || null,
+            card_set: reconciled.set || null,
+            card_number: reconciled.card_number || null,
             variation: parallel,
-            serial_number: identificationResult.serial_number || null,
-            grade: identificationResult.grade_company && identificationResult.grade_value 
-              ? `${identificationResult.grade_company} ${identificationResult.grade_value}` 
+            serial_number: reconciled.serial_number || null,
+            grade: reconciled.grade_company && reconciled.grade_value
+              ? `${reconciled.grade_company} ${reconciled.grade_value}`
               : null,
-            is_rookie_year: identificationResult.rookie || false,
-            color_matches_team: detectTeamColorMatch(identificationResult.player, parallel),
+            is_rookie_year: reconciled.rookie || false,
+            color_matches_team: detectTeamColorMatch(reconciled.player, parallel),
             has_autograph: false,
             has_patch: false,
             player_popularity: null,
+            _id_models_agreed: id1?.player === id2?.player && id1?.grade_value === id2?.grade_value,
           };
         }
       } catch (_) {}
