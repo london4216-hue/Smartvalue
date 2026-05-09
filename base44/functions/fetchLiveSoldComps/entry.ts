@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       has_autograph: has_autograph ?? null,
     };
 
-    // ── Try Apify first (if token available), then fallback to raw scrape ─────
+    // ── Try Apify first (if token available) ────────────────────────────────────
     let html = '';
     const apifyToken = Deno.env.get('APIFY_TOKEN');
     
@@ -62,23 +62,19 @@ Deno.serve(async (req) => {
       } catch (_) {}
     }
     
-    // ── Fallback: raw HTML scrape — 5s timeout ────────────────────────────────
+    // ── Fallback: check SoldListing database ──────────────────────────────────
     if (!html) {
       try {
-        const res = await fetch(ebaySearchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-          },
-          redirect: 'follow',
-          signal: AbortSignal.timeout(5000),
-        });
-        if (res.ok) {
-          const text = await res.text();
-          if (text.length > 1000 && !text.includes('Access Denied') && !text.includes('robot check')) {
-            html = text.substring(0, 20000);
-          }
+        const dbResults = await base44.entities.SoldListing.filter({
+          search_query: player_name
+        }, '-last_sold_date', 10);
+        if (dbResults.length > 0) {
+          html = JSON.stringify(dbResults.map(r => ({
+            title: r.title,
+            soldPrice: r.last_sold_price,
+            soldDate: r.last_sold_date,
+            url: r.validation_link,
+          })));
         }
       } catch (_) {}
     }
