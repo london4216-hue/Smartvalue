@@ -345,18 +345,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
               </div>
             )}
           </div>
-          {result._pop_report && (
-            <div className="mt-4">
-              <PopulationReport
-                playerName={result.player_name}
-                grade={result.grade}
-                cardYear={result.card_year}
-                cardSet={result.card_set}
-                prefetchedData={result._pop_report}
-                certNumber={result.cert_number || null}
-              />
-            </div>
-          )}
+
         </Accordion>
       )}
 
