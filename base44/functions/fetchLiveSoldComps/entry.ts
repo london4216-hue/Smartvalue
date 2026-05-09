@@ -36,25 +36,52 @@ Deno.serve(async (req) => {
       has_autograph: has_autograph ?? null,
     };
 
-    // ── Scrape eBay HTML — 5s hard timeout ───────────────────────────────────
+    // ── Try Apify first (if token available), then fallback to raw scrape ─────
     let html = '';
-    try {
-      const res = await fetch(ebaySearchUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        redirect: 'follow',
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const text = await res.text();
-        if (text.length > 1000 && !text.includes('Access Denied') && !text.includes('robot check')) {
-          html = text.substring(0, 20000); // reduced from 30k
+    const apifyToken = Deno.env.get('APIFY_TOKEN');
+    
+    if (apifyToken) {
+      try {
+        const apifyRes = await fetch('https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            keywords: searchParts.join(' '),
+            maxResults: 60,
+            includeActiveListings: false,
+            includeSoldListings: true,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (apifyRes.ok) {
+          const data = await apifyRes.json();
+          if (data.output?.results?.length > 0) {
+            html = JSON.stringify(data.output.results);
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
+    
+    // ── Fallback: raw HTML scrape — 5s timeout ────────────────────────────────
+    if (!html) {
+      try {
+        const res = await fetch(ebaySearchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const text = await res.text();
+          if (text.length > 1000 && !text.includes('Access Denied') && !text.includes('robot check')) {
+            html = text.substring(0, 20000);
+          }
+        }
+      } catch (_) {}
+    }
 
     const compSchema = {
       type: 'object',
