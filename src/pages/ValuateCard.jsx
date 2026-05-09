@@ -169,80 +169,51 @@ export default function ValuateCard() {
 
   const handleValuate = async (cardData) => {
     setIsLoading(true);
-    setLoadingPhase(null);
+    setLoadingPhase('fetching_comp');
     setCardInput(cardData);
 
-    let validatedCardData = cardData;
     let enrichedCardData = { ...cardData };
 
-    // STEP 1: VALIDATE CARD DATA — ensure extraction is clean (non-blocking)
-    setLoadingPhase('validating_data');
-    try {
-      const validationResp = await base44.functions.invoke('validateCardData', validatedCardData);
-      if (validationResp?.data && !validationResp.data.error) {
-        validatedCardData = validationResp.data;
-        enrichedCardData = { ...enrichedCardData, ...validatedCardData };
-      }
-    } catch (_) {
-      // Validation failed — continue with original extracted data
-    }
-
-    // STEP 2: FETCH & VALIDATE COMP
     if (cardData.comp_value && parseFloat(cardData.comp_value) > 0) {
+      // User-provided comp — no fetch needed
       enrichedCardData._comp_confidence = 'user_provided';
       enrichedCardData._comp_tier = 'exact_match';
       enrichedCardData._comp_notes = 'User-entered real last sold price — locked in as comp anchor.';
     } else {
-      setLoadingPhase('fetching_comp');
-      try {
-        const compData = await fetchRealComp(validatedCardData);
-        
-        // VALIDATE comp before accepting it
-        if (compData.comp_value && compData.comp_value > 0) {
-          // Accept comp by default; optionally validate (non-blocking)
-          let acceptComp = true;
-          let compConfidence = compData.confidence || 'medium';
-          try {
-            const compValidation = await base44.functions.invoke('validateComp', {
-              cardData: validatedCardData,
-              compData: compData
-            });
-            if (compValidation?.data && !compValidation.data.error) {
-              acceptComp = compValidation.data.accept_as_anchor !== false;
-              compConfidence = compValidation.data.confidence_adjustment || compConfidence;
-            }
-          } catch (_) {
-            // Validation failed — accept comp with original confidence
-          }
+      // STEP 1 + 2 IN PARALLEL: validate card data AND fetch comp simultaneously
+      const [validationResult, compResult] = await Promise.allSettled([
+        base44.functions.invoke('validateCardData', cardData),
+        fetchRealComp(cardData),
+      ]);
 
-          if (acceptComp) {
-            enrichedCardData = {
-              ...enrichedCardData,
-              comp_value: compData.comp_value,
-              cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
-              _comp_sale_date: compData.sale_date || null,
-              _comp_confidence: compConfidence,
-              _comp_notes: compData.notes || '',
-              _comp_tier: compData.tier || null,
-              _similar_comps: compData.similar_comps || [],
-              last_sold_url: compData.last_sold_url || null,
-              _comp_match_confidence: compData.match_confidence ?? null,
-              _comp_anomaly_flag: compData.anomaly_flag || false,
-              _comp_anomaly_reason: compData.anomaly_reason || null,
-              _ebay_search_url: compData._ebay_search_url || null,
-              _smart_value_hint: compData._smart_value_hint || null,
-              _anchor_source: compData._anchor_source || null,
-              _value_drivers: compData._value_drivers || [],
-              _identity: compData._identity || null,
-            };
-          } else {
-            enrichedCardData = {
-              ...enrichedCardData,
-              _comp_tier: 'no_comp_conservative_estimate',
-              _comp_notes: 'Comp validation rejected this sale — using conservative estimate.',
-              _validation_rejected_comp: true,
-            };
-          }
+      // Apply validation if successful
+      if (validationResult.status === 'fulfilled' && validationResult.value?.data && !validationResult.value.data.error) {
+        enrichedCardData = { ...enrichedCardData, ...validationResult.value.data };
+      }
+
+      // Apply comp if successful
+      if (compResult.status === 'fulfilled') {
+        const compData = compResult.value;
+        if (compData.comp_value && compData.comp_value > 0) {
+          enrichedCardData = {
+            ...enrichedCardData,
+            comp_value: compData.comp_value,
+            cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
+            _comp_sale_date: compData.sale_date || null,
+            _comp_confidence: compData.confidence || 'medium',
+            _comp_notes: compData.notes || '',
+            _comp_tier: compData.tier || null,
+            _similar_comps: compData.similar_comps || [],
+            last_sold_url: compData.last_sold_url || null,
+            _comp_match_confidence: compData.match_confidence ?? null,
+            _comp_anomaly_flag: compData.anomaly_flag || false,
+            _comp_anomaly_reason: compData.anomaly_reason || null,
+            _ebay_search_url: compData._ebay_search_url || null,
+            _smart_value_hint: compData._smart_value_hint || null,
+            _anchor_source: compData._anchor_source || null,
+            _value_drivers: compData._value_drivers || [],
+            _identity: compData._identity || null,
+          };
         } else {
           enrichedCardData = {
             ...enrichedCardData,
@@ -251,10 +222,11 @@ export default function ValuateCard() {
             _similar_comps: compData.similar_comps || [],
           };
         }
-      } catch { /* silent fail */ }
+      }
     }
 
     setLoadingPhase('valuing');
+    // Pop report fetch fires in background — doesn't block valuation
     const compValue = parseFloat(enrichedCardData.comp_value) || 0;
     const prompt = buildPrompt(enrichedCardData);
     const schema = buildResponseSchema();
