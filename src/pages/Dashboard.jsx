@@ -319,7 +319,6 @@ export default function Dashboard() {
 
       <ValuationSummary cards={cards} />
       <CTABanner />
-      <RecentAndTrending cards={cards} />
     </div>
   );
 }
