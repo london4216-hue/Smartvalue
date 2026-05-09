@@ -238,7 +238,39 @@ Deno.serve(async (req) => {
       scrapedTitle = urlHints.skw;
     }
 
-    // STRICT CARD IDENTIFICATION — Two models in parallel, reconciled for accuracy
+    // Fire eye appeal analysis immediately in parallel with card ID (image already known from scraping)
+    const eyeAppealImageUrl = scrapedImage || imageFromHash || null;
+    const gradePromise = eyeAppealImageUrl
+      ? base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `You are analyzing a sports card image for EYE APPEAL only — centering and corner wear.
+You are NOT a grading company. Do NOT claim to predict PSA/BGS grades.
+
+Assess ONLY:
+1. centering_description: 1 sentence describing how centered the image is within the borders
+2. centering_score: 0-100 (100=perfect 50/50, 70=slight drift, 40=noticeable off-center, 20=heavily off-center)
+3. corners_description: 1 sentence describing the 4 corners (sharp, light wear, visible wear, heavy wear)
+4. corners_score: 0-100 (100=razor sharp, 80=very slight wear, 60=some wear, 40=visible wear, 20=heavy damage)
+5. eye_appeal_grade: A (centering≥85 AND corners≥85), B (both≥65), C (either <65), D (either <40)
+6. eye_appeal_summary: 1-2 sentence combined eye appeal summary mentioning only centering and corners
+
+Return JSON only.`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              centering_description: { type: "string" },
+              centering_score: { type: "number" },
+              corners_description: { type: "string" },
+              corners_score: { type: "number" },
+              eye_appeal_grade: { type: "string" },
+              eye_appeal_summary: { type: "string" },
+            }
+          },
+          file_urls: [eyeAppealImageUrl],
+          model: 'gemini_3_flash',
+        }).catch(() => null)
+      : Promise.resolve(null);
+
+    // CARD IDENTIFICATION — single fast model
     let result = null;
 
     const cardIdSchema = {
@@ -273,56 +305,30 @@ Extract:
 - grade_value: Grade number (10, 9.5, 8, etc) — null if not graded
 - serial_number: Print run number only (e.g. 25 for /25) — null if not serialized`;
 
-        // Run Gemini + GPT in parallel for dual-model card identification
-        const [r1, r2] = await Promise.allSettled([
-          base44.asServiceRole.integrations.Core.InvokeLLM({
-            prompt: idPrompt,
-            response_json_schema: cardIdSchema,
-            model: 'gemini_3_flash',
-          }),
-          base44.asServiceRole.integrations.Core.InvokeLLM({
-            prompt: idPrompt + '\n\nDouble-check your answer — be precise about grade, serial number, and parallel.',
-            response_json_schema: cardIdSchema,
-            model: 'gpt_5_mini',
-          }),
-        ]);
+        // Single model — listing title is ground truth, no cross-check needed
+        const id1 = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: idPrompt,
+          response_json_schema: cardIdSchema,
+          model: 'gemini_3_flash',
+        });
 
-        const id1 = r1.status === 'fulfilled' ? r1.value : null;
-        const id2 = r2.status === 'fulfilled' ? r2.value : null;
-
-        // For card ID from a listing title, prefer whichever model got a player name.
-        // For critical specifics (grade, serial), prefer the one that's more specific (non-null wins).
-        // No judge needed here — the listing text is the ground truth.
-        const reconciled = {
-          player:        id1?.player        || id2?.player        || null,
-          set:           id1?.set           || id2?.set           || null,
-          year:          id1?.year          || id2?.year          || null,
-          parallel:      id1?.parallel === id2?.parallel ? id1?.parallel : (id1?.parallel || id2?.parallel || null),
-          card_number:   id1?.card_number   || id2?.card_number   || null,
-          rookie:        id1?.rookie        ?? id2?.rookie        ?? false,
-          grade_company: id1?.grade_company === id2?.grade_company ? id1?.grade_company : (id1?.grade_company || id2?.grade_company || null),
-          grade_value:   id1?.grade_value   === id2?.grade_value   ? id1?.grade_value   : (id1?.grade_value   || id2?.grade_value   || null),
-          serial_number: id1?.serial_number === id2?.serial_number ? id1?.serial_number : (id1?.serial_number || id2?.serial_number || null),
-        };
-
-        if (reconciled.player) {
-          const parallel = reconciled.parallel || null;
+        if (id1?.player) {
+          const parallel = id1.parallel || null;
           result = {
-            player_name: reconciled.player,
-            card_year: reconciled.year || null,
-            card_set: reconciled.set || null,
-            card_number: reconciled.card_number || null,
+            player_name: id1.player,
+            card_year: id1.year || null,
+            card_set: id1.set || null,
+            card_number: id1.card_number || null,
             variation: parallel,
-            serial_number: reconciled.serial_number || null,
-            grade: reconciled.grade_company && reconciled.grade_value
-              ? `${reconciled.grade_company} ${reconciled.grade_value}`
+            serial_number: id1.serial_number || null,
+            grade: id1.grade_company && id1.grade_value
+              ? `${id1.grade_company} ${id1.grade_value}`
               : null,
-            is_rookie_year: reconciled.rookie || false,
-            color_matches_team: detectTeamColorMatch(reconciled.player, parallel),
+            is_rookie_year: id1.rookie || false,
+            color_matches_team: detectTeamColorMatch(id1.player, parallel),
             has_autograph: false,
             has_patch: false,
             player_popularity: null,
-            _id_models_agreed: id1?.player === id2?.player && id1?.grade_value === id2?.grade_value,
           };
         }
       } catch (_) {}
@@ -400,38 +406,7 @@ Return JSON only.`,
     result.cheapest_available = scrapedPrice || null;
     result._ask_confidence = scrapedPrice ? 'medium' : 'low';
     result._ask_type = 'buy_it_now';
-    result.image_url = scrapedImage || imageFromHash || null;
-
-    // Eye Appeal Assessment — runs in parallel, don't await until needed
-    const gradePromise = result.image_url
-      ? base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `You are analyzing a sports card image for EYE APPEAL only — centering and corner wear.
-You are NOT a grading company. Do NOT claim to predict PSA/BGS grades.
-
-Assess ONLY:
-1. centering_description: 1 sentence describing how centered the image is within the borders (left/right/top/bottom balance)
-2. centering_score: 0-100 (100=perfect 50/50, 70=slight drift, 40=noticeable off-center, 20=heavily off-center)
-3. corners_description: 1 sentence describing the 4 corners (sharp, light wear, visible wear, heavy wear)
-4. corners_score: 0-100 (100=razor sharp, 80=very slight wear, 60=some wear, 40=visible wear, 20=heavy damage)
-5. eye_appeal_grade: A (centering≥85 AND corners≥85), B (both≥65), C (either <65), D (either <40)
-6. eye_appeal_summary: 1-2 sentence combined eye appeal summary mentioning only centering and corners
-
-Return JSON only.`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              centering_description: { type: "string" },
-              centering_score: { type: "number" },
-              corners_description: { type: "string" },
-              corners_score: { type: "number" },
-              eye_appeal_grade: { type: "string" },
-              eye_appeal_summary: { type: "string" },
-            }
-          },
-          file_urls: [result.image_url],
-          model: 'gemini_3_flash',
-        }).catch(() => null)
-      : Promise.resolve(null);
+    result.image_url = eyeAppealImageUrl;
 
     const eyeAppealData = await gradePromise;
 

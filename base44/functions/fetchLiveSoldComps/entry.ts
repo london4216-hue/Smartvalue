@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
     const cardData = await req.json();
     const {
       player_name, card_year, card_set, variation, serial_number,
-      grade, has_autograph, is_rookie_year, card_number,
+      grade, has_autograph,
     } = cardData;
 
     if (!player_name) return Response.json({ error: 'player_name is required' }, { status: 400 });
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       has_autograph: has_autograph ?? null,
     };
 
-    // ── Scrape eBay HTML ──────────────────────────────────────────────────────
+    // ── Scrape eBay HTML — 5s hard timeout ───────────────────────────────────
     let html = '';
     try {
       const res = await fetch(ebaySearchUrl, {
@@ -46,12 +46,12 @@ Deno.serve(async (req) => {
           'Accept-Language': 'en-US,en;q=0.9',
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         const text = await res.text();
         if (text.length > 1000 && !text.includes('Access Denied') && !text.includes('robot check')) {
-          html = text.substring(0, 30000);
+          html = text.substring(0, 20000); // reduced from 30k
         }
       }
     } catch (_) {}
@@ -77,181 +77,97 @@ Deno.serve(async (req) => {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const basePrompt = html
-      ? `You are a sports card sold listing expert. From the eBay HTML below, extract ALL sold listings and IMMEDIATELY validate each one against the target card.
+    // ── SINGLE MODEL — fast, no cross-check overhead ──────────────────────────
+    let primaryItems = [];
+    if (html) {
+      const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Sports card sold listing expert. From this eBay HTML, extract and validate sold listings for:
+TARGET: ${JSON.stringify(cardIdentity)}
 
-TARGET CARD: ${JSON.stringify(cardIdentity)}
-
-For each listing:
-1. Extract: title, sold_price (USD number, not shipping), sold_date (YYYY-MM-DD), item_url (https://www.ebay.com/itm/ITEMID)
-2. Validate: is it an EXACT match?
-
-DISQUALIFY if ANY mismatch: different player, year, set, grade, grading company, parallel/variation, serial number, autograph status, patch/relic status, lot/bundle, reprint.
-When in doubt → EXCLUDE. Return only confident exact matches with match_confidence >= 70.
-
-TODAY'S DATE: ${todayStr}
-Sort ALL results by sold_date descending — the item with the sold_date CLOSEST to today must be first.
-Return up to 10 validated exact matches.
-
-HTML:
-${html}`
-      : `Find recent eBay sold listings for: "${cardDescription}". Return exact matches only with prices, dates, and eBay URLs.`;
-
-    // ── MULTI-MODEL PARALLEL CROSS-CHECK ─────────────────────────────────────
-    // Run two different models simultaneously and reconcile results for accuracy
-    const [primaryResult, crossCheckResult] = await Promise.allSettled([
-      // Model 1: Gemini Flash — fast primary extraction
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: basePrompt,
-        response_json_schema: compSchema,
-        model: 'gemini_3_flash',
-        add_context_from_internet: !html,
-      }),
-      // Model 2: GPT — independent web search cross-check for price validation
-      base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `You are a sports card market data expert. Find the most recent REAL completed sale price for this exact card.
-
-CARD: ${cardDescription}
-Grade: ${grade || 'any'}
-Auto: ${has_autograph === false ? 'NO — base card only' : has_autograph ? 'YES — autograph required' : 'unknown'}
-Serial: ${serial_number ? `MUST be /${serial_number}` : 'none'}
-
-Search eBay completed listings, 130point, PWCC, Goldin, or any reliable auction source.
-Return the most recent EXACT match you find with high confidence.
+RULES: Extract title, sold_price (USD, not shipping), sold_date (YYYY-MM-DD), item_url (https://www.ebay.com/itm/ID).
+DISQUALIFY: different player, year, set, grade, grading company, parallel/variation, serial number, auto status, lot/bundle.
+Return only confident exact matches (match_confidence >= 70), sorted by sold_date descending. Max 8 results.
 TODAY: ${todayStr}
 
-RULES: Only real sold prices. No asking prices. No fabrication. If uncertain, lower the match_confidence.`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            validated_items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  title: { type: 'string' },
-                  sold_price: { type: 'number' },
-                  sold_date: { type: ['string', 'null'] },
-                  item_url: { type: ['string', 'null'] },
-                  match_confidence: { type: 'number' },
-                  source: { type: 'string' },
-                }
-              }
-            }
-          }
-        },
+HTML:
+${html}`,
+        response_json_schema: compSchema,
+        model: 'gemini_3_flash',
+        add_context_from_internet: false,
+      });
+      primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70);
+    }
+
+    // ── Fallback: single web-search if no HTML results ─────────────────────
+    if (primaryItems.length === 0) {
+      const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Find the most recent REAL completed eBay sale for this exact sports card.
+CARD: ${cardDescription}
+Grade: ${grade || 'any'} | Auto: ${has_autograph === false ? 'NO' : has_autograph ? 'YES' : 'unknown'} | Serial: ${serial_number ? `/${serial_number}` : 'none'}
+Return only real sold prices, no asking prices, no fabrication.
+TODAY: ${todayStr}`,
+        response_json_schema: compSchema,
         model: 'gemini_3_flash',
         add_context_from_internet: true,
-      }),
-    ]);
+      });
+      primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 60);
+    }
 
-    // ── RECONCILE RESULTS ────────────────────────────────────────────────────
-    const primaryItems = primaryResult.status === 'fulfilled'
-      ? (primaryResult.value?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70)
-      : [];
-
-    const crossItems = crossCheckResult.status === 'fulfilled'
-      ? (crossCheckResult.value?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 65)
-      : [];
-
-    // Merge and deduplicate by price proximity (within 15%)
-    const allItems = [...primaryItems];
-    for (const ci of crossItems) {
-      const isDuplicate = primaryItems.some(pi =>
-        Math.abs(pi.sold_price - ci.sold_price) / Math.max(pi.sold_price, 1) < 0.15
-      );
-      if (!isDuplicate) {
-        allItems.push({ ...ci, _from_cross_check: true });
-      } else {
-        // Boost confidence of primary item when cross-check agrees
-        const matching = allItems.find(pi =>
-          Math.abs(pi.sold_price - ci.sold_price) / Math.max(pi.sold_price, 1) < 0.15
-        );
-        if (matching) matching.match_confidence = Math.min(99, matching.match_confidence + 8);
-      }
+    if (primaryItems.length === 0) {
+      return Response.json({
+        comp_value: null,
+        sale_date: null,
+        match_confidence: 0,
+        confidence: 'low',
+        tier: 'no_comp_conservative_estimate',
+        notes: 'No exact match found.',
+        _ebay_search_url: ebaySearchUrl,
+      });
     }
 
     // Sort by recency
-    const validatedItems = allItems.sort((a, b) => {
+    const sorted = primaryItems.sort((a, b) => {
       if (!a.sold_date) return 1;
       if (!b.sold_date) return -1;
       return new Date(b.sold_date) - new Date(a.sold_date);
     });
 
-    // If nothing from either model, try internet fallback
-    if (validatedItems.length === 0) {
-      return await llmWebSearchFallback(cardData, cardDescription, ebaySearchUrl, base44);
-    }
-
-    const best = validatedItems[0];
+    const best = sorted[0];
     const soldPrice = best.sold_price;
     const soldDate = formatDate(best.sold_date);
 
-    // Cross-check agreement flag
-    const crossCheckAgrees = crossItems.some(ci =>
-      Math.abs(ci.sold_price - soldPrice) / Math.max(soldPrice, 1) < 0.20
-    );
-    const crossCheckDisagrees = crossItems.length > 0 && !crossCheckAgrees;
-
-    let recencyWarning = null;
-    if (soldDate) {
-      const saleAge = (Date.now() - new Date(soldDate).getTime()) / (1000 * 60 * 60 * 24);
-      if (saleAge > 365) {
-        recencyWarning = `Closest sale found is ${Math.round(saleAge / 30)} months ago — no more recent exact match found.`;
-      }
-    }
-
+    // Anomaly check
     let anomaly_flag = false;
     let anomaly_reason = null;
-    if (validatedItems.length >= 3) {
-      const prices = validatedItems.slice(0, 10).map(i => i.sold_price).sort((a, b) => a - b);
+    if (sorted.length >= 3) {
+      const prices = sorted.map(i => i.sold_price).sort((a, b) => a - b);
       const median = prices[Math.floor(prices.length / 2)];
       if (soldPrice > median * 10) {
         anomaly_flag = true;
-        anomaly_reason = `Sale price $${soldPrice} is more than 10× the median ($${median}) — possible outlier.`;
+        anomaly_reason = `Sale $${soldPrice} is >10× median ($${median}) — possible outlier.`;
       } else if (soldPrice < median * 0.1) {
         anomaly_flag = true;
-        anomaly_reason = `Sale price $${soldPrice} is less than 1/10th the median ($${median}) — possible outlier.`;
+        anomaly_reason = `Sale $${soldPrice} is <0.1× median ($${median}) — possible outlier.`;
       }
     }
-
-    // If models disagree significantly on price — flag it but don't block on a judge
-    // (judge would add 8-12s to an already slow pipeline — better to flag and show results fast)
-    if (crossCheckDisagrees && crossItems.length > 0) {
-      const crossPrice = crossItems[0].sold_price;
-      const disagreePct = Math.abs(crossPrice - soldPrice) / Math.max(soldPrice, 1) * 100;
-      if (disagreePct > 25) {
-        anomaly_flag = true;
-        anomaly_reason = `Two AI sources found different prices ($${soldPrice.toLocaleString()} vs $${crossPrice.toLocaleString()}) — verify on eBay.`;
-      }
-    }
-
-
-
-    const confidenceBoost = crossCheckAgrees ? 8 : 0;
-    const finalConfidence = Math.min(99, best.match_confidence + confidenceBoost);
 
     return Response.json({
       comp_value: soldPrice,
       sale_date: soldDate,
       last_sold_source: 'eBay',
       last_sold_url: best.item_url || null,
-      match_confidence: finalConfidence,
-      confidence: finalConfidence >= 90 ? 'high' : finalConfidence >= 70 ? 'medium' : 'low',
+      match_confidence: best.match_confidence,
+      confidence: best.match_confidence >= 85 ? 'high' : best.match_confidence >= 65 ? 'medium' : 'low',
       tier: 'exact_match',
-      notes: recencyWarning || `Validated by ${crossCheckAgrees ? '2 AI models in agreement' : '1 AI model'} from ${validatedItems.length} listing(s).`,
+      notes: `Validated from ${sorted.length} listing(s).`,
       anomaly_flag,
       anomaly_reason,
-      _cross_check_agrees: crossCheckAgrees,
-      _cross_check_items: crossItems.length,
-      similar_comps: validatedItems.slice(1, 6).map(i => ({
+      similar_comps: sorted.slice(1, 6).map(i => ({
         title: i.title,
         sold_price: i.sold_price,
         sold_date: formatDate(i.sold_date),
         item_url: i.item_url || null,
       })),
-      _scraped_count: validatedItems.length,
-      _validated_count: validatedItems.length,
       _ebay_search_url: ebaySearchUrl,
     });
 
@@ -259,107 +175,6 @@ RULES: Only real sold prices. No asking prices. No fabrication. If uncertain, lo
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
-
-async function llmWebSearchFallback(cardData, cardDescription, ebaySearchUrl, base44) {
-  const { grade, has_autograph, serial_number } = cardData;
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  // Run two models in parallel for the fallback too
-  const [r1, r2] = await Promise.allSettled([
-    base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Find the most recent real sold price for this exact sports card on eBay or auction houses.
-CARD: ${cardDescription}
-RULES:
-- EXACT match only: same player, year, set, grade, variation, serial if applicable
-- Grade: ${grade ? `MUST be ${grade} exactly` : 'ungraded/raw only'}
-- Auto: ${has_autograph === false ? 'BASE CARD — NO autograph' : 'match autograph status'}
-- Serial: ${serial_number ? `MUST be /${serial_number}` : 'no serial'}
-- Only completed/sold prices — NOT asking prices
-- If no exact match in last 12 months, return null
-- NEVER fabricate a price
-TODAY: ${todayStr}`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          comp_value: { type: ['number', 'null'] },
-          sale_date: { type: ['string', 'null'] },
-          confidence: { type: 'string' },
-          source: { type: 'string' },
-          notes: { type: 'string' },
-          tier: { type: 'string' },
-          last_sold_url: { type: ['string', 'null'] },
-          match_confidence: { type: 'number' },
-        }
-      },
-      add_context_from_internet: true,
-      model: 'gemini_3_flash',
-    }),
-    base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Sports card price research. What did this card last sell for?
-CARD: ${cardDescription}
-Find the most recent completed auction or eBay sold listing. Real data only, no estimates.
-TODAY: ${todayStr}`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          comp_value: { type: ['number', 'null'] },
-          sale_date: { type: ['string', 'null'] },
-          match_confidence: { type: 'number' },
-          source: { type: 'string' },
-          notes: { type: 'string' },
-        }
-      },
-      add_context_from_internet: true,
-      model: 'gemini_3_flash',
-    }),
-  ]);
-
-  const res1 = r1.status === 'fulfilled' ? r1.value : null;
-  const res2 = r2.status === 'fulfilled' ? r2.value : null;
-
-  // Pick best result — prefer the one with higher match_confidence
-  let best = null;
-  if (res1?.comp_value && res2?.comp_value) {
-    const priceDiff = Math.abs(res1.comp_value - res2.comp_value) / Math.max(res1.comp_value, 1);
-    if (priceDiff < 0.20) {
-      // Models agree — average for best accuracy
-      best = {
-        ...res1,
-        comp_value: Math.round((res1.comp_value + res2.comp_value) / 2),
-        match_confidence: Math.min(99, (res1.match_confidence || 70) + 10),
-        notes: `Confirmed by 2 AI models. ${res1.notes || ''}`,
-      };
-    } else {
-      // Models disagree — pick higher confidence immediately, no sequential judge
-      best = (res1.match_confidence || 0) >= (res2.match_confidence || 0) ? res1 : res2;
-      best = { ...best, notes: `${best.notes || ''} Note: Sources disagreed — verify on eBay.` };
-    }
-  } else {
-    best = res1?.comp_value ? res1 : res2;
-  }
-
-  if (!best?.comp_value) {
-    return Response.json({
-      comp_value: null,
-      sale_date: null,
-      match_confidence: 0,
-      confidence: 'low',
-      tier: 'no_comp_conservative_estimate',
-      error: 'No exact match found for this card.',
-      _ebay_search_url: ebaySearchUrl,
-    });
-  }
-
-  return Response.json({
-    ...best,
-    last_sold_source: best.source || 'Web Search',
-    anomaly_flag: false,
-    anomaly_reason: null,
-    _scraped_count: 0,
-    _validated_count: 0,
-    _ebay_search_url: ebaySearchUrl,
-  });
-}
 
 function formatDate(raw) {
   if (!raw) return null;
