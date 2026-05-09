@@ -18,23 +18,9 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // If we have prefetched data from the AI valuation, use it directly — don't re-fetch
-    // The live web search is unreliable and often returns wrong pop numbers
-    if (prefetchedData) {
-      setPopData({ ...prefetchedData, grade_requested: grade, _is_estimated: true });
-      setLoading(false);
-      return;
-    }
-
-    // Only fetch live if no prefetched data AND we have a cert number (more reliable)
     if (!playerName || !grade) { setLoading(false); return; }
 
-    if (!certNumber) {
-      // No cert number = web search will be unreliable, skip the fetch
-      setLoading(false);
-      return;
-    }
-
+    // Always fetch live pop data — the improved function uses gemini_3_1_pro with real PSA sources
     const fetchPopReport = async () => {
       try {
         const response = await base44.functions.invoke('getPopulationReport', {
@@ -42,18 +28,28 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
           card_year: cardYear || '',
           card_set: cardSet || '',
           grade: grade,
-          cert_number: certNumber,
+          cert_number: certNumber || null,
         });
-        setPopData({ ...response.data, grade_requested: grade });
-      } catch (err) {
-        setError(err.message);
+        const data = response.data;
+        // Only use live data if it returned real numbers; otherwise fall back to prefetched AI estimate
+        if (data && data.pop_at_grade !== null && data.pop_at_grade !== undefined && data.source_confidence !== 'low') {
+          setPopData({ ...data, grade_requested: grade });
+        } else if (prefetchedData) {
+          setPopData({ ...prefetchedData, grade_requested: grade, _is_estimated: true });
+        } else {
+          setPopData({ ...data, grade_requested: grade, _is_estimated: true });
+        }
+      } catch (_) {
+        if (prefetchedData) {
+          setPopData({ ...prefetchedData, grade_requested: grade, _is_estimated: true });
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchPopReport();
-  }, [playerName, grade, cardYear, cardSet, prefetchedData, certNumber]);
+  }, [playerName, grade, cardYear, cardSet]);
 
   if (loading) {
     return (

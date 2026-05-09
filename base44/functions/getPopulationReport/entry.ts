@@ -99,45 +99,51 @@ Return JSON: pop_at_grade, pop_higher, grade_on_cert, card_description, source_c
       } catch (_) {}
     }
 
+    // Build a targeted PSA pop search URL for this card
+    const gradeNum = grade.replace(/[^\d.]/g, '').trim(); // e.g. "10" from "PSA 10"
+    const searchQuery = `site:psacard.com/pop "${player_name}" "${card_year || ''}" "${card_set || ''}" population`;
+
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Look up the LIVE current population report for this sports card on the ${gradeCompany} registry website.
+      prompt: `You are a sports card data researcher. Look up the LIVE PSA population report for this exact card right now.
 
-Card: ${player_name} ${card_year || ''} ${card_set || ''} ${grade}
+CARD: ${player_name} ${card_year || ''} ${card_set || ''}
+GRADE WE CARE ABOUT: ${grade}
 
-Search for the actual current pop report at:
-- PSA: https://www.psacard.com/pop/
-- BGS: https://www.beckett.com/grading/pop-reports
-- SGC: https://www.sgccard.com/pop-report
+STEP 1: Search the PSA population report at https://www.psacard.com/pop/basketball-cards/
+Search query: "${player_name} ${card_year || ''} ${card_set || ''}"
 
-Find the REAL current numbers for:
-- pop_at_grade: exact count graded at ${grade} specifically
-- pop_higher: CRITICAL — number of copies graded HIGHER than ${grade} (e.g. if grade is PSA 9, pop_higher = all PSA 10 copies). This is shown as "Pop Higher" on PSA cert lookup screens. Return 0 if none, null if unknown.
-- total_pop_all_grades: total graded across all grades
-- scarcity_assessment: ultra_rare (pop<5), very_rare (5-20), rare (21-100), uncommon (101-500), common (500+)
-- grader_breakdown: PSA count, BGS count, SGC count at this grade
-- highest_grade_achieved: highest grade any copy has received (e.g. "PSA 10" if 10s exist, "PSA 9" if 9 is the highest)
-- source_confidence: "high" if found live data, "medium" if estimated, "low" if not found
+STEP 2: Find the row for this exact card/parallel and read ALL grade columns:
+- How many copies graded at ${grade}? → pop_at_grade
+- How many copies graded HIGHER than ${grade}? (e.g. if grade is PSA 9, count all PSA 10s) → pop_higher  
+- What is the total across ALL grades? → total_pop_all_grades
+- What is the single highest grade any copy has received? → highest_grade_achieved
 
-IMPORTANT: highest_grade_achieved must reflect what the HIGHEST graded copy is. If pop_higher > 0, then highest_grade_achieved will be a HIGHER grade than ${grade}.
+STEP 3: Also try searching: psacard.com/cert lookup for "${player_name} ${card_year || ''} ${card_set || ''}"
 
-Return JSON only. If you cannot find real data, set source_confidence to "low" and note it.`,
+CRITICAL RULES:
+- Return ONLY numbers you actually found on the PSA website. Do NOT estimate or guess.
+- If pop_higher = 0, that means this IS the highest graded copy in existence.
+- If you cannot find the card, set source_confidence = "low" and pop_at_grade = null.
+- Do NOT return 0 for pop_at_grade unless the PSA site literally shows 0.
+
+Return JSON with: pop_at_grade, pop_higher, total_pop_all_grades, highest_grade_achieved, scarcity_assessment (ultra_rare/very_rare/rare/uncommon/common), grader_breakdown {PSA, BGS, SGC}, source_confidence (high/medium/low), notes (include the URL you found the data at)`,
       response_json_schema: {
         type: "object",
         properties: {
           grading_company: { type: "string" },
           grade_requested: { type: "string" },
-          pop_at_grade: { type: "number" },
+          pop_at_grade: { type: ["number", "null"] },
           pop_higher: { type: ["number", "null"] },
-          total_pop_all_grades: { type: "number" },
-          pop_percentage: { type: "number" },
-          highest_grade_achieved: { type: "string" },
+          total_pop_all_grades: { type: ["number", "null"] },
+          pop_percentage: { type: ["number", "null"] },
+          highest_grade_achieved: { type: ["string", "null"] },
           scarcity_assessment: { type: "string" },
           grader_breakdown: {
             type: "object",
             properties: {
-              PSA: { type: "number" },
-              BGS: { type: "number" },
-              SGC: { type: "number" }
+              PSA: { type: ["number", "null"] },
+              BGS: { type: ["number", "null"] },
+              SGC: { type: ["number", "null"] }
             }
           },
           source_confidence: { type: "string" },
@@ -145,8 +151,14 @@ Return JSON only. If you cannot find real data, set source_confidence to "low" a
         }
       },
       add_context_from_internet: true,
-      model: 'gemini_3_flash',
+      model: 'gemini_3_1_pro',
     });
+
+    // If the model couldn't find real data, mark it clearly
+    if (result.pop_at_grade === null || result.pop_at_grade === undefined) {
+      result.source_confidence = 'low';
+      result._is_estimated = true;
+    }
 
     return Response.json(result);
   } catch (error) {
