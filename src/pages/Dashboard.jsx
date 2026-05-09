@@ -71,6 +71,16 @@ const CTABanner = memo(function CTABanner() {
   );
 });
 
+// ── Feature grid data — hoisted to avoid re-creation on every render ──────────
+const FEATURES = [
+  { icon: Target, label: 'True AI Value', desc: '44 signals adjust the comp up or down — revealing what the card is really worth' },
+  { icon: TrendingUp, label: 'Flip Short or Hold Long', desc: 'AI tells you exactly which move the data supports' },
+  { icon: Search, label: 'Live Deal Hunter', desc: 'Searches eBay, PWCC, Goldin & COMC for the best price right now' },
+  { icon: Shield, label: '44-Signal Algorithm', desc: 'Grade, scarcity, player trajectory, momentum & 40 more factors' },
+  { icon: AlertCircle, label: 'Price Alerts', desc: 'Get notified the moment a card hits your target price' },
+  { icon: Clock, label: '30-Second Verdict', desc: 'Paste any listing URL — AI does the rest' },
+];
+
 // ── Recent card row ───────────────────────────────────────────────────────────
 const REC_COLORS = {
   strong_buy:  'text-emerald-400',
@@ -80,8 +90,12 @@ const REC_COLORS = {
   strong_sell: 'text-red-400',
 };
 
-function RecentCard({ card, delay }) {
+const RecentCard = memo(function RecentCard({ card, delay }) {
   const rec = card.flip_vs_hold || 'hold';
+  const subline = useMemo(
+    () => [card.card_year, card.card_set, card.grade].filter(Boolean).join(' · '),
+    [card.card_year, card.card_set, card.grade]
+  );
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
@@ -92,9 +106,7 @@ function RecentCard({ card, delay }) {
       <ScoreGauge score={card.overall_score || 0} size="sm" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground truncate">{card.player_name}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {[card.card_year, card.card_set, card.grade].filter(Boolean).join(' · ')}
-        </p>
+        <p className="text-xs text-muted-foreground truncate">{subline}</p>
       </div>
       <div className="text-right shrink-0">
         <p className="text-sm font-mono font-bold text-primary">
@@ -106,30 +118,27 @@ function RecentCard({ card, delay }) {
       </div>
     </motion.div>
   );
-}
+});
 
 // ── Worst Performers Alert ───────────────────────────────────────────────────
-function WorstPerformers({ cards }) {
-  const portfolioCards = cards.filter(c => c.in_portfolio);
-  const worstCards = portfolioCards
-    .sort((a, b) => {
-      const aPct = a.purchase_price && a.ai_investment_value 
-        ? ((a.ai_investment_value - a.purchase_price) / a.purchase_price) * 100
-        : 0;
-      const bPct = b.purchase_price && b.ai_investment_value 
-        ? ((b.ai_investment_value - b.purchase_price) / b.purchase_price) * 100
-        : 0;
-      return aPct - bPct;
-    })
-    .slice(0, 5)
-    .filter(c => c.purchase_price && c.ai_investment_value < c.purchase_price);
+const WorstPerformers = memo(function WorstPerformers({ cards }) {
+  const { worstCards, hasDeepRed } = useMemo(() => {
+    const pc = cards.filter(c => c.in_portfolio);
+    const wc = [...pc]
+      .sort((a, b) => {
+        const aPct = a.purchase_price && a.ai_investment_value
+          ? ((a.ai_investment_value - a.purchase_price) / a.purchase_price) * 100 : 0;
+        const bPct = b.purchase_price && b.ai_investment_value
+          ? ((b.ai_investment_value - b.purchase_price) / b.purchase_price) * 100 : 0;
+        return aPct - bPct;
+      })
+      .slice(0, 5)
+      .filter(c => c.purchase_price && c.ai_investment_value < c.purchase_price);
+    const deep = wc.some(c => ((c.ai_investment_value - c.purchase_price) / c.purchase_price) * 100 < -30);
+    return { worstCards: wc, hasDeepRed: deep };
+  }, [cards]);
 
   if (worstCards.length === 0) return null;
-
-  const hasDeepRed = worstCards.some(c => {
-    const pct = ((c.ai_investment_value - c.purchase_price) / c.purchase_price) * 100;
-    return pct < -30;
-  });
 
   return (
     <motion.div
@@ -217,9 +226,9 @@ function WorstPerformers({ cards }) {
       </Link>
     </motion.div>
   );
-}
+});
 
-function RecentAndTrending({ cards }) {
+const RecentAndTrending = memo(function RecentAndTrending({ cards }) {
   return (
     <div>
       <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Recent Valuations</h2>
@@ -245,7 +254,7 @@ function RecentAndTrending({ cards }) {
       )}
     </div>
   );
-}
+});
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -295,14 +304,7 @@ export default function Dashboard() {
 
         {/* Feature Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            { icon: Target, label: 'True AI Value', desc: '44 signals adjust the comp up or down — revealing what the card is really worth' },
-            { icon: TrendingUp, label: 'Flip Short or Hold Long', desc: 'AI tells you exactly which move the data supports' },
-            { icon: Search, label: 'Live Deal Hunter', desc: 'Searches eBay, PWCC, Goldin & COMC for the best price right now' },
-            { icon: Shield, label: '44-Signal Algorithm', desc: 'Grade, scarcity, player trajectory, momentum & 40 more factors' },
-            { icon: AlertCircle, label: 'Price Alerts', desc: 'Get notified the moment a card hits your target price' },
-            { icon: Clock, label: '30-Second Verdict', desc: 'Paste any listing URL — AI does the rest' },
-          ].map((feature, i) => {
+          {FEATURES.map((feature, i) => {
             const Icon = feature.icon;
             return (
               <motion.div
