@@ -13,41 +13,88 @@ Deno.serve(async (req) => {
 
     const gradeCompany = grade.toUpperCase().startsWith('BGS') ? 'BGS' : grade.toUpperCase().startsWith('SGC') ? 'SGC' : 'PSA';
 
-    // If we have a cert number, try direct PSA API lookup first
+    // If we have a cert number, try direct PSA cert lookup — returns pop_at_grade + pop_higher directly
     if (cert_number && gradeCompany === 'PSA') {
       try {
         const certClean = cert_number.toString().replace(/\D/g, '');
-        const psaRes = await fetch(`https://api.psacard.com/publicapi/cert/GetByCertNumber/${certClean}`, {
-          headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' }
+        // PSA public cert lookup — returns PopulationAtGrade and PopulationHigher
+        const psaRes = await fetch(`https://www.psacard.com/cert/${certClean}`, {
+          headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' }
         });
         if (psaRes.ok) {
-          const psaData = await psaRes.json();
-          const cert = psaData?.PSACert || psaData;
-          if (cert?.CardGrade) {
-            // PSA cert endpoint gives us card info; use web search for pop numbers
-            const popResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `Look up the PSA population report for: ${player_name} ${card_year || ''} ${card_set || ''} ${grade}
-Search psacard.com/pop for the exact current pop numbers.
-Return JSON: pop_at_grade, pop_higher (copies graded HIGHER than this grade — shown as "Pop Higher" on PSA cert screens, 0 if none), total_pop_all_grades, scarcity_assessment (ultra_rare/very_rare/rare/uncommon/common), grader_breakdown {PSA, BGS, SGC}, highest_grade_achieved (the highest grade any copy has received), source_confidence, notes`,
-              add_context_from_internet: true,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  pop_at_grade: { type: "number" },
-                  pop_higher: { type: ["number", "null"] },
-                  total_pop_all_grades: { type: "number" },
-                  pop_percentage: { type: "number" },
-                  highest_grade_achieved: { type: "string" },
-                  scarcity_assessment: { type: "string" },
-                  grader_breakdown: { type: "object", properties: { PSA: { type: "number" }, BGS: { type: "number" }, SGC: { type: "number" } } },
-                  source_confidence: { type: "string" },
-                  notes: { type: "string" }
-                }
-              },
-              model: 'gemini_3_flash',
-            });
-            return Response.json({ ...popResult, grade_requested: grade, grading_company: 'PSA' });
+          const html = await psaRes.text();
+          // Extract pop data from PSA cert page HTML
+          const popAtMatch = html.match(/Population[^<]*<[^>]+>(\d+)/i) || html.match(/"population"\s*:\s*(\d+)/i);
+          const popHigherMatch = html.match(/Pop\s+Higher[^<]*<[^>]+>(\d+)/i) || html.match(/"popHigher"\s*:\s*(\d+)/i);
+          
+          if (popAtMatch || popHigherMatch) {
+            const popAtGrade = popAtMatch ? parseInt(popAtMatch[1]) : null;
+            const popHigher = popHigherMatch ? parseInt(popHigherMatch[1]) : null;
+            const isHighestGraded = popHigher === 0;
+            const totalPop = popAtGrade !== null ? popAtGrade + (popHigher || 0) : null;
+            
+            if (popAtGrade !== null) {
+              const scarcity = popAtGrade <= 4 ? 'ultra_rare' : popAtGrade <= 20 ? 'very_rare' : popAtGrade <= 100 ? 'rare' : popAtGrade <= 500 ? 'uncommon' : 'common';
+              return Response.json({
+                grade_requested: grade,
+                grading_company: 'PSA',
+                pop_at_grade: popAtGrade,
+                pop_higher: popHigher,
+                total_pop_all_grades: totalPop,
+                highest_grade_achieved: isHighestGraded ? grade : null,
+                scarcity_assessment: scarcity,
+                source_confidence: 'high',
+                notes: `Direct PSA cert lookup for #${certClean}`
+              });
+            }
           }
+        }
+      } catch (_) {}
+
+      // Fallback: use LLM with the cert number specifically to look up PSA cert page
+      try {
+        const certClean = cert_number.toString().replace(/\D/g, '');
+        const certResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Look up PSA cert number ${certClean} at https://www.psacard.com/cert/${certClean}
+          
+Return the EXACT data shown on that page:
+- pop_at_grade: the "Population" number shown
+- pop_higher: the "Pop Higher" number shown (0 if it shows 0, NOT null)
+- Grade shown on cert
+- Card title/description
+
+If the page shows Population=1 and Pop Higher=0, that means this is the single highest graded copy.
+
+Return JSON: pop_at_grade, pop_higher, grade_on_cert, card_description, source_confidence ("high" if found page)`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              pop_at_grade: { type: ["number", "null"] },
+              pop_higher: { type: ["number", "null"] },
+              grade_on_cert: { type: ["string", "null"] },
+              card_description: { type: ["string", "null"] },
+              source_confidence: { type: "string" }
+            }
+          },
+          model: 'gemini_3_flash',
+        });
+
+        if (certResult?.pop_at_grade !== null && certResult?.pop_at_grade !== undefined) {
+          const p = certResult.pop_at_grade;
+          const ph = certResult.pop_higher;
+          const scarcity = p <= 4 ? 'ultra_rare' : p <= 20 ? 'very_rare' : p <= 100 ? 'rare' : p <= 500 ? 'uncommon' : 'common';
+          return Response.json({
+            grade_requested: grade,
+            grading_company: 'PSA',
+            pop_at_grade: p,
+            pop_higher: ph,
+            total_pop_all_grades: p + (ph || 0),
+            highest_grade_achieved: ph === 0 ? grade : null,
+            scarcity_assessment: scarcity,
+            source_confidence: certResult.source_confidence || 'medium',
+            notes: `PSA cert #${certClean} lookup`
+          });
         }
       } catch (_) {}
     }
