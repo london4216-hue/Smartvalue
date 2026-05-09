@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ValueDriversList from './ValueDriversList';
 import CompEvidence from './CompEvidence';
+import PriceHistoryChart from './PriceHistoryChart';
 
 // Lazy-load heavy sub-components — they are below the fold and not needed on first paint
 const BestBuyModal = lazy(() => import('./BestBuyModal'));
@@ -307,6 +308,11 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
             </Suspense>
           </div>
         </div>
+      )}
+
+      {/* Price History Chart */}
+      {result._similar_comps?.length > 1 && (
+        <PriceHistoryChart comps={result._similar_comps} aiValue={result.ai_investment_value} />
       )}
 
       {/* Comparable Sales */}
