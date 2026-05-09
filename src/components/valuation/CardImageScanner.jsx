@@ -17,11 +17,6 @@ async function analyzeCardImage(file) {
 
 CARD IDENTIFICATION: player(required), set, year, parallel, card_number, rookie(bool/null), grade_company(PSA/BGS/SGC/CGC/null), grade_value, serial_number(number only e.g. 45 for /45), has_autograph(bool), auto_type(on_card|sticker|unknown|null)
 
-CERT NUMBER (CRITICAL): Look carefully on the PSA/BGS/SGC label for the certification number.
-- PSA cert: usually 8-9 digits printed on the label (e.g. "12345678" or "123456789")
-- BGS cert: usually 7-9 digits on the Beckett label
-- cert_number: extract ONLY the numeric cert/certification number, null if not visible
-
 GRADING ASSESSMENT — score each of the 4 PSA/BGS grading categories on a 1–10 scale:
 - centering_score: 1-10 (10=perfectly centered, 5=moderate off-center, 1=severely miscut)
 - centering_note: 1 short sentence describing what you see
@@ -48,7 +43,6 @@ OVERALL: eye_appeal_grade(A/B/C/D — A=gem mint, B=excellent, C=good, D=poor), 
         serial_number:       { type: ["string", "null"] },
         has_autograph:       { type: ["boolean", "null"] },
         auto_type:           { type: ["string", "null"] },
-        cert_number:         { type: ["string", "null"] },
         centering_score:     { type: ["number", "null"] },
         centering_note:      { type: ["string", "null"] },
         corners_score:       { type: ["number", "null"] },
@@ -68,33 +62,18 @@ OVERALL: eye_appeal_grade(A/B/C/D — A=gem mint, B=excellent, C=good, D=poor), 
     throw new Error("Couldn't identify a card in this image. Try a clearer photo.");
   }
 
-  // If we got a cert number, look it up for accurate card data + pop
-  let certData = null;
-  if (extraction.cert_number) {
-    try {
-      const certResp = await base44.functions.invoke('lookupCertNumber', {
-        cert_number: extraction.cert_number,
-        grader: extraction.grade_company || null,
-      });
-      if (certResp?.data && !certResp.data.error) {
-        certData = certResp.data;
-      }
-    } catch (_) {}
-  }
-
   // Build the same shape as extractCardFromUrl returns
-  const gradeStr = (certData?.grade) ||
-    (extraction.grade_company && extraction.grade_value
-      ? `${extraction.grade_company} ${extraction.grade_value}`
-      : null);
+  const gradeStr = extraction.grade_company && extraction.grade_value
+    ? `${extraction.grade_company} ${extraction.grade_value}`
+    : null;
 
   const result = {
-    player_name: certData?.player_name || extraction.player,
-    card_year: certData?.card_year || extraction.year || null,
-    card_set: certData?.card_set || extraction.set || null,
-    card_number: certData?.card_number || extraction.card_number || null,
-    variation: certData?.variation || extraction.parallel || null,
-    serial_number: certData?.serial_number || extraction.serial_number || null,
+    player_name: extraction.player,
+    card_year: extraction.year || null,
+    card_set: extraction.set || null,
+    card_number: extraction.card_number || null,
+    variation: extraction.parallel || null,
+    serial_number: extraction.serial_number || null,
     grade: gradeStr || null,
     is_rookie_year: extraction.rookie || false,
     has_autograph: extraction.has_autograph || false,
@@ -102,9 +81,6 @@ OVERALL: eye_appeal_grade(A/B/C/D — A=gem mint, B=excellent, C=good, D=poor), 
     _auto_type_uncertain: extraction.auto_type === 'unknown',
     has_patch: false,
     image_url: file_url,
-    cert_number: extraction.cert_number || null,
-    cert_source: certData?.source || null,
-    cert_url: certData?.cert_url || null,
     comp_value: null,
     cheapest_available: null,
     ai_grade_assessment: {
