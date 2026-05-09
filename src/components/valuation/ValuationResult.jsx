@@ -149,6 +149,11 @@ export default function ValuationResult({ result, onSave, onReset }) {
             {result.serial_number && (
               <span className="inline-flex items-center bg-purple-500/10 border border-purple-500/30 text-purple-600 text-[10px] font-bold px-2 py-0.5 rounded-full">/{result.serial_number}</span>
             )}
+            {result._pop_report?.pop_at_grade != null && result.grade && (
+              <span className="inline-flex items-center gap-1 bg-orange-500/10 border border-orange-500/30 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                Pop {result._pop_report.pop_at_grade}
+              </span>
+            )}
             {result.has_autograph && (
               <span className="inline-flex items-center bg-blue-500/10 border border-blue-500/30 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
                 {result.is_sticker_auto ? '🏷 Sticker Auto' : '✍️ On-Card Auto'}
