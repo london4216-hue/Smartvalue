@@ -118,61 +118,22 @@ Return JSON only.`;
     const res1 = v1.status === 'fulfilled' ? v1.value : null;
     const res2 = v2.status === 'fulfilled' ? v2.value : null;
 
-    // Check for critical disagreements between models
-    const criticalDisagreement = res1 && res2 && (
-      res1.player_name !== res2.player_name ||
-      res1.grade !== res2.grade ||
-      res1.serial_number !== res2.serial_number ||
-      res1.variation !== res2.variation
-    );
-
-    let judged = null;
-    if (criticalDisagreement) {
-      try {
-        judged = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `You are a sports card data expert judge. Two AI validators disagreed on this card's data. Pick the correct answer.
-
-ORIGINAL CARD DATA: ${JSON.stringify(cardData)}
-
-VALIDATOR A said: ${JSON.stringify({ player_name: res1.player_name, grade: res1.grade, variation: res1.variation, serial_number: res1.serial_number, card_year: res1.card_year, card_set: res1.card_set })}
-VALIDATOR B said: ${JSON.stringify({ player_name: res2.player_name, grade: res2.grade, variation: res2.variation, serial_number: res2.serial_number, card_year: res2.card_year, card_set: res2.card_set })}
-
-For each field, choose the most accurate value based on the original data and your knowledge of sports cards.
-Correct any errors you see. Return your verdict as JSON.`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              player_name: { type: "string" },
-              card_year: { type: ["string", "null"] },
-              card_set: { type: ["string", "null"] },
-              grade: { type: ["string", "null"] },
-              variation: { type: ["string", "null"] },
-              serial_number: { type: ["string", "null"] },
-              is_rookie_year: { type: "boolean" },
-              has_autograph: { type: "boolean" },
-              has_patch: { type: "boolean" },
-            }
-          },
-          model: 'gemini_3_1_pro',
-        });
-      } catch (_) {}
-    }
-
-    // Use judge verdict for disputed fields, consensus for agreed fields
-    const pick = (field, a, b) => judged?.[field] ?? (a === b ? a : null) ?? a ?? b;
+    // No sequential judge — pick the best answer from parallel results immediately.
+    // For each field: if both agree, use that. If not, prefer the non-null / more specific value.
+    const pick = (a, b) => (a === b ? a : null) ?? a ?? b;
     const validationResult = {
       is_valid: (res1?.is_valid ?? true) && (res2?.is_valid ?? true),
-      player_name: judged?.player_name ?? res1?.player_name ?? res2?.player_name,
-      card_year:   pick('card_year',   res1?.card_year,   res2?.card_year),
-      card_set:    pick('card_set',    res1?.card_set,    res2?.card_set),
-      grade:       pick('grade',       res1?.grade,       res2?.grade),
-      variation:   pick('variation',   res1?.variation,   res2?.variation),
-      serial_number: pick('serial_number', res1?.serial_number, res2?.serial_number),
-      is_rookie_year: judged?.is_rookie_year ?? res1?.is_rookie_year ?? res2?.is_rookie_year ?? false,
-      has_autograph:  judged?.has_autograph  ?? res1?.has_autograph  ?? res2?.has_autograph  ?? false,
-      has_patch:      judged?.has_patch      ?? res1?.has_patch      ?? res2?.has_patch      ?? false,
+      player_name: res1?.player_name ?? res2?.player_name,
+      card_year:   pick(res1?.card_year,   res2?.card_year),
+      card_set:    pick(res1?.card_set,    res2?.card_set),
+      grade:       pick(res1?.grade,       res2?.grade),
+      variation:   pick(res1?.variation,   res2?.variation),
+      serial_number: pick(res1?.serial_number, res2?.serial_number),
+      is_rookie_year: res1?.is_rookie_year ?? res2?.is_rookie_year ?? false,
+      has_autograph:  res1?.has_autograph  ?? res2?.has_autograph  ?? false,
+      has_patch:      res1?.has_patch      ?? res2?.has_patch      ?? false,
       warnings: [...(res1?.warnings || []), ...(res2?.warnings || []).filter(w => !(res1?.warnings || []).includes(w))],
-      confidence: criticalDisagreement ? (judged ? 'high' : 'low') : ((res1?.confidence === 'high' && res2?.confidence === 'high') ? 'high' : 'medium'),
+      confidence: (res1?.confidence === 'high' && res2?.confidence === 'high') ? 'high' : 'medium',
       suggestions: res1?.suggestions || res2?.suggestions || [],
     };
 
