@@ -364,6 +364,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 cardYear={result.card_year}
                 cardSet={result.card_set}
                 prefetchedData={result._pop_report}
+                certNumber={result.cert_number || null}
               />
             </div>
           )}

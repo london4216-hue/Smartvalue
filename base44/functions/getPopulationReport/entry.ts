@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { player_name, card_year, card_set, grade } = await req.json();
+    const { player_name, card_year, card_set, grade, cert_number } = await req.json();
 
     if (!player_name || !grade) {
       return Response.json({
@@ -12,7 +12,44 @@ Deno.serve(async (req) => {
     }
 
     const gradeCompany = grade.toUpperCase().startsWith('BGS') ? 'BGS' : grade.toUpperCase().startsWith('SGC') ? 'SGC' : 'PSA';
-    const gradeNumber = grade.replace(/[^0-9.]/g, '').trim();
+
+    // If we have a cert number, try direct PSA API lookup first
+    if (cert_number && gradeCompany === 'PSA') {
+      try {
+        const certClean = cert_number.toString().replace(/\D/g, '');
+        const psaRes = await fetch(`https://api.psacard.com/publicapi/cert/GetByCertNumber/${certClean}`, {
+          headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (psaRes.ok) {
+          const psaData = await psaRes.json();
+          const cert = psaData?.PSACert || psaData;
+          if (cert?.CardGrade) {
+            // PSA cert endpoint gives us card info; use web search for pop numbers
+            const popResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: `Look up the PSA population report for: ${player_name} ${card_year || ''} ${card_set || ''} ${grade}
+Search psacard.com/pop for the exact current pop numbers.
+Return JSON: pop_at_grade, total_pop_all_grades, scarcity_assessment (ultra_rare/very_rare/rare/uncommon/common), grader_breakdown {PSA, BGS, SGC}, highest_grade_achieved, source_confidence, notes`,
+              add_context_from_internet: true,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  pop_at_grade: { type: "number" },
+                  total_pop_all_grades: { type: "number" },
+                  pop_percentage: { type: "number" },
+                  highest_grade_achieved: { type: "string" },
+                  scarcity_assessment: { type: "string" },
+                  grader_breakdown: { type: "object", properties: { PSA: { type: "number" }, BGS: { type: "number" }, SGC: { type: "number" } } },
+                  source_confidence: { type: "string" },
+                  notes: { type: "string" }
+                }
+              },
+              model: 'gemini_3_flash',
+            });
+            return Response.json({ ...popResult, grade_requested: grade, grading_company: 'PSA' });
+          }
+        }
+      } catch (_) {}
+    }
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Look up the LIVE current population report for this sports card on the ${gradeCompany} registry website.

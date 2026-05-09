@@ -12,7 +12,7 @@ const SCARCITY_CONFIG = {
   common: { color: 'text-muted-foreground', bg: 'bg-secondary/50 border-border/30', icon: '📋' }
 };
 
-export default function PopulationReport({ playerName, grade, cardYear, cardSet, prefetchedData }) {
+export default function PopulationReport({ playerName, grade, cardYear, cardSet, prefetchedData, certNumber }) {
   const [loading, setLoading] = useState(!prefetchedData && !!playerName && !!grade);
   const [popData, setPopData] = useState(prefetchedData || null);
   const [error, setError] = useState(null);
@@ -28,6 +28,7 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
               card_year: cardYear || '',
               card_set: cardSet || '',
               grade: grade,
+              cert_number: certNumber || null,
             });
             setPopData({ ...response.data, grade_requested: grade });
           } catch (_) {
@@ -53,8 +54,9 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
           card_year: cardYear || '',
           card_set: cardSet || '',
           grade: grade,
+          cert_number: certNumber || null,
         });
-        setPopData(response.data);
+        setPopData({ ...response.data, grade_requested: grade });
       } catch (err) {
         setError(err.message);
       } finally {
