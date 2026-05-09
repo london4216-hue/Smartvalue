@@ -45,6 +45,20 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'player_name is required' }, { status: 400 });
     }
 
+    // Fast-path: if data looks clean (has player + year + set), skip LLM and return immediately
+    const hasCleanData = cardData.player_name && cardData.card_year && cardData.card_set;
+    const hasGrade = !cardData.grade || /^(PSA|BGS|SGC|CGC|Raw)\s*[\d.]*$/i.test((cardData.grade || '').trim());
+    if (hasCleanData && hasGrade) {
+      const colorMatch = detectTeamColorMatch(cardData.player_name, cardData.variation);
+      return Response.json({
+        ...cardData,
+        color_matches_team: colorMatch,
+        _validation_confidence: 'high',
+        _validation_warnings: [],
+        _validation_suggestions: [],
+      });
+    }
+
     // VALIDATION LAYER: Run strict LLM re-check on extracted card data
     const validationResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `You are a sports card data validator. A card extraction function returned this data. Your job is to validate and fix it.

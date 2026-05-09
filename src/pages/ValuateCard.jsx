@@ -180,48 +180,50 @@ export default function ValuateCard() {
       enrichedCardData._comp_tier = 'exact_match';
       enrichedCardData._comp_notes = 'User-entered real last sold price — locked in as comp anchor.';
     } else {
-      // STEP 1 + 2 IN PARALLEL: validate card data AND fetch comp simultaneously
-      const [validationResult, compResult] = await Promise.allSettled([
-        base44.functions.invoke('validateCardData', cardData),
-        fetchRealComp(cardData),
-      ]);
+      // Fetch comp immediately — skip validateCardData when player_name already exists
+      // (URL/image extraction already used an LLM to clean the data)
+      const hasCleanData = cardData.player_name && cardData.card_year && cardData.card_set;
+      const compPromise = fetchRealComp(cardData);
+      const validationPromise = hasCleanData
+        ? Promise.resolve(null)
+        : base44.functions.invoke('validateCardData', cardData).catch(() => null);
 
-      // Apply validation if successful
-      if (validationResult.status === 'fulfilled' && validationResult.value?.data && !validationResult.value.data.error) {
-        enrichedCardData = { ...enrichedCardData, ...validationResult.value.data };
+      const [compResult, validationResult] = await Promise.all([compPromise, validationPromise]);
+
+      // Apply validation only if it ran and succeeded
+      if (validationResult?.data && !validationResult.data.error) {
+        enrichedCardData = { ...enrichedCardData, ...validationResult.data };
       }
 
       // Apply comp if successful
-      if (compResult.status === 'fulfilled') {
-        const compData = compResult.value;
-        if (compData.comp_value && compData.comp_value > 0) {
-          enrichedCardData = {
-            ...enrichedCardData,
-            comp_value: compData.comp_value,
-            cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
-            _comp_sale_date: compData.sale_date || null,
-            _comp_confidence: compData.confidence || 'medium',
-            _comp_notes: compData.notes || '',
-            _comp_tier: compData.tier || null,
-            _similar_comps: compData.similar_comps || [],
-            last_sold_url: compData.last_sold_url || null,
-            _comp_match_confidence: compData.match_confidence ?? null,
-            _comp_anomaly_flag: compData.anomaly_flag || false,
-            _comp_anomaly_reason: compData.anomaly_reason || null,
-            _ebay_search_url: compData._ebay_search_url || null,
-            _smart_value_hint: compData._smart_value_hint || null,
-            _anchor_source: compData._anchor_source || null,
-            _value_drivers: compData._value_drivers || [],
-            _identity: compData._identity || null,
-          };
-        } else {
-          enrichedCardData = {
-            ...enrichedCardData,
-            _comp_tier: compData.tier || 'no_comp_conservative_estimate',
-            _comp_notes: compData.notes || '',
-            _similar_comps: compData.similar_comps || [],
-          };
-        }
+      const compData = compResult;
+      if (compData?.comp_value && compData.comp_value > 0) {
+        enrichedCardData = {
+          ...enrichedCardData,
+          comp_value: compData.comp_value,
+          cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
+          _comp_sale_date: compData.sale_date || null,
+          _comp_confidence: compData.confidence || 'medium',
+          _comp_notes: compData.notes || '',
+          _comp_tier: compData.tier || null,
+          _similar_comps: compData.similar_comps || [],
+          last_sold_url: compData.last_sold_url || null,
+          _comp_match_confidence: compData.match_confidence ?? null,
+          _comp_anomaly_flag: compData.anomaly_flag || false,
+          _comp_anomaly_reason: compData.anomaly_reason || null,
+          _ebay_search_url: compData._ebay_search_url || null,
+          _smart_value_hint: compData._smart_value_hint || null,
+          _anchor_source: compData._anchor_source || null,
+          _value_drivers: compData._value_drivers || [],
+          _identity: compData._identity || null,
+        };
+      } else if (compData) {
+        enrichedCardData = {
+          ...enrichedCardData,
+          _comp_tier: compData.tier || 'no_comp_conservative_estimate',
+          _comp_notes: compData.notes || '',
+          _similar_comps: compData.similar_comps || [],
+        };
       }
     }
 

@@ -179,31 +179,28 @@ Deno.serve(async (req) => {
     let scrapedPrice = 0;
     let scrapedImage = '';
 
+    // Fetch eBay page with a tight timeout to avoid hanging
     if (itemId) {
      try {
         const res = await fetch(`https://www.ebay.com/itm/${itemId}`, {
-         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0' }
+         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0' },
+         signal: AbortSignal.timeout(5000),
        });
        if (res.ok) {
          const html = await res.text();
          if (!html.includes('Access Denied') && html.length > 500) {
-           // Try multiple title sources
            const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<]+)["']/i)
              || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
              || html.match(/"title"\s*:\s*"([^"]+)"/i)
              || html.match(/<title>([^<]+)<\/title>/i);
            if (titleMatch) scrapedTitle = titleMatch[1].replace(/ \| eBay.*$/i, '').trim();
 
-           // Extract description which often has set/year/details
            const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"'<]+)["']/i);
            const description = descMatch ? descMatch[1].trim() : '';
-           
-           // Combine title + description for better LLM context
            if (description && !scrapedTitle.toLowerCase().includes(description.toLowerCase().split(' ')[0])) {
              scrapedTitle = scrapedTitle + ' ' + description.substring(0, 200);
            }
 
-           // Try multiple patterns to extract asking price
            const pricePatterns = [
              /["']currentPrice["']\s*:\s*["']?\$?([\d,]+(?:\.\d{2})?)/i,
              /["']convertedCurrentPrice["']\s*:\s*["']?\$?([\d,]+(?:\.\d{2})?)/i,
@@ -213,26 +210,19 @@ Deno.serve(async (req) => {
              /"price"\s*:\s*"?\$?([\d,]+(?:\.\d{2})?)"/i,
              /\$\s*([\d,]+(?:\.\d{2})?)</i
            ];
-           
            for (const pattern of pricePatterns) {
              const priceMatch = html.match(pattern);
              if (priceMatch) {
                const price = parseFloat(priceMatch[1].replace(/,/g, ''));
-               if (price > 0 && price < 1000000) { // sanity check
-                 scrapedPrice = price;
-                 break;
-               }
+               if (price > 0 && price < 1000000) { scrapedPrice = price; break; }
              }
            }
 
-           // Try to find sold prices / comps
            const soldMatch = html.match(/sold for\s*\$?\s*([\d,]+(?:\.\d{2})?)/i)
              || html.match(/sold\s+\$\s*([\d,]+(?:\.\d{2})?)/i);
            if (soldMatch) {
              const soldPrice = parseFloat(soldMatch[1].replace(/,/g, ''));
-             if (soldPrice > 0) {
-               scrapedPrice = soldPrice; // If we find a sold price, use it for asking
-             }
+             if (soldPrice > 0) scrapedPrice = soldPrice;
            }
 
            const imgMatch = html.match(/https:\/\/i\.ebayimg\.com\/images\/g\/[^"'\s\\]+\/s-l[0-9]+\.(jpg|webp)/i);
@@ -389,7 +379,7 @@ Return JSON only.`,
     result._ask_type = 'buy_it_now';
     result.image_url = scrapedImage || imageFromHash || null;
 
-    // Eye Appeal Assessment — centering & corners ONLY (spec: not a grading company)
+    // Eye Appeal Assessment — runs in parallel, don't await until needed
     const gradePromise = result.image_url
       ? base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: `You are analyzing a sports card image for EYE APPEAL only — centering and corner wear.
