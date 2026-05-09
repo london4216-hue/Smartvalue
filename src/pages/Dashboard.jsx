@@ -2,26 +2,31 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Zap, CheckCircle2, Target, TrendingUp, Clock, Shield, Search, AlertCircle, TrendingDown, Flame } from 'lucide-react';
+import { memo, useMemo } from 'react';
+import { Sparkles, ArrowRight, Zap, Target, TrendingUp, Clock, Shield, Search, AlertCircle, TrendingDown, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ScoreGauge from '@/components/valuation/ScoreGauge';
 // ── Portfolio summary stats ───────────────────────────────────────────────────
-function ValuationSummary({ cards }) {
-  const portfolioCards = cards.filter(c => c.in_portfolio);
-  const totalValue = portfolioCards.reduce((s, c) => s + (c.ai_investment_value || 0), 0);
-  const avgScore = portfolioCards.length > 0
-    ? Math.round(portfolioCards.reduce((s, c) => s + (c.overall_score || 0), 0) / portfolioCards.length)
-    : 0;
+const ValuationSummary = memo(function ValuationSummary({ cards }) {
+  const { portfolioCards, totalValue, avgScore, stats } = useMemo(() => {
+    const pc = cards.filter(c => c.in_portfolio);
+    const tv = pc.reduce((s, c) => s + (c.ai_investment_value || 0), 0);
+    const as = pc.length > 0 ? Math.round(pc.reduce((s, c) => s + (c.overall_score || 0), 0) / pc.length) : 0;
+    return {
+      portfolioCards: pc,
+      totalValue: tv,
+      avgScore: as,
+      stats: [
+        { label: "Portfolio Cards",      value: pc.length,                       mono: false },
+        { label: "Total AI Value",       value: `$${tv.toLocaleString()}`,       mono: true  },
+        { label: "Avg Investment Score", value: `${as}/100`,                     mono: true  },
+        { label: "Total Valuations",     value: cards.length,                    mono: false },
+      ],
+    };
+  }, [cards]);
 
   if (portfolioCards.length === 0) return null;
-
-  const stats = [
-    { label: "Portfolio Cards",       value: portfolioCards.length,              mono: false },
-    { label: "Total AI Value",        value: `$${totalValue.toLocaleString()}`,  mono: true  },
-    { label: "Avg Investment Score",  value: `${avgScore}/100`,                  mono: true  },
-    { label: "Total Valuations",      value: cards.length,                       mono: false },
-  ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
@@ -39,10 +44,10 @@ function ValuationSummary({ cards }) {
       ))}
     </div>
   );
-}
+});
 
 // ── CTA banner ────────────────────────────────────────────────────────────────
-function CTABanner() {
+const CTABanner = memo(function CTABanner() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -64,7 +69,7 @@ function CTABanner() {
       </Link>
     </motion.div>
   );
-}
+});
 
 // ── Recent card row ───────────────────────────────────────────────────────────
 const REC_COLORS = {
@@ -248,6 +253,7 @@ export default function Dashboard() {
     queryKey: ['card-valuations'],
     queryFn: () => base44.entities.CardValuation.list('-created_date', 50),
     initialData: [],
+    staleTime: 60_000,
   });
 
   return (

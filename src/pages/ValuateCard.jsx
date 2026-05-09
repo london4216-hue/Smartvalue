@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -299,7 +299,7 @@ export default function ValuateCard() {
     setLoadingPhase(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     await base44.entities.CardValuation.create({
       player_name: result.player_name,
       card_year: result.card_year || '',
@@ -317,12 +317,12 @@ export default function ValuateCard() {
       in_portfolio: true,
     });
     toast({ title: "Saved to Portfolio", description: `${result.player_name} card has been added to your portfolio.` });
-  };
+  }, [result, toast]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setResult(null);
     setCardInput(null);
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

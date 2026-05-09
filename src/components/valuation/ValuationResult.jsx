@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp, TrendingDown, Minus, ArrowRight, Bookmark,
@@ -7,12 +7,13 @@ import {
   Search, ShoppingCart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import BestBuyModal from './BestBuyModal';
 import ValueDriversList from './ValueDriversList';
-import ContextualSignals from './ContextualSignals';
-import PlayerActivityInsights from './PlayerActivityInsights';
-import PopulationReport from './PopulationReport';
 import CompEvidence from './CompEvidence';
+
+// Lazy-load heavy sub-components — they are below the fold and not needed on first paint
+const BestBuyModal = lazy(() => import('./BestBuyModal'));
+const ContextualSignals = lazy(() => import('./ContextualSignals'));
+const PlayerActivityInsights = lazy(() => import('./PlayerActivityInsights'));
 
 const REC = {
   strong_buy:  { label: 'Strong Buy',  color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/30',  icon: TrendingUp },
@@ -31,12 +32,13 @@ function formatDate(str) {
   } catch (_) { return str; }
 }
 
-function Accordion({ title, children, defaultOpen = false }) {
+const Accordion = memo(function Accordion({ title, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const toggle = useCallback(() => setOpen(o => !o), []);
   return (
     <div className="border border-border/50 rounded-2xl overflow-hidden">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={toggle}
         className="w-full flex items-center justify-between px-5 py-4 bg-card hover:bg-secondary/30 transition-colors"
       >
         <span className="text-sm font-semibold text-foreground">{title}</span>
@@ -59,47 +61,52 @@ function Accordion({ title, children, defaultOpen = false }) {
       </AnimatePresence>
     </div>
   );
-}
+});
 
-export default function ValuationResult({ result, onSave, onReset }) {
+const ValuationResult = memo(function ValuationResult({ result, onSave, onReset }) {
   const [showBestBuy, setShowBestBuy] = useState(false);
 
   const rec = REC[result.flip_vs_hold] || REC.hold;
   const RecIcon = rec.icon;
 
-  const compValue = result.comp_value || 0;
-  const aiValue   = result.ai_investment_value || 0;
-  const valueDiff = compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null;
+  const compValue = useMemo(() => result.comp_value || 0, [result.comp_value]);
+  const aiValue   = useMemo(() => result.ai_investment_value || 0, [result.ai_investment_value]);
+  const valueDiff = useMemo(() => compValue > 0 ? ((aiValue - compValue) / compValue * 100).toFixed(1) : null, [compValue, aiValue]);
   const cheapest  = result.cheapest_available || null;
-  const cheapestVsAi = cheapest && aiValue > 0 ? ((cheapest - aiValue) / aiValue * 100) : null;
+  const cheapestVsAi = useMemo(() => cheapest && aiValue > 0 ? ((cheapest - aiValue) / aiValue * 100) : null, [cheapest, aiValue]);
 
-  // Card identity line
-  const identityLine = [result.card_year, result.card_set, result.variation, result.grade]
-    .filter(Boolean).join(' · ');
-
-  // eBay URLs
-  const ebayParts = encodeURIComponent(
-    [result.player_name, result.card_year, result.card_set, result.variation,
-      result.serial_number ? `/${result.serial_number}` : null, result.grade].filter(Boolean).join(' ')
+  const identityLine = useMemo(() =>
+    [result.card_year, result.card_set, result.variation, result.grade].filter(Boolean).join(' · '),
+    [result.card_year, result.card_set, result.variation, result.grade]
   );
-  const ebaySoldUrl   = `https://www.ebay.com/sch/i.html?_nkw=${ebayParts}&LH_Sold=1&LH_Complete=1`;
-  const ebayBuyUrl    = `https://www.ebay.com/sch/i.html?_nkw=${ebayParts}&LH_BIN=1&LH_ItemCondition=1000`;
 
-  // Risk flags
-  const isGem       = compValue > 0 && aiValue > 0 && (aiValue - compValue) / compValue >= 1.0;
-  const isBust      = result.bust_risk;
-  const isTreasure  = result.possible_treasure;
+  const { ebaySoldUrl, ebayBuyUrl } = useMemo(() => {
+    const parts = encodeURIComponent(
+      [result.player_name, result.card_year, result.card_set, result.variation,
+        result.serial_number ? `/${result.serial_number}` : null, result.grade].filter(Boolean).join(' ')
+    );
+    return {
+      ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${parts}&LH_Sold=1&LH_Complete=1`,
+      ebayBuyUrl:  `https://www.ebay.com/sch/i.html?_nkw=${parts}&LH_BIN=1&LH_ItemCondition=1000`,
+    };
+  }, [result.player_name, result.card_year, result.card_set, result.variation, result.serial_number, result.grade]);
+
+  const isGem      = useMemo(() => compValue > 0 && aiValue > 0 && (aiValue - compValue) / compValue >= 1.0, [compValue, aiValue]);
+  const isBust     = result.bust_risk;
+  const isTreasure = result.possible_treasure;
   const overpricedPct = cheapestVsAi;
 
-  // Card attributes for the collapsed section
-  const attrs = [
-    { label: 'Year',   value: result.card_year },
-    { label: 'Set',    value: result.card_set },
-    { label: 'Grade',  value: result.grade },
+  const attrs = useMemo(() => [
+    { label: 'Year',     value: result.card_year },
+    { label: 'Set',      value: result.card_set },
+    { label: 'Grade',    value: result.grade },
     { label: 'Parallel', value: result.variation },
-    { label: 'Serial', value: result.serial_number ? `/${result.serial_number}` : null },
-    { label: 'Card #', value: result.card_number },
-  ].filter(a => a.value);
+    { label: 'Serial',   value: result.serial_number ? `/${result.serial_number}` : null },
+    { label: 'Card #',   value: result.card_number },
+  ].filter(a => a.value), [result.card_year, result.card_set, result.grade, result.variation, result.serial_number, result.card_number]);
+
+  const handleOpenBestBuy  = useCallback(() => setShowBestBuy(true), []);
+  const handleCloseBestBuy = useCallback(() => setShowBestBuy(false), []);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 pb-10">
@@ -283,17 +290,21 @@ export default function ValuationResult({ result, onSave, onReset }) {
             <span className="text-sm font-semibold text-foreground">📈 Market Activity</span>
           </div>
           <div className="px-5 pb-5 pt-3 space-y-4">
-            <PlayerActivityInsights
-              playerName={result.player_name}
-              cardYear={result.card_year}
-              prefetchedData={result._player_activity}
-            />
-            <ContextualSignals
-              playerName={result.player_name}
-              cardYear={result.card_year}
-              cardSet={result.card_set}
-              prefetchedData={result._market_signals}
-            />
+            <Suspense fallback={null}>
+              <PlayerActivityInsights
+                playerName={result.player_name}
+                cardYear={result.card_year}
+                prefetchedData={result._player_activity}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <ContextualSignals
+                playerName={result.player_name}
+                cardYear={result.card_year}
+                cardSet={result.card_set}
+                prefetchedData={result._market_signals}
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -383,18 +394,22 @@ export default function ValuationResult({ result, onSave, onReset }) {
         </Accordion>
       )}
 
-      <BestBuyModal
-        isOpen={showBestBuy}
-        onClose={() => setShowBestBuy(false)}
-        cardData={result}
-        aiValue={result.ai_investment_value}
-      />
+      {showBestBuy && (
+        <Suspense fallback={null}>
+          <BestBuyModal
+            isOpen={showBestBuy}
+            onClose={handleCloseBestBuy}
+            cardData={result}
+            aiValue={result.ai_investment_value}
+          />
+        </Suspense>
+      )}
 
       {/* ═══════════════════════════════════════════════════
           BOTTOM CTA ROW — always visible at end of page
       ══════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button onClick={() => setShowBestBuy(true)} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
+        <Button onClick={handleOpenBestBuy} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
           <Search className="w-3.5 h-3.5 mr-1.5" />
           Find Best Buy
         </Button>
@@ -409,4 +424,6 @@ export default function ValuationResult({ result, onSave, onReset }) {
       </div>
     </motion.div>
   );
-}
+});
+
+export default ValuationResult;
