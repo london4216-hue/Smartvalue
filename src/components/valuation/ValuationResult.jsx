@@ -168,7 +168,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           {compValue > 0 && (
             <div className="flex items-center justify-between bg-secondary/50 border border-border/50 rounded-xl px-3 py-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">Last Sold</span>
+                <span className="text-xs text-muted-foreground font-medium">Closest Sale to Today</span>
                 <span className="text-base font-black font-mono text-foreground">${compValue.toLocaleString()}</span>
                 {result._comp_sale_date && (
                   <span className="text-xs text-muted-foreground">· {formatDate(result._comp_sale_date)}</span>

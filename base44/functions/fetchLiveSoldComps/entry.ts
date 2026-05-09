@@ -70,7 +70,9 @@ For each listing:
 DISQUALIFY if ANY mismatch: different player, year, set, grade, grading company, parallel/variation, serial number, autograph status, patch/relic status, lot/bundle, reprint.
 When in doubt → EXCLUDE. Return only confident exact matches with match_confidence >= 70.
 
-Return up to 10 validated exact matches, sorted by sold_date descending (most recent first).
+TODAY'S DATE: ${new Date().toISOString().split('T')[0]}
+Sort ALL results by sold_date descending — the item with the sold_date CLOSEST to today must be first.
+Return up to 10 validated exact matches.
 
 HTML:
 ${html}`
@@ -121,7 +123,7 @@ ${html}`
     if (soldDate) {
       const saleAge = (Date.now() - new Date(soldDate).getTime()) / (1000 * 60 * 60 * 24);
       if (saleAge > 365) {
-        recencyWarning = `Most recent exact match is ${Math.round(saleAge / 30)} months old — no newer sale found.`;
+        recencyWarning = `Closest sale found is ${Math.round(saleAge / 30)} months ago — no more recent exact match found.`;
       }
     }
 
@@ -147,7 +149,7 @@ ${html}`
       match_confidence: best.match_confidence,
       confidence: best.match_confidence >= 90 ? 'high' : best.match_confidence >= 70 ? 'medium' : 'low',
       tier: 'exact_match',
-      notes: recencyWarning || `Exact match validated from ${validatedItems.length} sold listing(s).`,
+      notes: recencyWarning || `Closest sale to today validated from ${validatedItems.length} listing(s).`,
       anomaly_flag,
       anomaly_reason,
       similar_comps: validatedItems.slice(1, 6).map(i => ({
