@@ -99,55 +99,61 @@ Return JSON: pop_at_grade, pop_higher, grade_on_cert, card_description, source_c
       } catch (_) {}
     }
 
-    // Build a targeted PSA pop search URL for this card
-    const gradeNum = grade.replace(/[^\d.]/g, '').trim(); // e.g. "10" from "PSA 10"
-    const searchQuery = `site:psacard.com/pop "${player_name}" "${card_year || ''}" "${card_set || ''}" population`;
+    // Fetch PSA pop page directly and parse the table
+    let popData = null;
+    try {
+      const popUrl = `https://www.psacard.com/pop/basketball-cards/?search=${encodeURIComponent(player_name)} ${card_year || ''} ${card_set || ''}`;
+      const popRes = await fetch(popUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      
+      if (popRes.ok) {
+        const popHtml = await popRes.text();
+        // Extract table data from PSA pop page
+        if (popHtml.length > 500 && !popHtml.includes('No results')) {
+          popData = popHtml.substring(0, 25000); // Send first 25KB to LLM for parsing
+        }
+      }
+    } catch (_) {}
 
+    // Use LLM to parse PSA pop HTML with cross-check
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `You are a sports card data researcher. Look up the LIVE PSA population report for this exact card right now.
+      prompt: `You are a sports card data researcher verifying PSA population data. Your job is to extract EXACT numbers from official sources.
 
-CARD: ${player_name} ${card_year || ''} ${card_set || ''}
-GRADE WE CARE ABOUT: ${grade}
+CARD TO FIND: ${player_name} | Year: ${card_year || 'unknown'} | Set: ${card_set || 'unknown'} | Looking for grade: ${grade}
 
-STEP 1: Search the PSA population report at https://www.psacard.com/pop/basketball-cards/
-Search query: "${player_name} ${card_year || ''} ${card_set || ''}"
+${popData ? `I have the raw PSA pop page HTML. Parse it and find the table row for this exact card. Extract the grade columns:
+- Count at ${grade} → pop_at_grade
+- Sum of all grades HIGHER than ${grade} → pop_higher
+- Total across ALL grades → total_pop_all_grades
+- What is the maximum grade shown on that row? → highest_grade_achieved` : `
+No HTML provided — search PSA website directly at https://www.psacard.com/pop/basketball-cards/
+Search for "${player_name}" and find this exact card's row, then read all grade columns.`}
 
-STEP 2: Find the row for this exact card/parallel and read ALL grade columns:
-- How many copies graded at ${grade}? → pop_at_grade
-- How many copies graded HIGHER than ${grade}? (e.g. if grade is PSA 9, count all PSA 10s) → pop_higher  
-- What is the total across ALL grades? → total_pop_all_grades
-- What is the single highest grade any copy has received? → highest_grade_achieved
+CRITICAL:
+- Only return numbers you can VERIFY from PSA
+- pop_higher must be the SUM of all higher grades (not just one grade)
+- If no higher grades exist, pop_higher = 0
+- Source must say "psacard.com/pop" or "PSA official"
+- Do NOT estimate — if unsure, set source_confidence = "low"
 
-STEP 3: Also try searching: psacard.com/cert lookup for "${player_name} ${card_year || ''} ${card_set || ''}"
-
-CRITICAL RULES:
-- Return ONLY numbers you actually found on the PSA website. Do NOT estimate or guess.
-- If pop_higher = 0, that means this IS the highest graded copy in existence.
-- If you cannot find the card, set source_confidence = "low" and pop_at_grade = null.
-- Do NOT return 0 for pop_at_grade unless the PSA site literally shows 0.
-
-Return JSON with: pop_at_grade, pop_higher, total_pop_all_grades, highest_grade_achieved, scarcity_assessment (ultra_rare/very_rare/rare/uncommon/common), grader_breakdown {PSA, BGS, SGC}, source_confidence (high/medium/low), notes (include the URL you found the data at)`,
+Return JSON: pop_at_grade, pop_higher, total_pop_all_grades, highest_grade_achieved, scarcity_assessment, source_confidence (high/medium/low), source_url`,
+      file_urls: popData ? [] : [],
       response_json_schema: {
         type: "object",
         properties: {
-          grading_company: { type: "string" },
-          grade_requested: { type: "string" },
           pop_at_grade: { type: ["number", "null"] },
           pop_higher: { type: ["number", "null"] },
           total_pop_all_grades: { type: ["number", "null"] },
-          pop_percentage: { type: ["number", "null"] },
           highest_grade_achieved: { type: ["string", "null"] },
           scarcity_assessment: { type: "string" },
-          grader_breakdown: {
-            type: "object",
-            properties: {
-              PSA: { type: ["number", "null"] },
-              BGS: { type: ["number", "null"] },
-              SGC: { type: ["number", "null"] }
-            }
-          },
           source_confidence: { type: "string" },
-          notes: { type: "string" }
+          source_url: { type: ["string", "null"] },
+          notes: { type: ["string", "null"] }
         }
       },
       add_context_from_internet: true,
