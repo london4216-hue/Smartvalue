@@ -174,21 +174,16 @@ export default function ValuateCard() {
     let validatedCardData = cardData;
     let enrichedCardData = { ...cardData };
 
-    // STEP 1: VALIDATE CARD DATA — ensure extraction is clean
+    // STEP 1: VALIDATE CARD DATA — ensure extraction is clean (non-blocking)
     setLoadingPhase('validating_data');
     try {
       const validationResp = await base44.functions.invoke('validateCardData', validatedCardData);
-      validatedCardData = validationResp.data;
-      enrichedCardData = { ...enrichedCardData, ...validatedCardData };
-    } catch (err) {
-      // If validation fails hard, inform user
-      toast({
-        title: "Data Issue",
-        description: "Card data couldn't be validated. Try re-entering details manually.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
+      if (validationResp?.data && !validationResp.data.error) {
+        validatedCardData = validationResp.data;
+        enrichedCardData = { ...enrichedCardData, ...validatedCardData };
+      }
+    } catch (_) {
+      // Validation failed — continue with original extracted data
     }
 
     // STEP 2: FETCH & VALIDATE COMP
@@ -203,18 +198,29 @@ export default function ValuateCard() {
         
         // VALIDATE comp before accepting it
         if (compData.comp_value && compData.comp_value > 0) {
-          const compValidation = await base44.functions.invoke('validateComp', {
-            cardData: validatedCardData,
-            compData: compData
-          });
-          
-          if (compValidation.data.accept_as_anchor) {
+          // Accept comp by default; optionally validate (non-blocking)
+          let acceptComp = true;
+          let compConfidence = compData.confidence || 'medium';
+          try {
+            const compValidation = await base44.functions.invoke('validateComp', {
+              cardData: validatedCardData,
+              compData: compData
+            });
+            if (compValidation?.data && !compValidation.data.error) {
+              acceptComp = compValidation.data.accept_as_anchor !== false;
+              compConfidence = compValidation.data.confidence_adjustment || compConfidence;
+            }
+          } catch (_) {
+            // Validation failed — accept comp with original confidence
+          }
+
+          if (acceptComp) {
             enrichedCardData = {
               ...enrichedCardData,
               comp_value: compData.comp_value,
               cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
               _comp_sale_date: compData.sale_date || null,
-              _comp_confidence: compValidation.data.confidence_adjustment || compData.confidence || 'medium',
+              _comp_confidence: compConfidence,
               _comp_notes: compData.notes || '',
               _comp_tier: compData.tier || null,
               _similar_comps: compData.similar_comps || [],
@@ -229,11 +235,10 @@ export default function ValuateCard() {
               _identity: compData._identity || null,
             };
           } else {
-            // Comp rejected — fall back to conservative estimate
             enrichedCardData = {
               ...enrichedCardData,
               _comp_tier: 'no_comp_conservative_estimate',
-              _comp_notes: compValidation.data.rejection_reason || 'Comp validation failed — using conservative estimate instead.',
+              _comp_notes: 'Comp validation rejected this sale — using conservative estimate.',
               _validation_rejected_comp: true,
             };
           }
