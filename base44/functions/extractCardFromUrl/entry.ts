@@ -290,18 +290,48 @@ Extract:
         const id1 = r1.status === 'fulfilled' ? r1.value : null;
         const id2 = r2.status === 'fulfilled' ? r2.value : null;
 
-        // Reconcile: prefer the field that both models agree on; use GPT as tiebreaker for specifics
+        // Check if critical fields disagree between models
+        const criticalDisagreement = id1 && id2 && (
+          id1.player !== id2.player ||
+          id1.grade_value !== id2.grade_value ||
+          id1.serial_number !== id2.serial_number ||
+          id1.parallel !== id2.parallel
+        );
+
+        let judged = null;
+        if (criticalDisagreement) {
+          // Fire a 3rd judge model to pick the correct answer
+          try {
+            judged = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: `You are a sports card expert judge. Two AI models analyzed this listing and disagreed. Pick the most accurate answer for each field.
+
+ORIGINAL LISTING: "${scrapedTitle}"
+
+MODEL A said: ${JSON.stringify(id1)}
+MODEL B said: ${JSON.stringify(id2)}
+
+For each field, choose the answer that is most accurate based on the original listing text.
+If a field clearly appears in the listing, pick the correct value.
+If neither model got it right, correct it yourself.
+Return your best answer as JSON.`,
+              response_json_schema: cardIdSchema,
+              model: 'gemini_3_1_pro',
+              add_context_from_internet: false,
+            });
+          } catch (_) {}
+        }
+
+        const winner = judged || (id1 && id2 ? null : (id1 || id2));
         const reconciled = {
-          player:        id1?.player || id2?.player || null,
-          set:           id1?.set || id2?.set || null,
-          year:          id1?.year || id2?.year || null,
-          // For critical specifics (grade, serial, parallel) — both must agree or defer to GPT
-          parallel:      id1?.parallel === id2?.parallel ? id1?.parallel : (id2?.parallel || id1?.parallel || null),
-          card_number:   id1?.card_number || id2?.card_number || null,
-          rookie:        id1?.rookie ?? id2?.rookie ?? false,
-          grade_company: id1?.grade_company === id2?.grade_company ? id1?.grade_company : (id2?.grade_company || id1?.grade_company || null),
-          grade_value:   id1?.grade_value === id2?.grade_value ? id1?.grade_value : (id2?.grade_value || id1?.grade_value || null),
-          serial_number: id1?.serial_number === id2?.serial_number ? id1?.serial_number : (id2?.serial_number || id1?.serial_number || null),
+          player:        winner?.player        ?? id1?.player        ?? id2?.player        ?? null,
+          set:           winner?.set           ?? id1?.set           ?? id2?.set           ?? null,
+          year:          winner?.year          ?? id1?.year          ?? id2?.year          ?? null,
+          parallel:      winner?.parallel      ?? (id1?.parallel === id2?.parallel ? id1?.parallel : null) ?? id1?.parallel ?? id2?.parallel ?? null,
+          card_number:   winner?.card_number   ?? id1?.card_number   ?? id2?.card_number   ?? null,
+          rookie:        winner?.rookie        ?? id1?.rookie        ?? id2?.rookie        ?? false,
+          grade_company: winner?.grade_company ?? (id1?.grade_company === id2?.grade_company ? id1?.grade_company : null) ?? id1?.grade_company ?? id2?.grade_company ?? null,
+          grade_value:   winner?.grade_value   ?? (id1?.grade_value === id2?.grade_value ? id1?.grade_value : null)   ?? id1?.grade_value   ?? id2?.grade_value   ?? null,
+          serial_number: winner?.serial_number ?? (id1?.serial_number === id2?.serial_number ? id1?.serial_number : null) ?? id1?.serial_number ?? id2?.serial_number ?? null,
         };
 
         if (reconciled.player) {

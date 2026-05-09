@@ -215,14 +215,70 @@ RULES: Only real sold prices. No asking prices. No fabrication. If uncertain, lo
       }
     }
 
-    // Flag if models disagree significantly
+    // If models disagree significantly on price — fire a judge model to resolve it
     if (crossCheckDisagrees && crossItems.length > 0) {
       const crossPrice = crossItems[0].sold_price;
       const disagreePct = Math.abs(crossPrice - soldPrice) / Math.max(soldPrice, 1) * 100;
-      if (disagreePct > 30) {
-        anomaly_flag = true;
-        anomaly_reason = (anomaly_reason ? anomaly_reason + ' ' : '') +
-          `AI cross-check found different price ($${crossPrice.toLocaleString()} vs $${soldPrice.toLocaleString()}) — verify manually.`;
+      if (disagreePct > 25) {
+        try {
+          const judgeResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: `You are a sports card market data judge. Two AI models found different recent sold prices for the same card and you must determine which is more accurate.
+
+CARD: ${cardDescription}
+TODAY: ${new Date().toISOString().split('T')[0]}
+
+MODEL A found: $${soldPrice} sold on ${best.sold_date || 'unknown'} — listing: "${best.title || ''}"
+MODEL B found: $${crossPrice} sold on ${crossItems[0].sold_date || 'unknown'} — listing: "${crossItems[0].title || ''}"
+
+Evaluate:
+1. Which price is more likely to be a real, recent, exact-match sale for this card?
+2. Are both possibly valid (different recent sales)?
+3. Is either one likely an error (wrong card, wrong grade, lot, etc)?
+
+Return your verdict.`,
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                correct_price: { type: 'number' },
+                correct_date: { type: ['string', 'null'] },
+                reasoning: { type: 'string' },
+                confidence: { type: 'number' },
+              }
+            },
+            model: 'gemini_3_1_pro',
+            add_context_from_internet: true,
+          });
+
+          if (judgeResult?.correct_price > 0) {
+            // Override with judge's verdict
+            const judgePrice = judgeResult.correct_price;
+            const originalBestIndex = validatedItems.findIndex(i =>
+              Math.abs(i.sold_price - judgePrice) / Math.max(judgePrice, 1) < 0.10
+            );
+            if (originalBestIndex >= 0) {
+              // Move judge's pick to the front
+              const [judgedBest] = validatedItems.splice(originalBestIndex, 1);
+              validatedItems.unshift(judgedBest);
+            } else {
+              // Add judge's answer as a synthetic entry
+              validatedItems.unshift({
+                sold_price: judgeResult.correct_price,
+                sold_date: judgeResult.correct_date || best.sold_date,
+                title: `Judge-verified comp`,
+                match_confidence: judgeResult.confidence || 80,
+                _judge_verified: true,
+              });
+            }
+            anomaly_flag = false;
+            anomaly_reason = null;
+          } else {
+            anomaly_flag = true;
+            anomaly_reason = `AI models returned different prices ($${soldPrice.toLocaleString()} vs $${crossPrice.toLocaleString()}). Judge could not resolve — verify manually.`;
+          }
+        } catch (_) {
+          anomaly_flag = true;
+          anomaly_reason = `AI models disagree on price ($${soldPrice.toLocaleString()} vs $${crossPrice.toLocaleString()}) — verify manually.`;
+        }
       }
     }
 
@@ -320,7 +376,7 @@ TODAY: ${todayStr}`,
   if (res1?.comp_value && res2?.comp_value) {
     const priceDiff = Math.abs(res1.comp_value - res2.comp_value) / Math.max(res1.comp_value, 1);
     if (priceDiff < 0.20) {
-      // Models agree — use average, boost confidence
+      // Models agree — average for best accuracy
       best = {
         ...res1,
         comp_value: Math.round((res1.comp_value + res2.comp_value) / 2),
@@ -328,9 +384,43 @@ TODAY: ${todayStr}`,
         notes: `Confirmed by 2 AI models. ${res1.notes || ''}`,
       };
     } else {
-      // Models disagree — use higher confidence one, flag it
-      best = (res1.match_confidence || 0) >= (res2.match_confidence || 0) ? res1 : res2;
-      best = { ...best, notes: `${best.notes || ''} Note: AI models returned different prices — verify manually.` };
+      // Models disagree — fire judge model to resolve
+      let judgeVerdict = null;
+      try {
+        judgeVerdict = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Sports card price judge. Two AI models found different sold prices for: "${cardDescription}"
+
+MODEL A: $${res1.comp_value} on ${res1.sale_date || 'unknown'} (source: ${res1.source || 'web'})
+MODEL B: $${res2.comp_value} on ${res2.sale_date || 'unknown'} (source: ${res2.source || 'web'})
+
+Which is the more accurate recent sale? Consider recency, source reliability, and card specifics.
+If you can find the actual answer from your training data, use it.`,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              correct_price: { type: ['number', 'null'] },
+              correct_date: { type: ['string', 'null'] },
+              reasoning: { type: 'string' },
+              confidence: { type: 'number' },
+            }
+          },
+          model: 'gemini_3_1_pro',
+          add_context_from_internet: true,
+        });
+      } catch (_) {}
+
+      if (judgeVerdict?.correct_price > 0) {
+        best = {
+          comp_value: judgeVerdict.correct_price,
+          sale_date: judgeVerdict.correct_date || res1.sale_date,
+          match_confidence: Math.min(99, judgeVerdict.confidence || 75),
+          notes: `Judge-verified: ${judgeVerdict.reasoning || ''}`,
+          source: 'Judge (Gemini Pro)',
+        };
+      } else {
+        best = (res1.match_confidence || 0) >= (res2.match_confidence || 0) ? res1 : res2;
+        best = { ...best, notes: `${best.notes || ''} Note: AI models disagreed — using higher-confidence result.` };
+      }
     }
   } else {
     best = res1?.comp_value ? res1 : res2;
