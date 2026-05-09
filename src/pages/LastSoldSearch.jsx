@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Search, ExternalLink, Loader2, AlertCircle, CheckCircle2, Calendar, DollarSign, ShieldCheck, Filter } from 'lucide-react';
+import { Search, ExternalLink, Loader2, AlertCircle, CheckCircle2, Calendar, DollarSign, ShieldCheck, Filter, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
@@ -112,6 +112,48 @@ export default function LastSoldSearch() {
             Accurate, verified Last Sold Price + Last Sold Date from eBay. Every result is strict-match validated and includes a direct link to the original listing.
           </p>
         </div>
+
+        {/* How to use — collapsible */}
+        <details className="bg-secondary/40 border border-border/50 rounded-xl p-4 cursor-pointer hover:bg-secondary/50 transition-colors">
+          <summary className="flex items-center gap-2 text-sm font-bold text-foreground select-none">
+            <BookOpen className="w-4 h-4 text-primary" />
+            How to use this tool (click to expand)
+          </summary>
+          <div className="mt-4 space-y-3 text-sm text-muted-foreground pt-3 border-t border-border/30">
+            <div className="flex gap-2">
+              <span className="font-black text-primary shrink-0">1.</span>
+              <div>
+                <p className="font-semibold text-foreground">Type in the search box below</p>
+                <p className="text-xs mt-0.5">Example: "2023 Topps Chrome Shohei Ohtani PSA 10"</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-black text-primary shrink-0">2.</span>
+              <div>
+                <p className="font-semibold text-foreground">Include: Player, Year, Set, Grade</p>
+                <p className="text-xs mt-0.5">The more specific you are, the more accurate the results</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-black text-primary shrink-0">3.</span>
+              <div>
+                <p className="font-semibold text-foreground">Hit the Search button</p>
+                <p className="text-xs mt-0.5">Takes 20-40 seconds to fetch & validate from eBay</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-black text-primary shrink-0">4.</span>
+              <div>
+                <p className="font-semibold text-foreground">You'll see results sorted by most recent sale first</p>
+                <p className="text-xs mt-0.5">Each result shows exact price, date, and a link to verify on eBay</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700"><strong>Tip:</strong> Make sure you have your Apify token set in <Link to="/settings" className="underline font-bold">Settings</Link> for best results!</p>
+            </div>
+          </div>
+        </details>
 
         {/* Search Form */}
         <form onSubmit={handleSearch} className="flex gap-2">
