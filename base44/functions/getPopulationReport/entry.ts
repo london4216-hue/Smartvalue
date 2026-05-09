@@ -11,22 +11,28 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
+    const gradeCompany = grade.toUpperCase().startsWith('BGS') ? 'BGS' : grade.toUpperCase().startsWith('SGC') ? 'SGC' : 'PSA';
+    const gradeNumber = grade.replace(/[^0-9.]/g, '').trim();
+
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: `Sports card pop report lookup. Use your training data knowledge — do NOT search the web.
+      prompt: `Look up the LIVE current population report for this sports card on the ${gradeCompany} registry website.
 
 Card: ${player_name} ${card_year || ''} ${card_set || ''} ${grade}
 
-Estimate from known PSA/BGS/SGC population data:
-- pop_at_grade: approx count graded at this exact grade
-- total_pop_all_grades: approx total graded all grades
-- pop_percentage: % at this grade
-- highest_grade_achieved
-- scarcity_assessment: common|uncommon|rare|very_rare|ultra_rare
-- grader_breakdown: {PSA, BGS, SGC}
-- source_confidence: high|medium|low
-- notes: brief caveat
+Search for the actual current pop report at:
+- PSA: https://www.psacard.com/pop/
+- BGS: https://www.beckett.com/grading/pop-reports
+- SGC: https://www.sgccard.com/pop-report
 
-Return JSON only.`,
+Find the REAL current numbers for:
+- pop_at_grade: exact count graded at ${grade} specifically
+- total_pop_all_grades: total graded across all grades
+- scarcity_assessment: ultra_rare (pop<5), very_rare (5-20), rare (21-100), uncommon (101-500), common (500+)
+- grader_breakdown: PSA count, BGS count, SGC count at this grade
+- highest_grade_achieved: highest grade any copy has received
+- source_confidence: "high" if found live data, "medium" if estimated, "low" if not found
+
+Return JSON only. If you cannot find real data, set source_confidence to "low" and note it.`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -49,7 +55,7 @@ Return JSON only.`,
           notes: { type: "string" }
         }
       },
-      add_context_from_internet: false,
+      add_context_from_internet: true,
       model: 'gemini_3_flash',
     });
 
