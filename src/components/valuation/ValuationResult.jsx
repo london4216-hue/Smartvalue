@@ -290,10 +290,13 @@ export default function ValuationResult({ result, onSave, onReset }) {
           SECTION 3 — SUPPORTING FACTORS (Collapsed)
       ══════════════════════════════════════════════════════ */}
 
-      {/* Market Activity */}
+      {/* Market Activity — always expanded */}
       {(result._market_signals?.length > 0 || result._player_activity) && (
-        <Accordion title="📈 Market Activity">
-          <div className="space-y-4 pt-2">
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border/30">
+            <span className="text-sm font-semibold text-foreground">📈 Market Activity</span>
+          </div>
+          <div className="px-5 pb-5 pt-3 space-y-4">
             <PlayerActivityInsights
               playerName={result.player_name}
               cardYear={result.card_year}
@@ -306,7 +309,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
               prefetchedData={result._market_signals}
             />
           </div>
-        </Accordion>
+        </div>
       )}
 
       {/* Comparable Sales */}
