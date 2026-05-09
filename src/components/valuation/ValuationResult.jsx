@@ -269,21 +269,7 @@ export default function ValuationResult({ result, onSave, onReset }) {
           )}
         </div>
 
-        {/* CTA row */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-1">
-          <Button onClick={() => setShowBestBuy(true)} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
-            <Search className="w-3.5 h-3.5 mr-1.5" />
-            Find Best Buy
-          </Button>
-          <Button onClick={onSave} className="flex-1 h-10 rounded-xl text-sm">
-            <Bookmark className="w-3.5 h-3.5 mr-1.5" />
-            Save to Portfolio
-          </Button>
-          <Button onClick={onReset} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
-            <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
-            New Valuation
-          </Button>
-        </div>
+
       </div>
 
       {/* ═══════════════════════════════════════════════════
@@ -414,6 +400,24 @@ export default function ValuationResult({ result, onSave, onReset }) {
         cardData={result}
         aiValue={result.ai_investment_value}
       />
+
+      {/* ═══════════════════════════════════════════════════
+          BOTTOM CTA ROW — always visible at end of page
+      ══════════════════════════════════════════════════════ */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button onClick={() => setShowBestBuy(true)} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
+          <Search className="w-3.5 h-3.5 mr-1.5" />
+          Find Best Buy
+        </Button>
+        <Button onClick={onSave} className="flex-1 h-10 rounded-xl text-sm">
+          <Bookmark className="w-3.5 h-3.5 mr-1.5" />
+          Save to Portfolio
+        </Button>
+        <Button onClick={onReset} variant="outline" className="flex-1 h-10 rounded-xl text-sm">
+          <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
+          New Valuation
+        </Button>
+      </div>
     </motion.div>
   );
 }
