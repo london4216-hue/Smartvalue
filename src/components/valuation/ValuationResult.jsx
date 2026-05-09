@@ -154,6 +154,9 @@ export default function ValuationResult({ result, onSave, onReset }) {
                 Pop {result._pop_report.pop_at_grade}
               </span>
             )}
+            {result.color_matches_team && (
+              <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-full">🎨 Team Color Match</span>
+            )}
             {result.has_autograph && (
               <span className="inline-flex items-center bg-blue-500/10 border border-blue-500/30 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
                 {result.is_sticker_auto ? '🏷 Sticker Auto' : '✍️ On-Card Auto'}

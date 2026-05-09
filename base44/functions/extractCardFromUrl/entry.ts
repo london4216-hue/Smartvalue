@@ -102,6 +102,53 @@ function parseCardFromKeywords(keywordStr) {
   };
 }
 
+// ─── TEAM COLOR MATCH DETECTION ──────────────────────────────────────────────
+// Maps players (lowercased) to their team's primary colors for color match detection
+const TEAM_COLORS = {
+  // Boston Celtics — green, white
+  'jayson tatum': ['green'], 'jaylen brown': ['green'], 'al horford': ['green'],
+  'kristaps porzingis': ['green'], 'jrue holiday': ['green'],
+  // LA Lakers — purple, gold/yellow
+  'lebron james': ['purple', 'gold', 'yellow'], 'anthony davis': ['purple', 'gold', 'yellow'],
+  'austin reaves': ['purple', 'gold', 'yellow'],
+  // Golden State Warriors — blue, gold/yellow
+  'stephen curry': ['blue', 'gold', 'yellow'], 'klay thompson': ['blue', 'gold', 'yellow'],
+  'draymond green': ['blue', 'gold', 'yellow'],
+  // Miami Heat — red, black, yellow/gold
+  'jimmy butler': ['red', 'black'], 'bam adebayo': ['red', 'black'],
+  // Milwaukee Bucks — green
+  'giannis antetokounmpo': ['green'], 'damian lillard': ['green'],
+  // Denver Nuggets — blue, gold
+  'nikola jokic': ['blue', 'gold', 'yellow'], 'jamal murray': ['blue', 'gold', 'yellow'],
+  // Phoenix Suns — purple, orange
+  'kevin durant': ['purple', 'orange'], 'devin booker': ['purple', 'orange'],
+  // Brooklyn Nets — black, white
+  'ben simmons': ['black', 'white'],
+  // Dallas Mavericks — blue, silver
+  'luka doncic': ['blue', 'silver'], 'kyrie irving': ['blue', 'silver'],
+  // Memphis Grizzlies — blue
+  'ja morant': ['blue'],
+  // Chicago Bulls — red, black
+  'zach lavine': ['red', 'black'], 'demar derozan': ['red', 'black'],
+  // Philadelphia 76ers — blue, red
+  'joel embiid': ['blue', 'red'], 'tyrese maxey': ['blue', 'red'],
+  // New York Knicks — orange, blue
+  'julius randle': ['orange', 'blue'], 'jalen brunson': ['orange', 'blue'],
+  // OKC Thunder — blue, orange
+  'shai gilgeous-alexander': ['blue', 'orange'],
+  // Sacramento Kings — purple
+  'domantas sabonis': ['purple'], 'de aaron fox': ['purple'],
+};
+
+function detectTeamColorMatch(playerName, parallel) {
+  if (!playerName || !parallel) return false;
+  const playerKey = playerName.toLowerCase().trim();
+  const parallelLower = parallel.toLowerCase();
+  const teamColors = TEAM_COLORS[playerKey];
+  if (!teamColors) return false;
+  return teamColors.some(color => parallelLower.includes(color));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -247,18 +294,19 @@ OUTPUT JSON ONLY:`,
         });
 
         if (identificationResult?.player) {
+          const parallel = identificationResult.parallel || null;
           result = {
             player_name: identificationResult.player,
             card_year: identificationResult.year || null,
             card_set: identificationResult.set || null,
             card_number: identificationResult.card_number || null,
-            variation: identificationResult.parallel || null,
+            variation: parallel,
             serial_number: identificationResult.serial_number || null,
             grade: identificationResult.grade_company && identificationResult.grade_value 
               ? `${identificationResult.grade_company} ${identificationResult.grade_value}` 
               : null,
             is_rookie_year: identificationResult.rookie || false,
-            color_matches_team: !!identificationResult.parallel,
+            color_matches_team: detectTeamColorMatch(identificationResult.player, parallel),
             has_autograph: false,
             has_patch: false,
             player_popularity: null,
@@ -305,18 +353,19 @@ Return JSON only.`,
         });
 
         if (webSearchResult?.player) {
+          const parallel = webSearchResult.parallel || null;
           result = {
             player_name: webSearchResult.player,
             card_year: webSearchResult.year || null,
             card_set: webSearchResult.set || null,
             card_number: webSearchResult.card_number || null,
-            variation: webSearchResult.parallel || null,
+            variation: parallel,
             serial_number: webSearchResult.serial_number || null,
             grade: webSearchResult.grade_company && webSearchResult.grade_value 
               ? `${webSearchResult.grade_company} ${webSearchResult.grade_value}` 
               : null,
             is_rookie_year: webSearchResult.rookie || false,
-            color_matches_team: !!webSearchResult.parallel,
+            color_matches_team: detectTeamColorMatch(webSearchResult.player, parallel),
             has_autograph: false,
             has_patch: false,
             player_popularity: null,

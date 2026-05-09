@@ -1,5 +1,32 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// Team color match detection (same logic as extractCardFromUrl)
+const TEAM_COLORS = {
+  'jayson tatum': ['green'], 'jaylen brown': ['green'], 'al horford': ['green'],
+  'lebron james': ['purple', 'gold', 'yellow'], 'anthony davis': ['purple', 'gold', 'yellow'],
+  'stephen curry': ['blue', 'gold', 'yellow'], 'klay thompson': ['blue', 'gold', 'yellow'],
+  'draymond green': ['blue', 'gold', 'yellow'],
+  'jimmy butler': ['red', 'black'], 'bam adebayo': ['red', 'black'],
+  'giannis antetokounmpo': ['green'], 'damian lillard': ['green'],
+  'nikola jokic': ['blue', 'gold', 'yellow'], 'jamal murray': ['blue', 'gold', 'yellow'],
+  'kevin durant': ['purple', 'orange'], 'devin booker': ['purple', 'orange'],
+  'luka doncic': ['blue', 'silver'], 'kyrie irving': ['blue', 'silver'],
+  'ja morant': ['blue'],
+  'zach lavine': ['red', 'black'], 'demar derozan': ['red', 'black'],
+  'joel embiid': ['blue', 'red'], 'tyrese maxey': ['blue', 'red'],
+  'julius randle': ['orange', 'blue'], 'jalen brunson': ['orange', 'blue'],
+  'shai gilgeous-alexander': ['blue', 'orange'],
+  'domantas sabonis': ['purple'], 'de aaron fox': ['purple'],
+};
+
+function detectTeamColorMatch(playerName, parallel) {
+  if (!playerName || !parallel) return false;
+  const key = playerName.toLowerCase().trim();
+  const p = parallel.toLowerCase();
+  const colors = TEAM_COLORS[key];
+  return colors ? colors.some(c => p.includes(c)) : false;
+}
+
 /**
  * CRITICAL DATA VALIDATION LAYER
  * Ensures card data entering the valuation engine is clean, complete, and verified.
@@ -84,6 +111,8 @@ RETURN JSON with:
       }, { status: 422 });
     }
 
+    const colorMatch = detectTeamColorMatch(validationResult.player_name, validationResult.variation);
+
     // Return cleaned & validated card data
     return Response.json({
       ...cardData,
@@ -96,6 +125,7 @@ RETURN JSON with:
       is_rookie_year: validationResult.is_rookie_year,
       has_autograph: validationResult.has_autograph,
       has_patch: validationResult.has_patch,
+      color_matches_team: colorMatch,
       _validation_confidence: validationResult.confidence,
       _validation_warnings: validationResult.warnings,
       _validation_suggestions: validationResult.suggestions,
