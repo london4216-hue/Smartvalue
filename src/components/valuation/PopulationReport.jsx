@@ -86,6 +86,9 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
   const totalPop = popData.total_pop_all_grades || 0;
   const gradeLabel = popData.grade_requested || grade || '';
   const isPopOne = popAtGrade === 1;
+  const isHighestGraded = popData.highest_grade_achieved &&
+    gradeLabel && popData.highest_grade_achieved.toString().trim() === gradeLabel.toString().trim();
+  const isPopOneHighestGraded = isPopOne && isHighestGraded;
 
   return (
     <motion.div
@@ -95,17 +98,28 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
     >
       {/* POP 1 HERO BANNER */}
       {isPopOne && (
-        <div className="bg-gradient-to-r from-violet-600 to-purple-700 px-5 py-4 flex items-center gap-3">
-          <span className="text-3xl">💎</span>
+        <div className={cn(
+          "px-5 py-4 flex items-center gap-3",
+          isPopOneHighestGraded
+            ? "bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500"
+            : "bg-gradient-to-r from-violet-600 to-purple-700"
+        )}>
+          <span className="text-3xl">{isPopOneHighestGraded ? '👑' : '💎'}</span>
           <div className="flex-1">
-            <p className="text-white font-black text-lg tracking-tight">1 of 1 — The Only Copy</p>
-            <p className="text-violet-200 text-xs font-medium mt-0.5">
-              Only <strong>1</strong> {gradeLabel} exists across ALL grading companies. This is the rarest possible version of this card at this grade.
+            <p className="text-white font-black text-lg tracking-tight">
+              {isPopOneHighestGraded ? 'Pop 1 — Highest Graded Copy' : '1 of 1 — The Only Copy'}
+            </p>
+            <p className={cn("text-xs font-medium mt-0.5", isPopOneHighestGraded ? "text-yellow-100" : "text-violet-200")}>
+              {isPopOneHighestGraded
+                ? `Only 1 copy at ${gradeLabel} — AND it's the highest grade ever awarded out of ${totalPop > 0 ? totalPop : '?'} total submitted. Absolute ceiling on this card.`
+                : `Only 1 copy at ${gradeLabel} exists across ALL grading companies.`}
             </p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-4xl font-black text-white font-mono">1</p>
-            <p className="text-violet-300 text-[10px] uppercase tracking-wider">pop</p>
+            <p className={cn("text-[10px] uppercase tracking-wider", isPopOneHighestGraded ? "text-yellow-200" : "text-violet-300")}>
+              {isPopOneHighestGraded ? 'highest' : 'pop'}
+            </p>
           </div>
         </div>
       )}
@@ -194,12 +208,21 @@ export default function PopulationReport({ playerName, grade, cardYear, cardSet,
 
         {/* Pop 1 value callout */}
         {isPopOne && (
-          <div className="flex items-start gap-2 p-3 bg-violet-500/15 border border-violet-500/40 rounded-lg mb-3">
-            <span className="text-base shrink-0">🏆</span>
+          <div className={cn(
+            "flex items-start gap-2 p-3 rounded-lg mb-3 border",
+            isPopOneHighestGraded
+              ? "bg-amber-500/15 border-amber-500/40"
+              : "bg-violet-500/15 border-violet-500/40"
+          )}>
+            <span className="text-base shrink-0">{isPopOneHighestGraded ? '👑' : '🏆'}</span>
             <div>
-              <p className="text-xs font-bold text-violet-400 mb-0.5">Extreme Scarcity Premium</p>
-              <p className="text-[10px] text-violet-300/90 leading-snug">
-                With only <strong>1</strong> copy at {gradeLabel}, this card commands a dramatic scarcity premium. No direct comp exists at this grade — comparable sales at lower grades significantly undervalue this slab.
+              <p className={cn("text-xs font-bold mb-0.5", isPopOneHighestGraded ? "text-amber-500" : "text-violet-400")}>
+                {isPopOneHighestGraded ? 'Pop 1 + Highest Graded = Maximum Scarcity Premium' : 'Extreme Scarcity Premium'}
+              </p>
+              <p className={cn("text-[10px] leading-snug", isPopOneHighestGraded ? "text-amber-700/90" : "text-violet-300/90")}>
+                {isPopOneHighestGraded
+                  ? `This is the single highest-graded copy in existence out of ${totalPop > 0 ? totalPop : '?'} total submitted. No higher grade has ever been achieved — this is the ceiling. Valuation algorithms should apply a significant premium above all lower-grade comps.`
+                  : `With only 1 copy at ${gradeLabel}, this card commands a dramatic scarcity premium. No direct comp exists at this grade — comparable sales at lower grades significantly undervalue this slab.`}
               </p>
             </div>
           </div>
