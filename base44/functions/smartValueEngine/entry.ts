@@ -91,6 +91,89 @@ function normalizeGrade(gradeStr) {
   return { company: 'RAW', grade: null };
 }
 
+// ─── FETCH LIVE PSA POP DATA ──────────────────────────────────────────────────
+async function fetchLivePop(player, year, set, grade, base44Client) {
+  if (!player || !grade) return null;
+  const gradeMatch = grade.toUpperCase().match(/PSA\s*(\d+(?:\.\d+)?)/);
+  if (!gradeMatch) return null; // Only PSA for now
+
+  try {
+    const query = [player, year, set].filter(Boolean).join(' ');
+    const popUrl = `https://www.psacard.com/pop/basketball-cards/?search=${encodeURIComponent(query)}`;
+    const popRes = await fetch(popUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!popRes.ok) return null;
+    const html = await popRes.text();
+    if (html.length < 500 || html.includes('No results')) return null;
+
+    // Use fast LLM to parse the table — gemini_3_flash for speed
+    const res = await base44Client.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `Parse this PSA population report HTML page. Find the row for: ${player} | Year: ${year || 'any'} | Set: ${set || 'any'} | Grade: ${grade}
+
+Extract:
+- pop_at_grade: exact count at grade ${gradeMatch[1]}
+- pop_higher: total count of copies graded HIGHER than ${gradeMatch[1]} (sum all higher grade columns)
+- total_pop_all_grades: sum of ALL grade columns for this card row
+- highest_grade_achieved: the highest grade column that has any count > 0
+
+Return null for pop_at_grade if you cannot find this exact card row. Do NOT guess.
+
+HTML (first 20KB): ${html.slice(0, 20000)}`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          pop_at_grade: { type: ['number', 'null'] },
+          pop_higher: { type: ['number', 'null'] },
+          total_pop_all_grades: { type: ['number', 'null'] },
+          highest_grade_achieved: { type: ['string', 'null'] },
+        }
+      },
+      model: 'gemini_3_flash',
+      add_context_from_internet: false,
+    });
+
+    if (res?.pop_at_grade != null) {
+      const p = res.pop_at_grade;
+      const ph = res.pop_higher ?? null;
+      const scarcity = p <= 1 ? 'ultra_rare' : p <= 5 ? 'ultra_rare' : p <= 20 ? 'very_rare' : p <= 100 ? 'rare' : p <= 500 ? 'uncommon' : 'common';
+      return {
+        pop_at_grade: p,
+        pop_higher: ph,
+        total_pop_all_grades: res.total_pop_all_grades ?? null,
+        highest_grade_achieved: res.highest_grade_achieved ?? null,
+        scarcity_assessment: scarcity,
+        source_confidence: 'high',
+        grading_company: 'PSA',
+      };
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// ─── POP SCORE for attribute algorithm ───────────────────────────────────────
+function popToAttributeScore(popAtGrade, popHigher) {
+  if (popAtGrade == null) return null;
+  // Pop 1 + highest graded = maximum (100)
+  if (popAtGrade === 1 && popHigher === 0) return 100;
+  // Pop 1 but higher grades exist
+  if (popAtGrade === 1) return 97;
+  if (popAtGrade <= 5)   return 93;
+  if (popAtGrade <= 15)  return 85;
+  if (popAtGrade <= 30)  return 75;
+  if (popAtGrade <= 75)  return 64;
+  if (popAtGrade <= 150) return 50;
+  if (popAtGrade <= 300) return 35;
+  if (popAtGrade <= 500) return 23;
+  return 10;
+}
+
 // ─── FETCH eBay HTML ──────────────────────────────────────────────────────────
 async function fetchEbayHtml(encodedQuery) {
   try {
@@ -204,12 +287,15 @@ HTML: ${html}`,
     }
 
     // ═══════════════════════════════════════════════════════
-    // STEP 2 — FIND EXACT COMP (4 strategies)
+    // STEP 2 — FETCH LIVE POP + FIND EXACT COMP (in parallel)
     // ═══════════════════════════════════════════════════════
     let primaryItems = [];
     let compStrategy = 'none';
 
     const apifyToken = (() => { try { return Deno.env.get('APIFY_TOKEN') || ''; } catch (_) { return ''; } })();
+
+    // Kick off pop report fetch in parallel with comp search — don't await yet
+    const popReportPromise = fetchLivePop(identity.player, identity.year, identity.set, cardData.grade || '', base44);
     const exactTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${identity.parallel || 'base'} | ${identity.serial ? '/' + identity.serial : 'no serial'} | ${cardData.grade || 'ungraded'} | auto=${identity.auto_flag}`;
 
     // Strategy 1: Apify — best quality, bypasses bot detection (runs first if token available)
@@ -502,6 +588,22 @@ Return real completed sales only. TODAY: ${todayStr}`,
       : similarCardComp              ? 'similar_card_baseline'
       : 'no_data';
 
+    // ─── Await pop report (was running in parallel) ───────
+    const livePopReport = await popReportPromise.catch(() => null);
+    const popScore = livePopReport ? popToAttributeScore(livePopReport.pop_at_grade, livePopReport.pop_higher) : null;
+
+    // ─── Pop scarcity multiplier on smartValue ────────────
+    if (livePopReport?.pop_at_grade != null && smartValue) {
+      const p = livePopReport.pop_at_grade;
+      const ph = livePopReport.pop_higher ?? null;
+      // Ultra-rare pop gets a small uplift baked into smartValue
+      if (p === 1 && ph === 0)       smartValue = Math.round(smartValue * 1.30); // pop1 highest graded
+      else if (p === 1)              smartValue = Math.round(smartValue * 1.15); // pop1 not highest
+      else if (p <= 5)               smartValue = Math.round(smartValue * 1.08);
+      // High pop gets a mild cap
+      else if (p > 500)              smartValue = Math.round(smartValue * 0.95);
+    }
+
     // ─── Value drivers ────────────────────────────────────
     const value_drivers = [];
     if (lsp) value_drivers.push(`Last sold $${lsp.toLocaleString()}${lsd ? ' on ' + lsd : ''} (${lastSold.match_confidence ?? 0}% match confidence)`);
@@ -510,6 +612,11 @@ Return real completed sales only. TODAY: ${todayStr}`,
     if (identity.rc_flag) value_drivers.push('Rookie Card: strong collector demand premium');
     if (identity.auto_flag) value_drivers.push('Autograph: premium applied');
     if (similarCardComp && baseAnchor === 'similar_card') value_drivers.push(`No direct comp — anchored to similar card sale: $${similarCardComp.sold_price.toLocaleString()}`);
+    if (livePopReport?.pop_at_grade != null) {
+      const p = livePopReport.pop_at_grade;
+      const ph = livePopReport.pop_higher;
+      value_drivers.push(`PSA Pop: ${p} at grade${ph === 0 ? ' — HIGHEST GRADED (no higher copies exist)' : ph != null ? `, ${ph} graded higher` : ''} → pop_score=${popScore}`);
+    }
 
     return Response.json({
       // Core
@@ -536,6 +643,9 @@ Return real completed sales only. TODAY: ${todayStr}`,
       // Similar card comp (for 1/1 and stale >2yr)
       similar_card_comp:      similarCardComp,
       similar_card_comp_type: similarCardCompType,
+      // Live pop report — real PSA data fetched during valuation
+      live_pop_report:        livePopReport,
+      pop_attribute_score:    popScore,
     });
 
   } catch (error) {

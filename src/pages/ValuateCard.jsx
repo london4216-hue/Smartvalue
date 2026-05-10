@@ -41,6 +41,13 @@ function buildPrompt(cardData) {
   const scanSection = cardData.ai_scan_quality ? `AI Scan: "${cardData.ai_scan_quality}"${cardData.psa_alignment ? ' — PSA 10 POTENTIAL CONFIRMED → +40-60% uplift' : ''}` : '';
   const gradeSection = gradeInfo ? `Grade multiplier: ${gradeInfo.multiplier}× | Pop scarcity: ${(gradeInfo.pop_scarcity_factor*100).toFixed(0)}/100` : '';
   const serialSection = serialNum ? `Serial /${serialNum} → print_run_size=${printRunScore}, is_one_of_one=${serialNum===1?100:0}` : 'Not serialized';
+
+  // Live PSA pop data — override AI guesses with real numbers
+  const livePopReport = cardData._live_pop_report || null;
+  const livePopScore = cardData._pop_attribute_score ?? null;
+  const livePopSection = livePopReport
+    ? `LIVE PSA POP DATA (real, fetched — DO NOT guess or change this): pop_at_grade=${livePopReport.pop_at_grade}, pop_higher=${livePopReport.pop_higher ?? 'unknown'}, total_pop=${livePopReport.total_pop_all_grades ?? 'unknown'}, scarcity=${livePopReport.scarcity_assessment}. OVERRIDE pop_count_at_grade attribute score with: ${livePopScore} (do not adjust this).`
+    : '';
   const similarCompsSection = cardData._comp_tier === 'similar_card_baseline' && cardData._similar_comps?.length > 0
     ? `No direct comp. Baseline from similar cards avg: $${Math.round(cardData._similar_comps.reduce((s,c)=>s+(c.sold_price||0),0)/cardData._similar_comps.length).toLocaleString()}. Apply scarcity premium for /${serialNum}.`
     : '';
@@ -54,6 +61,7 @@ ${cardData.cheapest_available ? `CHEAPEST AVAILABLE: $${cardData.cheapest_availa
 ${scanSection}
 ${gradeSection}
 ${serialSection}
+${livePopSection}
 ${similarCompsSection}
 ${cardData._comp_tier === 'no_comp_conservative_estimate' ? 'NO COMP: use market knowledge, flag uncertainty.' : ''}
 SIGNALS: RC=${cardData.is_rookie_year?'YES':'no'} | Set tier=${cardData.card_set||'unknown'} (NT/Flawless=90-100,Prizm/Select=65-85,Base=10-35) | Player=${cardData.player_popularity||'unknown'} | Auto=${cardData.has_autograph?(cardData.is_sticker_auto?'sticker(30-55)':'on-card(85-100)'):'none'} | Patch=${cardData.has_patch?'yes':'none'}${cardData.jersey_match?' | JERSEY NUMBER MATCH=YES (+15-25% collector premium)':''}${cardData.scan_notes?` | Scan notes: ${cardData.scan_notes}`:''}
@@ -61,8 +69,8 @@ SIGNALS: RC=${cardData.is_rookie_year?'YES':'no'} | Set tier=${cardData.card_set
 SCORE THESE 12 ATTRIBUTES (0-100, -1=N/A):
 is_rookie_year, print_run_size, is_one_of_one, auto_type, patch_quality, rpa_designation, card_brand_tier, pop_count_at_grade, player_momentum, goat_legacy_score, psa_gem_potential, variation_desirability
 
-QUICK REFS: patch=logoman100/swoosh88/number82/multi70/white40/none0 | pop_count: pop1_highest_graded=100(MAXIMUM — only copy at highest grade ever awarded, massive ceiling premium),pop1_not_highest=97,2-5=93,6-15=85,16-30=75,31-75=64,76-150=50,300+=23,500+=10 | brand: NT=95,Prizm=70,Base=30
-${cardData._pop_report?.pop_at_grade === 1 && (cardData._pop_report?.pop_higher === 0 || (cardData._pop_report?.highest_grade_achieved && cardData.grade && cardData._pop_report.highest_grade_achieved.toString().trim() === cardData.grade.toString().trim())) ? `⚠️ POP 1 + HIGHEST GRADED: This is the ONLY copy at this grade AND no higher grade has ever been awarded out of ${cardData._pop_report.total_pop_all_grades || '?'} total submitted. pop_count_at_grade MUST be scored 100. Apply a 25-40% ceiling premium to ai_investment_value above the highest available lower-grade comp.` : cardData._pop_report?.pop_at_grade === 1 && cardData._pop_report?.pop_higher > 0 ? `⚠️ POP 1 AT GRADE (NOT HIGHEST): Only 1 copy at this grade, BUT ${cardData._pop_report.pop_higher} cop${cardData._pop_report.pop_higher === 1 ? 'y exists' : 'ies exist'} graded higher. pop_count_at_grade score 93-96. Apply moderate (not maximum) scarcity premium — ceiling is capped by the existence of higher-graded copies.` : ''}
+QUICK REFS: patch=logoman100/swoosh88/number82/multi70/white40/none0 | pop_count: ${livePopScore != null ? `LIVE DATA LOCKED — use ${livePopScore} exactly` : 'pop1_highest_graded=100,pop1_not_highest=97,2-5=93,6-15=85,16-30=75,31-75=64,76-150=50,300+=23,500+=10'} | brand: NT=95,Prizm=70,Base=30
+${livePopReport?.pop_at_grade === 1 && livePopReport?.pop_higher === 0 ? `⚠️ LIVE POP DATA: POP 1 + HIGHEST GRADED CONFIRMED. pop_count_at_grade MUST be 100. Apply 25-40% ceiling premium to ai_investment_value. Out of ${livePopReport.total_pop_all_grades || '?'} total submitted.` : livePopReport?.pop_at_grade === 1 && livePopReport?.pop_higher > 0 ? `⚠️ LIVE POP DATA: POP 1 AT GRADE, ${livePopReport.pop_higher} copies graded higher. pop_count_at_grade MUST be 97. Moderate (not maximum) scarcity premium.` : livePopReport?.pop_at_grade != null ? `ℹ️ LIVE POP DATA: ${livePopReport.pop_at_grade} copies at this grade, ${livePopReport.pop_higher ?? 'unknown'} higher. pop_count_at_grade=${livePopScore} — use this exactly.` : cardData._pop_report?.pop_at_grade === 1 && (cardData._pop_report?.pop_higher === 0 || (cardData._pop_report?.highest_grade_achieved && cardData.grade && cardData._pop_report.highest_grade_achieved.toString().trim() === cardData.grade.toString().trim())) ? `⚠️ POP 1 + HIGHEST GRADED: pop_count_at_grade MUST be 100.` : cardData._pop_report?.pop_at_grade === 1 ? `⚠️ POP 1 AT GRADE: pop_count_at_grade score 93-96.` : ''}
 
 ALSO RETURN (folded into same response — use training knowledge only, no web search):
 - player_activity: {injury_status, current_season_status, last_game:{date,points,rebounds,assists}, last_10_avg_pts, trend, top_2_news:[{date,headline,impact}]}
@@ -135,6 +143,9 @@ async function fetchRealComp(cardData) {
     _value_drivers:          d.value_drivers || [],
     _similar_card_comp:      d.similar_card_comp || null,
     _similar_card_comp_type: d.similar_card_comp_type || null,
+    // Live pop report from PSA — real fetched data
+    _live_pop_report:        d.live_pop_report || null,
+    _pop_attribute_score:    d.pop_attribute_score ?? null,
   };
 }
 
@@ -219,35 +230,39 @@ export default function ValuateCard() {
 
       const compData = compResult;
       if (compData?.comp_value && compData.comp_value > 0) {
-        enrichedCardData = {
-          ...enrichedCardData,
-          comp_value: compData.comp_value,
-          cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
-          _comp_sale_date: compData.sale_date || null,
-          _comp_confidence: compData.confidence || 'medium',
-          _comp_notes: compData.notes || '',
-          _comp_tier: compData.tier || null,
-          _similar_comps: compData.similar_comps || [],
-          last_sold_url: compData.last_sold_url || null,
-          _comp_match_confidence: compData.match_confidence ?? null,
-          _comp_anomaly_flag: compData.anomaly_flag || false,
-          _comp_anomaly_reason: compData.anomaly_reason || null,
-          _ebay_search_url: compData._ebay_search_url || null,
-          _smart_value_hint: compData._smart_value_hint || null,
-          _anchor_source: compData._anchor_source || null,
-          _value_drivers: compData._value_drivers || [],
-          _identity: compData._identity || null,
-        };
+      enrichedCardData = {
+        ...enrichedCardData,
+        comp_value: compData.comp_value,
+        cheapest_available: enrichedCardData.cheapest_available || compData.cheapest_available || null,
+        _comp_sale_date: compData.sale_date || null,
+        _comp_confidence: compData.confidence || 'medium',
+        _comp_notes: compData.notes || '',
+        _comp_tier: compData.tier || null,
+        _similar_comps: compData.similar_comps || [],
+        last_sold_url: compData.last_sold_url || null,
+        _comp_match_confidence: compData.match_confidence ?? null,
+        _comp_anomaly_flag: compData.anomaly_flag || false,
+        _comp_anomaly_reason: compData.anomaly_reason || null,
+        _ebay_search_url: compData._ebay_search_url || null,
+        _smart_value_hint: compData._smart_value_hint || null,
+        _anchor_source: compData._anchor_source || null,
+        _value_drivers: compData._value_drivers || [],
+        _identity: compData._identity || null,
+        _live_pop_report: compData._live_pop_report || null,
+        _pop_attribute_score: compData._pop_attribute_score ?? null,
+      };
       } else if (compData) {
-        enrichedCardData = {
-          ...enrichedCardData,
-          _comp_tier:              compData.tier || 'no_comp_conservative_estimate',
-          _comp_notes:             compData.notes || '',
-          _similar_comps:          compData.similar_comps || [],
-          _ebay_search_url:        compData._ebay_search_url || null,
-          _similar_card_comp:      compData._similar_card_comp || null,
-          _similar_card_comp_type: compData._similar_card_comp_type || null,
-        };
+      enrichedCardData = {
+        ...enrichedCardData,
+        _comp_tier:              compData.tier || 'no_comp_conservative_estimate',
+        _comp_notes:             compData.notes || '',
+        _similar_comps:          compData.similar_comps || [],
+        _ebay_search_url:        compData._ebay_search_url || null,
+        _similar_card_comp:      compData._similar_card_comp || null,
+        _similar_card_comp_type: compData._similar_card_comp_type || null,
+        _live_pop_report:        compData._live_pop_report || null,
+        _pop_attribute_score:    compData._pop_attribute_score ?? null,
+      };
       }
     }
 
@@ -347,6 +362,8 @@ export default function ValuateCard() {
       _pop_report:             aiResult.pop_report || null,
       _similar_card_comp:      enrichedCardData._similar_card_comp || null,
       _similar_card_comp_type: enrichedCardData._similar_card_comp_type || null,
+      // Wire live PSA pop into _pop_report so PopulationReport component uses real data
+      _pop_report: enrichedCardData._live_pop_report || aiResult.pop_report || null,
     };
 
     if (compValue > 0) {
