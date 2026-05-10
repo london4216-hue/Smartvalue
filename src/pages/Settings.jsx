@@ -1,50 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Key, ExternalLink, AlertCircle, Zap, Loader2 } from 'lucide-react';
+import { CheckCircle2, Key, ExternalLink, AlertCircle, Zap, Loader2, Info } from 'lucide-react';
 
 export default function Settings() {
-  const [apifyToken, setApifyToken] = useState('');
-  const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // null | 'success' | 'fail'
   const [testMessage, setTestMessage] = useState('');
 
-  useEffect(() => {
-    const stored = localStorage.getItem('apify_token');
-    if (stored) setApifyToken(stored);
-  }, []);
-
-  const handleSave = () => {
-    localStorage.setItem('apify_token', apifyToken.trim());
-    setSaved(true);
-    setTestResult(null);
-    setTimeout(() => setSaved(false), 3000);
-  };
-
   const handleTest = async () => {
-    const token = apifyToken.trim() || localStorage.getItem('apify_token');
-    if (!token) {
-      setTestResult('fail');
-      setTestMessage('No token saved — paste your Apify token and hit Save first.');
-      return;
-    }
     setTesting(true);
     setTestResult(null);
     setTestMessage('');
     try {
-      const res = await base44.functions.invoke('testApifyEbay', { apify_token: token });
+      const res = await base44.functions.invoke('testApifyEbay', {});
       const data = res.data;
       if (data?.success) {
         setTestResult('success');
-        setTestMessage(`Connected! Found ${data.result_count ?? '?'} listings for a test search.`);
+        setTestMessage(data.message || `✓ Connected as "${data.username}". Apify is working!`);
       } else {
         setTestResult('fail');
-        setTestMessage(data?.error || 'Connection failed. Check your token and try again.');
+        setTestMessage(data?.error || 'Connection failed. The APIFY_TOKEN secret may be wrong — update it in the platform settings.');
       }
     } catch (err) {
       setTestResult('fail');
-      setTestMessage(err.message || 'Connection failed. Check your token and try again.');
+      setTestMessage(err.message || 'Connection failed.');
     } finally {
       setTesting(false);
     }
@@ -104,24 +84,21 @@ export default function Settings() {
           </div>
 
           <div className="space-y-3 ml-11">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground block">Your Apify API Token</label>
-              <input
-                type="password"
-                value={apifyToken}
-                onChange={e => setApifyToken(e.target.value)}
-                placeholder="apify_api_xxxxxxxxxxxxxxxxxxxx"
-                className="w-full h-11 px-4 text-sm border-2 border-border rounded-xl bg-background focus:outline-none focus:border-primary transition-colors font-mono"
-              />
+            {/* Platform secret notice */}
+            <div className="flex items-start gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+              <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">Token is stored as a platform secret</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  The <code className="bg-background px-1 rounded">APIFY_TOKEN</code> is configured in the app's backend settings — not in your browser. To update it, go to the app's <strong>Settings → Secrets</strong> in the Base44 dashboard and set a new value for <code className="bg-background px-1 rounded">APIFY_TOKEN</code>.
+                </p>
+              </div>
             </div>
+
             <div className="flex items-center gap-3 flex-wrap">
-              <Button onClick={handleSave} className="rounded-xl">
-                {saved ? <CheckCircle2 className="w-4 h-4 mr-2" /> : null}
-                {saved ? 'Token Saved ✓' : 'Save Token'}
-              </Button>
-              <Button onClick={handleTest} disabled={testing} variant="outline" className="rounded-xl">
+              <Button onClick={handleTest} disabled={testing} className="rounded-xl">
                 {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                {testing ? 'Testing...' : 'Test Connection'}
+                {testing ? 'Testing...' : 'Test Apify Connection'}
               </Button>
               <a
                 href="https://console.apify.com/account/integrations"
@@ -130,7 +107,7 @@ export default function Settings() {
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                Get Apify Token (New Tab)
+                Get Apify Token
               </a>
             </div>
 
