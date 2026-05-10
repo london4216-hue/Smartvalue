@@ -91,11 +91,90 @@ function normalizeGrade(gradeStr) {
   return { company: 'RAW', grade: null };
 }
 
+// ─── FETCH EBAY SOLD LISTINGS VIA APIFY (race both tokens in parallel) ───────
+async function fetchEbayViaApify(keywords, maxResults = 20) {
+  const tokens = [Deno.env.get('APIFY_TOKEN'), Deno.env.get('ebay')].filter(t => t && t.startsWith('apify_'));
+  if (tokens.length === 0) return [];
+
+  const callApify = (token) => fetch(
+    `https://api.apify.com/v2/acts/caffein.dev~ebay-sold-listings/run-sync-get-dataset-items?token=${token}&timeout=55&memory=512`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keywords: [keywords], count: maxResults, daysToScrape: 90, sortOrder: 'endedRecently' }),
+      signal: AbortSignal.timeout(58000),
+    }
+  ).then(async r => {
+    if (!r.ok) throw new Error(`status ${r.status}`);
+    const data = await r.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+    return data.map(r => ({
+      title:      r.title || '',
+      sold_price: parseFloat(r.soldPrice) || 0,
+      sold_date:  r.endedAt ? r.endedAt.split('T')[0] : null,
+      item_url:   r.url || null,
+    })).filter(i => i.sold_price > 0);
+  });
+
+  // Race all tokens — first successful response wins
+  try {
+    return await Promise.any(tokens.map(t => callApify(t)));
+  } catch (_) {
+    return [];
+  }
+}
+
+// ─── LLM VALIDATOR — filter/score results from eBay API ──────────────────────
+async function validateWithLLM(items, targetDesc, base44Client, minConfidence = 70) {
+  if (!items.length) return [];
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    const res = await base44Client.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `You are a sports card sold-listing expert. From this list of eBay sold listings, extract ONLY items that match the target card.
+
+TARGET: ${targetDesc}
+TODAY: ${todayStr}
+
+RULES:
+- match_confidence: 95+=exact, 70-94=near match, below 70=skip
+- EXCLUDE: lots, bundles, different player, wrong grade, wrong serial number, ungraded if target is graded
+- Keep sold_price, sold_date, item_url, title from the input
+- Max 8 results, sorted newest first
+
+LISTINGS:
+${JSON.stringify(items.slice(0, 30))}`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          validated_items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title:            { type: 'string' },
+                sold_price:       { type: 'number' },
+                sold_date:        { type: ['string', 'null'] },
+                item_url:         { type: 'string' },
+                match_confidence: { type: 'number' },
+              }
+            }
+          }
+        }
+      },
+      model: 'gemini_3_flash',
+      add_context_from_internet: false,
+    });
+    return (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= minConfidence);
+  } catch (_) {
+    return [];
+  }
+}
+
 // ─── FETCH LIVE PSA POP DATA ──────────────────────────────────────────────────
 async function fetchLivePop(player, year, set, grade, base44Client) {
   if (!player || !grade) return null;
   const gradeMatch = grade.toUpperCase().match(/PSA\s*(\d+(?:\.\d+)?)/);
-  if (!gradeMatch) return null; // Only PSA for now
+  if (!gradeMatch) return null;
 
   try {
     const query = [player, year, set].filter(Boolean).join(' ');
@@ -111,13 +190,12 @@ async function fetchLivePop(player, year, set, grade, base44Client) {
     const html = await popRes.text();
     if (html.length < 500 || html.includes('No results')) return null;
 
-    // Use fast LLM to parse the table — gemini_3_flash for speed
     const res = await base44Client.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Parse this PSA population report HTML page. Find the row for: ${player} | Year: ${year || 'any'} | Set: ${set || 'any'} | Grade: ${grade}
 
 Extract:
 - pop_at_grade: exact count at grade ${gradeMatch[1]}
-- pop_higher: total count of copies graded HIGHER than ${gradeMatch[1]} (sum all higher grade columns)
+- pop_higher: total count of copies graded HIGHER than ${gradeMatch[1]}
 - total_pop_all_grades: sum of ALL grade columns for this card row
 - highest_grade_achieved: the highest grade column that has any count > 0
 
@@ -127,10 +205,10 @@ HTML (first 20KB): ${html.slice(0, 20000)}`,
       response_json_schema: {
         type: 'object',
         properties: {
-          pop_at_grade: { type: ['number', 'null'] },
-          pop_higher: { type: ['number', 'null'] },
-          total_pop_all_grades: { type: ['number', 'null'] },
-          highest_grade_achieved: { type: ['string', 'null'] },
+          pop_at_grade:          { type: ['number', 'null'] },
+          pop_higher:            { type: ['number', 'null'] },
+          total_pop_all_grades:  { type: ['number', 'null'] },
+          highest_grade_achieved:{ type: ['string', 'null'] },
         }
       },
       model: 'gemini_3_flash',
@@ -157,12 +235,10 @@ HTML (first 20KB): ${html.slice(0, 20000)}`,
   }
 }
 
-// ─── POP SCORE for attribute algorithm ───────────────────────────────────────
+// ─── POP SCORE ────────────────────────────────────────────────────────────────
 function popToAttributeScore(popAtGrade, popHigher) {
   if (popAtGrade == null) return null;
-  // Pop 1 + highest graded = maximum (100)
   if (popAtGrade === 1 && popHigher === 0) return 100;
-  // Pop 1 but higher grades exist
   if (popAtGrade === 1) return 97;
   if (popAtGrade <= 5)   return 93;
   if (popAtGrade <= 15)  return 85;
@@ -172,29 +248,6 @@ function popToAttributeScore(popAtGrade, popHigher) {
   if (popAtGrade <= 300) return 35;
   if (popAtGrade <= 500) return 23;
   return 10;
-}
-
-// ─── FETCH eBay HTML ──────────────────────────────────────────────────────────
-async function fetchEbayHtml(encodedQuery) {
-  try {
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!resp.ok) return '';
-    const text = await resp.text();
-    const start = text.indexOf('srp-results');
-    const end   = text.indexOf('</ul>', start + 1);
-    if (start > -1 && end > -1) return text.slice(start, Math.min(end + 5, start + 50000));
-    return text.slice(0, 50000);
-  } catch (_) {
-    return '';
-  }
 }
 
 Deno.serve(async (req) => {
@@ -226,143 +279,77 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'player_name is required' }, { status: 400 });
     }
 
-    const todayStr    = new Date().toISOString().split('T')[0];
-    const isOneOfOne  = identity.serial === 1;
-    const exactParts  = [identity.player, identity.year, identity.set, identity.parallel, identity.serial ? `/${identity.serial}` : '', cardData.grade].map(s => String(s || '').trim()).filter(Boolean);
-    const broadParts  = [identity.player, identity.year, identity.set, cardData.grade].map(s => String(s || '').trim()).filter(Boolean);
-    const playerParts = [identity.player, identity.year, identity.set].map(s => String(s || '').trim()).filter(Boolean);
+    const todayStr   = new Date().toISOString().split('T')[0];
+    const isOneOfOne = identity.serial === 1;
 
-    const exactEncoded  = encodeURIComponent(exactParts.join(' '));
-    const broadEncoded  = encodeURIComponent(broadParts.join(' '));
-    const playerEncoded = encodeURIComponent(playerParts.join(' '));
+    // Build keyword strings for API queries
+    const exactParts  = [identity.player, identity.year, identity.set, identity.parallel, identity.serial ? `/${identity.serial}` : null, cardData.grade].filter(Boolean).map(s => String(s).trim());
+    const broadParts  = [identity.player, identity.year, identity.set, cardData.grade].filter(Boolean).map(s => String(s).trim());
+    const playerParts = [identity.player, identity.year, identity.set].filter(Boolean).map(s => String(s).trim());
 
-    const _ebay_search_url = `https://www.ebay.com/sch/i.html?_nkw=${exactEncoded}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
+    const _ebay_search_url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(exactParts.join(' '))}&LH_Sold=1&LH_Complete=1&_sop=13`;
 
-    const compSchema = {
-      type: 'object',
-      properties: {
-        validated_items: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              title:            { type: 'string' },
-              sold_price:       { type: 'number' },
-              sold_date:        { type: ['string', 'null'] },
-              item_url:         { type: 'string' },
-              match_confidence: { type: 'number' },
-            }
-          }
-        }
-      }
-    };
-
-    // ─── LLM HTML parser ──────────────────────────────────
-    async function parseHtmlWithLLM(html, targetDesc, minConfidence = 70) {
-      if (!html || html.length < 200) return [];
-      try {
-        const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `You are a sports card sold-listing expert. Parse this eBay sold listings page and extract ONLY matching completed sales.
-
-TARGET: ${targetDesc}
-TODAY: ${todayStr}
-
-RULES:
-- Extract: title, sold_price (USD number), sold_date (YYYY-MM-DD), item_url (https://www.ebay.com/itm/ITEMID), match_confidence (0-100)
-- match_confidence 95+=exact, 70-94=near match, below 70=skip
-- EXCLUDE: lots, bundles, different player, wrong grade company, different grade number, wrong serial number, ungraded if target is graded
-- sold_price = green hammer/sold price only (not asking)
-- Max 8 results, sorted newest first
-- Return empty array if nothing matches
-
-HTML: ${html}`,
-          response_json_schema: compSchema,
-          model: 'gemini_3_flash',
-          add_context_from_internet: false,
-        });
-        return (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= minConfidence);
-      } catch (_) {
-        return [];
-      }
-    }
+    const exactTargetDesc  = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${identity.parallel || 'base'} | ${identity.serial ? '/' + identity.serial : 'no serial'} | ${cardData.grade || 'ungraded'} | auto=${identity.auto_flag}`;
+    const broadTargetDesc  = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'ungraded'} — accept similar grade`;
+    const similarTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'any grade'} — similar card, any serial/parallel`;
 
     // ═══════════════════════════════════════════════════════
-    // STEP 2 — FETCH LIVE POP + FIND EXACT COMP (in parallel)
+    // STEP 2 — PARALLEL: Pop report + eBay API comp search
     // ═══════════════════════════════════════════════════════
+    const popReportPromise = fetchLivePop(identity.player, identity.year, identity.set, cardData.grade || '', base44);
+
+    // Strategy 1: Apify — exact query (tries both tokens automatically)
     let primaryItems = [];
     let compStrategy = 'none';
 
-    const apifyToken = (() => { try { return Deno.env.get('APIFY_TOKEN') || ''; } catch (_) { return ''; } })();
+    const exactRaw = await fetchEbayViaApify(exactParts.join(' '), 25);
+    if (exactRaw.length > 0) {
+      const validated = await validateWithLLM(exactRaw, exactTargetDesc, base44, 70);
+      if (validated.length > 0) {
+        primaryItems = validated;
+        compStrategy = 'apify_exact';
+      }
+    }
 
-    // Kick off pop report fetch in parallel with comp search — don't await yet
-    const popReportPromise = fetchLivePop(identity.player, identity.year, identity.set, cardData.grade || '', base44);
-    const exactTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${identity.parallel || 'base'} | ${identity.serial ? '/' + identity.serial : 'no serial'} | ${cardData.grade || 'ungraded'} | auto=${identity.auto_flag}`;
-
-    // Strategy 1: Apify — best quality, bypasses bot detection (runs first if token available)
-    if (apifyToken.length > 0) {
-      try {
-        const apifyRes = await fetch(
-          `https://api.apify.com/v2/acts/caffein.dev~ebay-sold-listings/run-sync-get-dataset-items?token=${apifyToken}&timeout=60&memory=512`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              keywords: [exactParts.join(' ')],
-              count: 20,
-              daysToScrape: 90,
-              sortOrder: 'endedRecently',
-            }),
-            signal: AbortSignal.timeout(65000),
-          }
-        );
-        if (apifyRes.ok) {
-          const results = await apifyRes.json();
-          if (Array.isArray(results) && results.length > 0) {
-            // caffein.dev/ebay-sold-listings field names: soldPrice, endedAt, url, title
-            const formatted = results.map(r => ({
-              title: r.title || '',
-              price: parseFloat(r.soldPrice) || 0,
-              date: r.endedAt ? r.endedAt.split('T')[0] : null,
-              url: r.url || null,
-            }));
-            const items = await parseHtmlWithLLM(JSON.stringify(formatted), exactTargetDesc, 70);
-            if (items.length > 0) { primaryItems = items; compStrategy = 'apify'; }
-          }
+    // Strategy 2: Apify — broad query
+    if (primaryItems.length === 0) {
+      const broadRaw = await fetchEbayViaApify(broadParts.join(' '), 25);
+      if (broadRaw.length > 0) {
+        const validated = await validateWithLLM(broadRaw, broadTargetDesc, base44, 65);
+        if (validated.length > 0) {
+          primaryItems = validated;
+          compStrategy = 'apify_broad';
         }
-      } catch (_) {}
-    }
-
-    // Strategy 2: Direct scrape — exact query
-    if (primaryItems.length === 0) {
-      const html1 = await fetchEbayHtml(exactEncoded);
-      if (html1.length > 300) {
-        primaryItems = await parseHtmlWithLLM(html1, exactTargetDesc, 70);
-        if (primaryItems.length > 0) compStrategy = 'ebay_scrape_exact';
       }
     }
 
-    // Strategy 3: Direct scrape — broad query
-    if (primaryItems.length === 0) {
-      const html2 = await fetchEbayHtml(broadEncoded);
-      if (html2.length > 300) {
-        const targetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'ungraded'} — accept similar grade`;
-        const items = await parseHtmlWithLLM(html2, targetDesc, 65);
-        if (items.length > 0) { primaryItems = items; compStrategy = 'ebay_scrape_broad'; }
-      }
-    }
-
-    // Strategy 4: AI internet search (last resort — uses real web search)
+    // Strategy 3: AI internet search (last resort)
     if (primaryItems.length === 0) {
       try {
         const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Sports card market expert. Find REAL recent completed eBay sold listings for this exact card.
-
+          prompt: `Sports card market expert. Find REAL recent completed eBay sold listings for:
 CARD: ${exactParts.join(' ')}
 Grade: ${cardData.grade || 'any'} | Auto: ${identity.auto_flag ? 'YES' : 'NO'} | Serial: ${identity.serial ? '/' + identity.serial : 'none'}
-
-CRITICAL: Return ONLY real completed sales. Do NOT fabricate prices. If you cannot find real data, return an empty array.
+CRITICAL: Return ONLY real completed sales. Do NOT fabricate prices. Empty array if no real data found.
 Up to 6 most recent sales, newest first. TODAY: ${todayStr}`,
-          response_json_schema: compSchema,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              validated_items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title:            { type: 'string' },
+                    sold_price:       { type: 'number' },
+                    sold_date:        { type: ['string', 'null'] },
+                    item_url:         { type: 'string' },
+                    match_confidence: { type: 'number' },
+                  }
+                }
+              }
+            }
+          },
           model: 'gemini_3_1_pro',
           add_context_from_internet: true,
         });
@@ -372,12 +359,8 @@ Up to 6 most recent sales, newest first. TODAY: ${todayStr}`,
     }
 
     // ═══════════════════════════════════════════════════════
-    // STEP 3 — STALE / 1-OF-1 FALLBACK: find similar card comp
+    // STEP 3 — SIMILAR CARD COMP (for 1/1 and stale >2yr)
     // ═══════════════════════════════════════════════════════
-    let similarCardComp = null;
-    let similarCardCompType = null; // 'one_of_one' | 'stale_over_2yr'
-
-    // Determine if exact comp is stale (>2 years) or 1/1 or missing
     const sortedExact = primaryItems.length > 0
       ? [...primaryItems].sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)))
       : [];
@@ -387,92 +370,64 @@ Up to 6 most recent sales, newest first. TODAY: ${todayStr}`,
       : Infinity;
 
     const needSimilarComp = isOneOfOne || bestExactAgeDays > 730;
+    let similarCardComp = null;
+    let similarCardCompType = null;
 
     if (needSimilarComp) {
       similarCardCompType = isOneOfOne ? 'one_of_one' : 'stale_over_2yr';
-      const similarTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'any grade'} — similar card, same player/set/year, any serial/parallel`;
 
-      // Try Apify first for similar card comp
-      let similarItems = [];
-      if (apifyToken.length > 0) {
-        try {
-          const apifyRes = await fetch(
-            `https://api.apify.com/v2/acts/caffein.dev~ebay-sold-listings/run-sync-get-dataset-items?token=${apifyToken}&timeout=60&memory=512`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                keywords: [playerParts.join(' ')],
-                count: 20,
-                daysToScrape: 90,
-                sortOrder: 'endedRecently',
-              }),
-              signal: AbortSignal.timeout(65000),
-            }
-          );
-          if (apifyRes.ok) {
-            const results = await apifyRes.json();
-            if (Array.isArray(results) && results.length > 0) {
-              const formatted = results.map(r => ({
-                title: r.title || '',
-                price: parseFloat(r.soldPrice) || 0,
-                date: r.endedAt ? r.endedAt.split('T')[0] : null,
-                url: r.url || null,
-              }));
-              similarItems = await parseHtmlWithLLM(JSON.stringify(formatted), similarTargetDesc, 60);
-            }
-          }
-        } catch (_) {}
-      }
-
-      // Fallback: direct scrape for similar cards
-      if (similarItems.length === 0) {
-        const similarHtml = await fetchEbayHtml(playerEncoded);
-        if (similarHtml.length > 300) {
-          similarItems = await parseHtmlWithLLM(similarHtml, similarTargetDesc, 60);
+      // Use Apify for similar cards
+      const similarRaw = await fetchEbayViaApify(playerParts.join(' '), 20);
+      if (similarRaw.length > 0) {
+        const validated = await validateWithLLM(similarRaw, similarTargetDesc, base44, 60);
+        if (validated.length > 0) {
+          const sorted = validated.sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)));
+          const best = sorted[0];
+          similarCardComp = {
+            title:      best.title || `${identity.player} ${identity.year || ''} (similar)`,
+            sold_price: best.sold_price,
+            sold_date:  best.sold_date || null,
+            item_url:   best.item_url || null,
+            confidence: best.match_confidence,
+            all:        sorted.slice(0, 5).map(c => ({ title: c.title, sold_price: c.sold_price, sold_date: c.sold_date, item_url: c.item_url })),
+          };
         }
       }
 
-      // Build similarCardComp from scraped items
-      if (similarItems.length > 0) {
-        const sortedSimilar = similarItems.sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)));
-        const best = sortedSimilar[0];
-        similarCardComp = {
-          title:      best.title || `${identity.player} ${identity.year || ''} ${identity.set || ''} (similar)`,
-          sold_price: best.sold_price,
-          sold_date:  best.sold_date || null,
-          item_url:   best.item_url || null,
-          confidence: best.match_confidence,
-          all:        sortedSimilar.slice(0, 5).map(c => ({
-            title:      c.title,
-            sold_price: c.sold_price,
-            sold_date:  c.sold_date,
-            item_url:   c.item_url,
-          })),
-        };
-      }
-
-      // If all scraping failed, try AI internet search for similar
+      // Fallback: AI search for similar
       if (!similarCardComp) {
         try {
           const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-            prompt: `Find recent eBay sold listings for cards SIMILAR to this one — same player and set, any serial/parallel.
-PLAYER: ${identity.player} | YEAR: ${identity.year || 'any'} | SET: ${identity.set || 'any'} | GRADE: ${cardData.grade || 'any'}
-Return real completed sales only. TODAY: ${todayStr}`,
-            response_json_schema: compSchema,
+            prompt: `Find recent eBay sold listings for cards SIMILAR to: ${identity.player} | ${identity.year || 'any'} | ${identity.set || 'any'} | ${cardData.grade || 'any'}
+Same player and set, any serial/parallel. Real completed sales only. TODAY: ${todayStr}`,
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                validated_items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' }, sold_price: { type: 'number' },
+                      sold_date: { type: ['string', 'null'] }, item_url: { type: 'string' },
+                      match_confidence: { type: 'number' },
+                    }
+                  }
+                }
+              }
+            },
             model: 'gemini_3_1_pro',
             add_context_from_internet: true,
           });
           const items = (res?.validated_items || []).filter(i => i.sold_price > 0);
           if (items.length > 0) {
             const sorted = items.sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)));
-            const best = sorted[0];
             similarCardComp = {
-              title:      best.title || `${identity.player} ${identity.year || ''} ${identity.set || ''} (similar)`,
-              sold_price: best.sold_price,
-              sold_date:  best.sold_date || null,
-              item_url:   best.item_url || null,
-              confidence: best.match_confidence || 60,
+              title:      sorted[0].title,
+              sold_price: sorted[0].sold_price,
+              sold_date:  sorted[0].sold_date || null,
+              item_url:   sorted[0].item_url || null,
+              confidence: sorted[0].match_confidence || 60,
               all:        sorted.slice(0, 5).map(c => ({ title: c.title, sold_price: c.sold_price, sold_date: c.sold_date, item_url: c.item_url })),
             };
           }
@@ -527,25 +482,19 @@ Return real completed sales only. TODAY: ${todayStr}`,
       baseValue  = compsMedian;
       baseAnchor = 'comps';
     } else if (similarCardComp) {
-      // Use similar card comp as the anchor — apply scarcity/parallel multipliers
       baseValue  = similarCardComp.sold_price;
       baseAnchor = 'similar_card';
     }
 
-    // Grade + parallel + serial adjustments
     const pMult = parallelMultiplier(identity.parallel);
     const sMult = serialScarcityMult(identity.serial);
     let smartValue = baseValue;
 
-    if (smartValue && baseAnchor === 'similar_card') {
-      smartValue = smartValue * pMult * sMult;
-      if (identity.auto_flag) smartValue *= 1.35;
-    } else if (smartValue && baseAnchor !== 'last_sold') {
+    if (smartValue && (baseAnchor === 'similar_card' || baseAnchor !== 'last_sold')) {
       smartValue = smartValue * pMult * sMult;
       if (identity.auto_flag) smartValue *= 1.35;
     }
 
-    // Enforce minimum 8% divergence from last sold (AI value must differ meaningfully)
     if (smartValue && lsp && lsdAgeDays <= 365) {
       if (Math.abs((smartValue - lsp) / lsp) < 0.08) {
         smartValue = lsp * 1.08;
@@ -559,14 +508,14 @@ Return real completed sales only. TODAY: ${todayStr}`,
     let anomaly_reason = null;
     if (lsp && compsMedian && compsMedian > 0) {
       const ratio = lsp / compsMedian;
-      if (ratio > 3) { anomaly_flag = true; anomaly_reason = `Last sale $${lsp.toLocaleString()} is >3× median comp ($${Math.round(compsMedian).toLocaleString()}) — possible outlier`; }
+      if (ratio > 3)      { anomaly_flag = true; anomaly_reason = `Last sale $${lsp.toLocaleString()} is >3× median comp ($${Math.round(compsMedian).toLocaleString()}) — possible outlier`; }
       else if (ratio < 0.33) { anomaly_flag = true; anomaly_reason = `Last sale $${lsp.toLocaleString()} is <0.33× median comp — possible undervalue outlier`; }
     }
 
     // ─── Confidence score ─────────────────────────────────
     let confidence = 0;
     const confFactors = [];
-    if ((lastSold.match_confidence ?? 0) >= 90)      { confidence += 40; confFactors.push('Exact eBay match'); }
+    if      ((lastSold.match_confidence ?? 0) >= 90) { confidence += 40; confFactors.push('Exact eBay API match'); }
     else if ((lastSold.match_confidence ?? 0) >= 70) { confidence += 25; confFactors.push('Near-exact eBay match'); }
     else if (lsp)                                     { confidence += 10; confFactors.push('Last sold found'); }
     if      (lsdAgeDays <= 30)  { confidence += 25; confFactors.push('Sale ≤30 days'); }
@@ -577,49 +526,47 @@ Return real completed sales only. TODAY: ${todayStr}`,
     if (identity.grade)    { confidence += 5;  confFactors.push('Grade confirmed'); }
     if (identity.serial)   { confidence += 5;  confFactors.push('Serial confirmed'); }
     if (similarCardComp)   { confidence += 8;  confFactors.push('Similar card comp found'); }
+    if (compStrategy === 'apify_exact' || compStrategy === 'apify_broad') { confidence += 10; confFactors.push('Apify eBay data'); }
     if (anomaly_flag)      { confidence = Math.max(0, confidence - 15); }
     confidence = Math.min(Math.round(confidence), 99);
 
-    // ─── Tier for UI ──────────────────────────────────────
-    const tier = isOneOfOne          ? 'one_of_one'
-      : lsp && lsdAgeDays <= 180     ? 'exact_match'
-      : lsp && lsdAgeDays <= 365     ? 'recent_match'
-      : lsp && lsdAgeDays <= 730     ? 'stale_match'
-      : similarCardComp              ? 'similar_card_baseline'
+    // ─── Tier ─────────────────────────────────────────────
+    const tier = isOneOfOne             ? 'one_of_one'
+      : lsp && lsdAgeDays <= 180        ? 'exact_match'
+      : lsp && lsdAgeDays <= 365        ? 'recent_match'
+      : lsp && lsdAgeDays <= 730        ? 'stale_match'
+      : similarCardComp                 ? 'similar_card_baseline'
       : 'no_data';
 
-    // ─── Await pop report (was running in parallel) ───────
+    // ─── Await pop report ─────────────────────────────────
     const livePopReport = await popReportPromise.catch(() => null);
     const popScore = livePopReport ? popToAttributeScore(livePopReport.pop_at_grade, livePopReport.pop_higher) : null;
 
-    // ─── Pop scarcity multiplier on smartValue ────────────
+    // ─── Pop scarcity uplift on smartValue ────────────────
     if (livePopReport?.pop_at_grade != null && smartValue) {
-      const p = livePopReport.pop_at_grade;
+      const p  = livePopReport.pop_at_grade;
       const ph = livePopReport.pop_higher ?? null;
-      // Ultra-rare pop gets a small uplift baked into smartValue
-      if (p === 1 && ph === 0)       smartValue = Math.round(smartValue * 1.30); // pop1 highest graded
-      else if (p === 1)              smartValue = Math.round(smartValue * 1.15); // pop1 not highest
-      else if (p <= 5)               smartValue = Math.round(smartValue * 1.08);
-      // High pop gets a mild cap
-      else if (p > 500)              smartValue = Math.round(smartValue * 0.95);
+      if (p === 1 && ph === 0) smartValue = Math.round(smartValue * 1.30);
+      else if (p === 1)        smartValue = Math.round(smartValue * 1.15);
+      else if (p <= 5)         smartValue = Math.round(smartValue * 1.08);
+      else if (p > 500)        smartValue = Math.round(smartValue * 0.95);
     }
 
     // ─── Value drivers ────────────────────────────────────
     const value_drivers = [];
-    if (lsp) value_drivers.push(`Last sold $${lsp.toLocaleString()}${lsd ? ' on ' + lsd : ''} (${lastSold.match_confidence ?? 0}% match confidence)`);
+    if (lsp) value_drivers.push(`Last sold $${lsp.toLocaleString()}${lsd ? ' on ' + lsd : ''} (${lastSold.match_confidence ?? 0}% match confidence) via ${compStrategy}`);
     if (pMult !== 1.0) value_drivers.push(`Parallel ${identity.parallel} → ×${pMult} tier multiplier`);
     if (sMult !== 1.0) value_drivers.push(`Serial /${identity.serial} scarcity → ×${sMult} multiplier`);
-    if (identity.rc_flag) value_drivers.push('Rookie Card: strong collector demand premium');
+    if (identity.rc_flag)  value_drivers.push('Rookie Card: strong collector demand premium');
     if (identity.auto_flag) value_drivers.push('Autograph: premium applied');
     if (similarCardComp && baseAnchor === 'similar_card') value_drivers.push(`No direct comp — anchored to similar card sale: $${similarCardComp.sold_price.toLocaleString()}`);
     if (livePopReport?.pop_at_grade != null) {
-      const p = livePopReport.pop_at_grade;
+      const p  = livePopReport.pop_at_grade;
       const ph = livePopReport.pop_higher;
-      value_drivers.push(`PSA Pop: ${p} at grade${ph === 0 ? ' — HIGHEST GRADED (no higher copies exist)' : ph != null ? `, ${ph} graded higher` : ''} → pop_score=${popScore}`);
+      value_drivers.push(`PSA Pop: ${p} at grade${ph === 0 ? ' — HIGHEST GRADED' : ph != null ? `, ${ph} graded higher` : ''} → pop_score=${popScore}`);
     }
 
     return Response.json({
-      // Core
       comp_value:           lsp,
       sale_date:            lsd,
       last_sold_url:        lastSold.last_sold_url,
@@ -640,10 +587,8 @@ Return real completed sales only. TODAY: ${todayStr}`,
         item_url:   c.item_url || null,
       })),
       _ebay_search_url,
-      // Similar card comp (for 1/1 and stale >2yr)
       similar_card_comp:      similarCardComp,
       similar_card_comp_type: similarCardCompType,
-      // Live pop report — real PSA data fetched during valuation
       live_pop_report:        livePopReport,
       pop_attribute_score:    popScore,
     });
