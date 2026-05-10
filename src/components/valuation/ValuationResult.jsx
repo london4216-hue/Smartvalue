@@ -183,7 +183,7 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
-                  📌 Last Sold (Comp Anchor)
+                  📌 Last Sold Price
                 </p>
                 {compValue > 0 ? (
                   <div className="flex items-baseline gap-2 flex-wrap">
@@ -203,7 +203,7 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm font-semibold text-amber-700">No comp found — AI estimate only</p>
+                  <p className="text-sm font-semibold text-amber-700">No last sold found — AI estimate only</p>
                 )}
                 {result._comp_notes && compValue > 0 && (
                   <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{result._comp_notes}</p>
@@ -247,7 +247,7 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
               {parseFloat(valueDiff) >= 0 ? '+' : ''}{valueDiff}% vs last sale of ${compValue.toLocaleString()}
             </p>
           ) : (
-            <p className="text-xs text-amber-600 font-medium">⚠ No comp anchor — estimate based on market knowledge only</p>
+            <p className="text-xs text-amber-600 font-medium">⚠ No last sold found — estimate based on market knowledge only</p>
           )}
           {/* Range / Confidence */}
           {result.projections?.one_year && (
@@ -354,7 +354,7 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
       )}
 
       {/* Comparable Sales — ALWAYS rendered, this is the system's core */}
-      <Accordion title="🔁 Comparable Sales" defaultOpen={true}>
+      <Accordion title="🔁 Last Sold History" defaultOpen={true}>
         <div className="pt-2 space-y-3">
 
           {/* Primary comp — the anchor */}
@@ -405,7 +405,7 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
           {/* Additional similar comps */}
           {result._similar_comps?.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Additional Similar Sales</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">More Recent Sales</p>
               {result._similar_comps.slice(0, 5).map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 bg-secondary/40 border border-border/40 rounded-xl px-4 py-3">
                   <div className="flex-1 min-w-0">

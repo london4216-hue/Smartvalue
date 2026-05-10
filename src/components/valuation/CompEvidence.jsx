@@ -4,32 +4,32 @@ import { cn } from '@/lib/utils';
 
 const TIER_CONFIG = {
   exact_match: {
-    label: 'Exact Comp Found',
+    label: 'Last Sold Found ✓',
     icon: '✅',
     color: 'text-emerald-600',
     bg: 'bg-emerald-500/5 border-emerald-500/20',
-    description: 'Direct sold listing match for this card.',
+    description: 'Verified last sold price from a real eBay completed listing for this exact card.',
   },
   adjusted_comp: {
-    label: 'Adjusted Comp',
+    label: 'Closest Last Sold (Adjusted)',
     icon: '🔄',
     color: 'text-blue-500',
     bg: 'bg-blue-500/5 border-blue-500/20',
-    description: 'No exact match — closest comparable sale, adjusted for grade or serial difference.',
+    description: 'No exact match — closest recent sale found, adjusted for grade or serial difference.',
   },
   similar_card_baseline: {
-    label: 'Baseline from 3 Similar Cards',
+    label: 'Baseline from Similar Sales',
     icon: '📊',
     color: 'text-amber-500',
     bg: 'bg-amber-500/5 border-amber-500/30',
-    description: 'No direct comp found. Three similar cards establish a market baseline. Actual card value adjusts upward for rarity.',
+    description: 'No direct last sold found. Similar cards establish a market baseline. Value adjusts upward for rarity.',
   },
   no_comp_conservative_estimate: {
-    label: 'Conservative Asset Estimate',
+    label: 'No Last Sold Found',
     icon: '⚠️',
     color: 'text-red-400',
     bg: 'bg-red-500/5 border-red-500/30',
-    description: 'No comparable sales data found. AI built a conservative estimate from market knowledge, set prestige, player demand, and scarcity.',
+    description: 'No recent sales data found. AI built a conservative estimate from market knowledge, set prestige, player demand, and scarcity.',
   },
 };
 
@@ -84,6 +84,7 @@ export default function CompEvidence({ result }) {
               <span className="text-xs font-mono font-semibold text-foreground bg-secondary/80 px-2 py-0.5 rounded border border-border/50">
                 Last Sold: ${compValue.toLocaleString()}
               </span>
+
             )}
             {matchConfidence !== null && (
               <span className={cn(
@@ -144,7 +145,7 @@ export default function CompEvidence({ result }) {
       {tier === 'similar_card_baseline' && similarComps.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            3 Similar Sold Comps Used as Baseline
+            3 Similar Last Sales Used as Baseline
           </p>
           <div className="space-y-2">
             {similarComps.map((comp, i) => (
