@@ -52,10 +52,10 @@ export default function CompEvidence({ result }) {
   const anomalyFlag = result._comp_anomaly_flag;
   const anomalyReason = result._comp_anomaly_reason;
 
-  // Nothing to show
-  if (!tier && !similarComps.length && !notes) return null;
+  // Nothing to show at all
+  if (!tier && !similarComps.length && !notes && !compValue) return null;
 
-  const config = TIER_CONFIG[tier] || TIER_CONFIG.adjusted_comp;
+  const config = TIER_CONFIG[tier] || (compValue ? TIER_CONFIG.exact_match : TIER_CONFIG.adjusted_comp);
 
   return (
     <motion.div

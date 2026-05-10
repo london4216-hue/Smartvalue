@@ -315,33 +315,66 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
         <PriceHistoryChart comps={result._similar_comps} aiValue={result.ai_investment_value} />
       )}
 
-      {/* Comparable Sales */}
-      <Accordion title="🔁 Comparable Sales">
-        <div className="pt-2 space-y-3">
-          <CompEvidence result={result} />
-          {result._similar_comps?.length > 0 && (
-            <div className="space-y-2">
-              {result._similar_comps.slice(0, 3).map((c, i) => (
-                <div key={i} className="flex items-center justify-between gap-3 bg-secondary/40 border border-border/40 rounded-xl px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">{c.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(c.sold_date)}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-black font-mono text-foreground">${c.sold_price?.toLocaleString()}</span>
-                    {c.item_url && (
-                      <a href={c.item_url} target="_blank" rel="noopener noreferrer"
-                        className="text-primary hover:opacity-70">
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
+      {/* Comparable Sales — always show if we have a comp_value or similar comps */}
+      {(compValue > 0 || result._similar_comps?.length > 0 || result._comp_tier) && (
+        <Accordion title="🔁 Comparable Sales" defaultOpen={true}>
+          <div className="pt-2 space-y-3">
+            {/* Primary comp card */}
+            {compValue > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-emerald-500/5 border border-emerald-500/30 rounded-xl px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-emerald-700">📌 Closest Sale to Today (Comp Anchor)</p>
+                  {result._comp_sale_date && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(result._comp_sale_date)}</p>
+                  )}
+                  {result._comp_notes && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{result._comp_notes}</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Accordion>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-lg font-black font-mono text-foreground">${compValue.toLocaleString()}</span>
+                  {(result.last_sold_url || result._ebay_search_url) && (
+                    <a href={result.last_sold_url || result._ebay_search_url} target="_blank" rel="noopener noreferrer"
+                      className="text-primary hover:opacity-70">
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <CompEvidence result={result} />
+
+            {/* Additional similar comps */}
+            {result._similar_comps?.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Additional Similar Sales</p>
+                {result._similar_comps.slice(0, 5).map((c, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 bg-secondary/40 border border-border/40 rounded-xl px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{c.title || c.description}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(c.sold_date || c.sale_date)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-black font-mono text-foreground">${(c.sold_price || c.last_sold_price)?.toLocaleString()}</span>
+                      {(c.item_url || c.ebay_link || c.validation_link) && (
+                        <a href={c.item_url || c.ebay_link || c.validation_link} target="_blank" rel="noopener noreferrer"
+                          className="text-primary hover:opacity-70">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!compValue && !result._similar_comps?.length && (
+              <p className="text-xs text-muted-foreground text-center py-2">No comparable sales data found — AI used market knowledge for the estimate.</p>
+            )}
+          </div>
+        </Accordion>
+      )}
 
       {/* Card Attributes */}
       {attrs.length > 0 && (
