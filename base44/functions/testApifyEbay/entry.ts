@@ -6,12 +6,12 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { apify_token } = await req.json();
+    const apify_token = Deno.env.get('APIFY_TOKEN') || '';
     if (!apify_token) {
-      return Response.json({ error: 'apify_token is required' }, { status: 400 });
+      return Response.json({ success: false, error: 'APIFY_TOKEN secret not set.' });
     }
 
-    // First just validate the token by hitting the user endpoint
+    // Validate token
     const userRes = await fetch('https://api.apify.com/v2/users/me?token=' + apify_token, {
       signal: AbortSignal.timeout(8000),
     });
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
       const text = await userRes.text();
       return Response.json({
         success: false,
-        error: `Invalid Apify token (status ${userRes.status}). Double-check you copied the full token from Apify → Account → Integrations.`,
+        error: `Invalid Apify token (status ${userRes.status}).`,
         detail: text,
       });
     }
@@ -28,31 +28,43 @@ Deno.serve(async (req) => {
     const userData = await userRes.json();
     const username = userData?.data?.username || 'unknown';
 
-    // Now test a quick eBay scrape using the junglee/eBay-search actor (widely available)
+    // Test a real scrape with the junglee actor and capture raw response shape
     const scrapeRes = await fetch(
-      `https://api.apify.com/v2/acts/dtrungtin~ebay-crawler/run-sync-get-dataset-items?token=${apify_token}&timeout=30&memory=256`,
+      `https://api.apify.com/v2/acts/junglee~ebay-search-scraper/run-sync-get-dataset-items?token=${apify_token}&timeout=60&memory=512`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startUrls: [{ url: 'https://www.ebay.com/sch/i.html?_nkw=LeBron+James+PSA+10&LH_Sold=1&LH_Complete=1&_ipg=10' }],
+          searchQueries: ['LeBron James 2003 Topps Chrome PSA 9'],
           maxItems: 5,
+          soldListings: true,
         }),
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(65000),
       }
     );
 
-    // Even if scrape fails, if token is valid we're good
+    let sampleData = null;
+    let actorWorked = false;
+    if (scrapeRes.ok) {
+      const results = await scrapeRes.json();
+      if (Array.isArray(results) && results.length > 0) {
+        actorWorked = true;
+        // Return first item so we can inspect the field names
+        sampleData = results[0];
+      }
+    }
+
     return Response.json({
       success: true,
-      message: `✓ Apify token is valid! Logged in as "${username}". Your comps will now pull real eBay sold data.`,
-      result_count: scrapeRes.ok ? 'connected' : 'token valid',
+      username,
+      actor_worked: actorWorked,
+      sample_item: sampleData,
+      message: actorWorked
+        ? `✓ Token valid (${username}). Actor returned data — check sample_item for field names.`
+        : `✓ Token valid (${username}). Actor ran but returned no results for test query.`,
     });
 
   } catch (error) {
-    return Response.json({
-      success: false,
-      error: error.message,
-    }, { status: 500 });
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });

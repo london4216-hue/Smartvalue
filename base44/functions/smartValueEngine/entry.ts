@@ -215,30 +215,29 @@ HTML: ${html}`,
     // Strategy 1: Apify — best quality, bypasses bot detection (runs first if token available)
     if (apifyToken.length > 0) {
       try {
-        // Run exact search via Apify eBay scraper actor
+        // Use the well-known eBay scraper actor with sold listings filter
         const apifyRes = await fetch(
-          `https://api.apify.com/v2/acts/dtrungtin~ebay-items-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=55&memory=256`,
+          `https://api.apify.com/v2/acts/junglee~ebay-search-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=60&memory=512`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              search: exactParts.join(' '),
+              searchQueries: [exactParts.join(' ')],
               maxItems: 60,
-              soldItems: true,
-              activeItems: false,
+              soldListings: true,
             }),
-            signal: AbortSignal.timeout(60000),
+            signal: AbortSignal.timeout(65000),
           }
         );
         if (apifyRes.ok) {
           const results = await apifyRes.json();
           if (Array.isArray(results) && results.length > 0) {
-            // Format results for LLM parsing
+            // Normalize various field name conventions from different actors
             const formatted = results.map(r => ({
-              title: r.title || r.name || '',
-              price: r.price || r.soldPrice || r.lastSoldPrice || 0,
-              date: r.endedAt || r.soldAt || r.endTime || null,
-              url: r.url || r.itemUrl || null,
+              title: r.title || r.name || r.itemTitle || '',
+              price: r.price?.value || r.soldPrice || r.lastSoldPrice || r.price || 0,
+              date: r.endedAt || r.soldAt || r.endDate || r.endTime || null,
+              url: r.url || r.itemUrl || r.link || null,
             }));
             const items = await parseHtmlWithLLM(JSON.stringify(formatted), exactTargetDesc, 70);
             if (items.length > 0) { primaryItems = items; compStrategy = 'apify'; }
@@ -312,27 +311,26 @@ Up to 6 most recent sales, newest first. TODAY: ${todayStr}`,
       if (apifyToken.length > 0) {
         try {
           const apifyRes = await fetch(
-            `https://api.apify.com/v2/acts/dtrungtin~ebay-items-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=55&memory=256`,
+            `https://api.apify.com/v2/acts/junglee~ebay-search-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=60&memory=512`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                search: playerParts.join(' '),
+                searchQueries: [playerParts.join(' ')],
                 maxItems: 60,
-                soldItems: true,
-                activeItems: false,
+                soldListings: true,
               }),
-              signal: AbortSignal.timeout(60000),
+              signal: AbortSignal.timeout(65000),
             }
           );
           if (apifyRes.ok) {
             const results = await apifyRes.json();
             if (Array.isArray(results) && results.length > 0) {
               const formatted = results.map(r => ({
-                title: r.title || r.name || '',
-                price: r.price || r.soldPrice || r.lastSoldPrice || 0,
-                date: r.endedAt || r.soldAt || r.endTime || null,
-                url: r.url || r.itemUrl || null,
+                title: r.title || r.name || r.itemTitle || '',
+                price: r.price?.value || r.soldPrice || r.lastSoldPrice || r.price || 0,
+                date: r.endedAt || r.soldAt || r.endDate || r.endTime || null,
+                url: r.url || r.itemUrl || r.link || null,
               }));
               similarItems = await parseHtmlWithLLM(JSON.stringify(formatted), similarTargetDesc, 60);
             }
