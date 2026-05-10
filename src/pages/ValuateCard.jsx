@@ -105,33 +105,35 @@ function buildResponseSchema() {
 }
 
 async function fetchRealComp(cardData) {
-  // SmartValue Engine with a hard 25s timeout so the valuation never hangs
+  // Strip image/scan fields that could bloat the payload to the backend
+  const { ai_grade_assessment, image_url, eye_appeal_reasoning, ai_eye_appeal_grade, ai_grade_disclosure, ...compPayload } = cardData;
+
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('timeout')), 25000)
   );
   const response = await Promise.race([
-    base44.functions.invoke('smartValueEngine', cardData),
+    base44.functions.invoke('smartValueEngine', compPayload),
     timeoutPromise,
   ]);
-  const d = response.data;
-  // Map SmartValue output to the shape ValuateCard expects
+  const d = response?.data;
+  if (!d || typeof d !== 'object') return null;
+
   return {
-    comp_value:      d.comp_value ?? d.last_sold?.last_sold_price ?? null,
-    sale_date:       d.sale_date  ?? d.last_sold?.last_sold_date  ?? null,
-    last_sold_url:   d.last_sold_url ?? d.last_sold?.last_sold_url ?? null,
-    match_confidence: d.match_confidence ?? d.last_sold?.match_confidence ?? 0,
-    confidence:      d.confidence >= 80 ? 'high' : d.confidence >= 50 ? 'medium' : 'low',
-    tier:            d.tier ?? 'no_comp_conservative_estimate',
-    notes:           d.confidence_factors?.join(' · ') || '',
-    similar_comps:   d.similar_comps || [],
-    anomaly_flag:    false,
-    anomaly_reason:  null,
-    _ebay_search_url: d._ebay_search_url || null,
-    // Surface SmartValue as a hint to the AI (AI still runs its own model)
+    comp_value:        d.comp_value ?? d.last_sold?.last_sold_price ?? null,
+    sale_date:         d.sale_date  ?? d.last_sold?.last_sold_date  ?? null,
+    last_sold_url:     d.last_sold_url ?? d.last_sold?.last_sold_url ?? null,
+    match_confidence:  d.match_confidence ?? d.last_sold?.match_confidence ?? 0,
+    confidence:        d.confidence >= 80 ? 'high' : d.confidence >= 50 ? 'medium' : 'low',
+    tier:              d.tier ?? 'no_comp_conservative_estimate',
+    notes:             d.confidence_factors?.join(' · ') || '',
+    similar_comps:     d.similar_comps || [],
+    anomaly_flag:      false,
+    anomaly_reason:    null,
+    _ebay_search_url:  d._ebay_search_url || null,
     _smart_value_hint: d.smart_value || null,
-    _anchor_source:  d.anchor_source || null,
-    _value_drivers:  d.value_drivers || [],
-    _identity:       d.identity || null,
+    _anchor_source:    d.anchor_source || null,
+    _value_drivers:    d.value_drivers || [],
+    _identity:         d.identity || null,
   };
 }
 
@@ -174,9 +176,14 @@ export default function ValuateCard() {
   };
 
   const handleValuate = async (cardData) => {
+    if (!cardData?.player_name) {
+      toast({ title: 'Missing card info', description: "Couldn't identify the card. Please try again.", variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
     setLoadingPhase('fetching_comp');
     setCardInput(cardData);
+    setResult(null);
     try {
       await _runValuation(cardData);
     } catch (err) {
@@ -185,7 +192,6 @@ export default function ValuateCard() {
         ? 'Valuation timed out — the AI took too long. Please try again.'
         : (err?.message || 'Something went wrong. Please try again.');
       toast({ title: 'Valuation error', description: msg, variant: 'destructive' });
-      setResult(null);
     } finally {
       setIsLoading(false);
       setLoadingPhase(null);
@@ -275,7 +281,11 @@ export default function ValuateCard() {
       throw new Error('AI valuation failed: ' + (llmErr?.message || 'unknown error'));
     }
 
-    let aiResult = (primaryLLM && typeof primaryLLM === 'object') ? primaryLLM : {};
+    // Safely extract — LLM may return the object directly or wrapped
+    let aiResult = {};
+    if (primaryLLM && typeof primaryLLM === 'object' && !Array.isArray(primaryLLM)) {
+      aiResult = primaryLLM;
+    }
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
 
     const signals = aiResult.key_signals || [];
@@ -291,10 +301,19 @@ export default function ValuateCard() {
       if (finalDiffPct < 8) finalAiValue = netSignalPct < 0 ? Math.round(compValue * 0.92) : Math.round(compValue * 1.08);
     }
 
+    // Preserve image-scan assessment fields separately before spread
+    const gradeAssessment = enrichedCardData.ai_grade_assessment || null;
+    const eyeAppealGrade  = enrichedCardData.ai_eye_appeal_grade || null;
+    const eyeAppealReason = enrichedCardData.eye_appeal_reasoning || null;
+
     const finalResult = {
       ...enrichedCardData,
       comp_value: compValue || null,
-      ...(typeof aiResult === 'object' && aiResult !== null ? aiResult : {}),
+      ...(aiResult && typeof aiResult === 'object' && !Array.isArray(aiResult) ? aiResult : {}),
+      // Re-attach scan fields that the AI spread might have clobbered
+      ai_grade_assessment: gradeAssessment,
+      ai_eye_appeal_grade: eyeAppealGrade,
+      eye_appeal_reasoning: eyeAppealReason,
       ai_investment_value: finalAiValue,
       holders_comp_calculation: aiResult.holders_comp_calculation || null,
       _comp_sale_date: enrichedCardData._comp_sale_date || null,
