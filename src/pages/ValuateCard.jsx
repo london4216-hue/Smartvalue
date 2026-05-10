@@ -294,7 +294,7 @@ export default function ValuateCard() {
     const finalResult = {
       ...enrichedCardData,
       comp_value: compValue || null,
-      ...aiResult,
+      ...(typeof aiResult === 'object' && aiResult !== null ? aiResult : {}),
       ai_investment_value: finalAiValue,
       holders_comp_calculation: aiResult.holders_comp_calculation || null,
       _comp_sale_date: enrichedCardData._comp_sale_date || null,

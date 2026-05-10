@@ -58,8 +58,11 @@ OVERALL: eye_appeal_grade(A/B/C/D — A=gem mint, B=excellent, C=good, D=poor), 
     model: 'gemini_3_flash',
   });
 
-  if (!extraction?.player && !extraction?.cert_number) {
-    throw new Error("Couldn't identify a card in this image. Try a clearer photo.");
+  if (!extraction || typeof extraction !== 'object') {
+    throw new Error("Couldn't read card data from the image. Try a clearer photo.");
+  }
+  if (!extraction?.player) {
+    throw new Error("Couldn't identify a card in this image. Make sure the card is clearly visible and try again.");
   }
 
   // Build the same shape as extractCardFromUrl returns
