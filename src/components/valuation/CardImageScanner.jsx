@@ -124,13 +124,15 @@ export default function CardImageScanner({ onConfirmed }) {
 
     setScanning(true);
     try {
-      const result = await analyzeCardImage(file);
+      // Hard 30s timeout so scanner never gets permanently stuck
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timed out — please try again.')), 30000)
+      );
+      const result = await Promise.race([analyzeCardImage(file), timeout]);
       setExtracted(result);
     } catch (err) {
-      const isNetwork = err.message?.toLowerCase().includes('network') || err.message?.toLowerCase().includes('fetch');
-      setError(isNetwork
-        ? "Network error — check your connection and tap 'Try again' below."
-        : (err.message || "Couldn't identify the card. Try a clearer photo."));
+      const msg = err.message || "Couldn't identify the card. Try a clearer photo.";
+      setError(msg);
       setImagePreview(null);
     } finally {
       setScanning(false);

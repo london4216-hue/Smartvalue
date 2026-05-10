@@ -119,21 +119,22 @@ async function fetchRealComp(cardData) {
   if (!d || typeof d !== 'object') return null;
 
   return {
-    comp_value:        d.comp_value ?? d.last_sold?.last_sold_price ?? null,
-    sale_date:         d.sale_date  ?? d.last_sold?.last_sold_date  ?? null,
-    last_sold_url:     d.last_sold_url ?? d.last_sold?.last_sold_url ?? null,
-    match_confidence:  d.match_confidence ?? d.last_sold?.match_confidence ?? 0,
-    confidence:        d.confidence >= 80 ? 'high' : d.confidence >= 50 ? 'medium' : 'low',
-    tier:              d.tier ?? 'no_comp_conservative_estimate',
-    notes:             d.confidence_factors?.join(' · ') || '',
-    similar_comps:     d.similar_comps || [],
-    anomaly_flag:      false,
-    anomaly_reason:    null,
-    _ebay_search_url:  d._ebay_search_url || null,
-    _smart_value_hint: d.smart_value || null,
-    _anchor_source:    d.anchor_source || null,
-    _value_drivers:    d.value_drivers || [],
-    _identity:         d.identity || null,
+    comp_value:              d.comp_value ?? null,
+    sale_date:               d.sale_date  ?? null,
+    last_sold_url:           d.last_sold_url ?? null,
+    match_confidence:        d.match_confidence ?? 0,
+    confidence:              d.confidence >= 80 ? 'high' : d.confidence >= 50 ? 'medium' : 'low',
+    tier:                    d.tier ?? 'no_comp_conservative_estimate',
+    notes:                   d.confidence_factors?.join(' · ') || '',
+    similar_comps:           d.similar_comps || [],
+    anomaly_flag:            d.anomaly_flag || false,
+    anomaly_reason:          d.anomaly_reason || null,
+    _ebay_search_url:        d._ebay_search_url || null,
+    _smart_value_hint:       d.smart_value || null,
+    _anchor_source:          d.base_anchor || null,
+    _value_drivers:          d.value_drivers || [],
+    _similar_card_comp:      d.similar_card_comp || null,
+    _similar_card_comp_type: d.similar_card_comp_type || null,
   };
 }
 
@@ -240,9 +241,12 @@ export default function ValuateCard() {
       } else if (compData) {
         enrichedCardData = {
           ...enrichedCardData,
-          _comp_tier: compData.tier || 'no_comp_conservative_estimate',
-          _comp_notes: compData.notes || '',
-          _similar_comps: compData.similar_comps || [],
+          _comp_tier:              compData.tier || 'no_comp_conservative_estimate',
+          _comp_notes:             compData.notes || '',
+          _similar_comps:          compData.similar_comps || [],
+          _ebay_search_url:        compData._ebay_search_url || null,
+          _similar_card_comp:      compData._similar_card_comp || null,
+          _similar_card_comp_type: compData._similar_card_comp_type || null,
         };
       }
     }
@@ -338,9 +342,11 @@ export default function ValuateCard() {
       _ebay_search_url: enrichedCardData._ebay_search_url || null,
       _similar_comps: enrichedCardData._similar_comps || [],
       _conservative_estimate_reasoning: enrichedCardData._conservative_estimate_reasoning || null,
-      _player_activity: aiResult.player_activity || null,
-      _market_signals: aiResult.market_signals || null,
-      _pop_report: aiResult.pop_report || null,
+      _player_activity:        aiResult.player_activity || null,
+      _market_signals:         aiResult.market_signals || null,
+      _pop_report:             aiResult.pop_report || null,
+      _similar_card_comp:      enrichedCardData._similar_card_comp || null,
+      _similar_card_comp_type: enrichedCardData._similar_card_comp_type || null,
     };
 
     if (compValue > 0) {

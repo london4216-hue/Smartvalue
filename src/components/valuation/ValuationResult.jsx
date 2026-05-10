@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import ValueDriversList from './ValueDriversList';
 import CompEvidence from './CompEvidence';
 import PriceHistoryChart from './PriceHistoryChart';
+import SimilarCardCompPanel from './SimilarCardCompPanel';
 
 // Lazy-load heavy sub-components — they are below the fold and not needed on first paint
 const BestBuyModal = lazy(() => import('./BestBuyModal'));
@@ -397,6 +398,9 @@ const ValuationResult = memo(function ValuationResult({ result, onSave, onReset 
           )}
 
           <CompEvidence result={result} />
+
+          {/* 1/1 or stale >2yr — similar card side-by-side panel */}
+          <SimilarCardCompPanel result={result} />
 
           {/* Additional similar comps */}
           {result._similar_comps?.length > 0 && (
