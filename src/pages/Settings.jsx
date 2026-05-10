@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Key, ExternalLink, AlertCircle, Zap } from 'lucide-react';
+import { CheckCircle2, Key, ExternalLink, AlertCircle, Zap, Loader2 } from 'lucide-react';
 
 export default function Settings() {
   const [apifyToken, setApifyToken] = useState('');
   const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null); // null | 'success' | 'fail'
+  const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem('apify_token');
@@ -14,7 +18,36 @@ export default function Settings() {
   const handleSave = () => {
     localStorage.setItem('apify_token', apifyToken.trim());
     setSaved(true);
+    setTestResult(null);
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleTest = async () => {
+    const token = apifyToken.trim() || localStorage.getItem('apify_token');
+    if (!token) {
+      setTestResult('fail');
+      setTestMessage('No token saved — paste your Apify token and hit Save first.');
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    setTestMessage('');
+    try {
+      const res = await base44.functions.invoke('testApifyEbay', { apify_token: token });
+      const data = res.data;
+      if (data?.success) {
+        setTestResult('success');
+        setTestMessage(`Connected! Found ${data.result_count ?? '?'} listings for a test search.`);
+      } else {
+        setTestResult('fail');
+        setTestMessage(data?.error || 'Connection failed. Check your token and try again.');
+      }
+    } catch (err) {
+      setTestResult('fail');
+      setTestMessage(err.message || 'Connection failed. Check your token and try again.');
+    } finally {
+      setTesting(false);
+    }
   };
 
   return (
@@ -86,6 +119,10 @@ export default function Settings() {
                 {saved ? <CheckCircle2 className="w-4 h-4 mr-2" /> : null}
                 {saved ? 'Token Saved ✓' : 'Save Token'}
               </Button>
+              <Button onClick={handleTest} disabled={testing} variant="outline" className="rounded-xl">
+                {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                {testing ? 'Testing...' : 'Test Connection'}
+              </Button>
               <a
                 href="https://console.apify.com/account/integrations"
                 target="_blank"
@@ -96,6 +133,16 @@ export default function Settings() {
                 Get Apify Token (New Tab)
               </a>
             </div>
+
+            {/* Test result */}
+            {testResult && (
+              <div className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${testResult === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700' : 'bg-red-500/10 border-red-500/30 text-red-700'}`}>
+                {testResult === 'success'
+                  ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                <p>{testMessage}</p>
+              </div>
+            )}
           </div>
         </div>
 
