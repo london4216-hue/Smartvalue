@@ -109,7 +109,7 @@ async function fetchRealComp(cardData) {
   const { ai_grade_assessment, image_url, eye_appeal_reasoning, ai_eye_appeal_grade, ai_grade_disclosure, ...compPayload } = cardData;
 
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('timeout')), 25000)
+    setTimeout(() => reject(new Error('timeout')), 45000)
   );
   const response = await Promise.race([
     base44.functions.invoke('smartValueEngine', compPayload),

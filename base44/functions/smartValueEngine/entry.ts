@@ -142,17 +142,29 @@ Deno.serve(async (req) => {
     let _ebay_search_url = null;
 
     try {
-      const searchParts = [
+      // Build search queries — exact first, broad fallback
+      const exactParts = [
         identity.player,
-        identity.year || '',
+        identity.year ? String(identity.year) : '',
         identity.set || '',
         identity.parallel || '',
         identity.serial ? `/${identity.serial}` : '',
         cardData.grade || '',
       ].map(s => String(s).trim()).filter(Boolean);
 
-      const cardDescription = searchParts.join(' ');
-      _ebay_search_url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(cardDescription)}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
+      const broadParts = [
+        identity.player,
+        identity.year ? String(identity.year) : '',
+        identity.set || '',
+        cardData.grade || '',
+      ].map(s => String(s).trim()).filter(Boolean);
+
+      const exactQuery    = exactParts.join(' ');
+      const broadQuery    = broadParts.join(' ');
+      const exactEncoded  = encodeURIComponent(exactQuery);
+      const broadEncoded  = encodeURIComponent(broadQuery);
+
+      _ebay_search_url = `https://www.ebay.com/sch/i.html?_nkw=${exactEncoded}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
       const todayStr = new Date().toISOString().split('T')[0];
 
       const compSchema = {
@@ -163,10 +175,10 @@ Deno.serve(async (req) => {
             items: {
               type: 'object',
               properties: {
-                title: { type: 'string' },
-                sold_price: { type: 'number' },
-                sold_date: { type: ['string', 'null'] },
-                item_url: { type: 'string' },
+                title:            { type: 'string' },
+                sold_price:       { type: 'number' },
+                sold_date:        { type: ['string', 'null'] },
+                item_url:         { type: 'string' },
                 match_confidence: { type: 'number' },
               }
             }
@@ -174,61 +186,125 @@ Deno.serve(async (req) => {
         }
       };
 
-      // Try Apify first if token exists (optional)
-      let html = '';
-      const apifyToken = Deno.env.get('APIFY_TOKEN') || '';
-      if (apifyToken.length > 0) {
-        try {
-          const apifyRes = await fetch('https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keywords: cardDescription, maxResults: 60, includeActiveListings: false, includeSoldListings: true }),
-            signal: AbortSignal.timeout(8000),
-          });
-          if (apifyRes.ok) {
-            const data = await apifyRes.json();
-            if (data.output?.results?.length > 0) html = JSON.stringify(data.output.results);
-          }
-        } catch (_) {}
+      // ── Helper: fetch eBay sold listings HTML ─────────────────────
+      async function fetchEbayHtml(encodedQuery) {
+        const url = `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
+        const resp = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(12000),
+        });
+        if (!resp.ok) return '';
+        const text = await resp.text();
+        // Extract just the sold listings portion to reduce token count
+        const start = text.indexOf('srp-results');
+        const end   = text.indexOf('</ul>', start + 1);
+        if (start > -1 && end > -1) return text.slice(start, Math.min(end + 5, start + 60000));
+        return text.slice(0, 60000);
       }
 
-      let primaryItems = [];
-
-      // Parse Apify HTML if we got data
-      if (html) {
+      // ── Helper: parse HTML with LLM ──────────────────────────────
+      async function parseHtmlWithLLM(html, targetDesc) {
         const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `Sports card sold listing expert. From this eBay data, extract validated sold listings for:
-TARGET: ${JSON.stringify({ player_name: identity.player, card_year: identity.year, card_set: identity.set, variation: identity.parallel, serial_number: identity.serial, grade: cardData.grade })}
-RULES: Extract title, sold_price (USD), sold_date (YYYY-MM-DD), item_url. DISQUALIFY: different player, year, set, grade, grading company, parallel, serial, auto, lots.
-Return only matches with match_confidence >= 70, sorted by sold_date descending. Max 8. TODAY: ${todayStr}
-DATA: ${html}`,
+          prompt: `You are an expert sports card sold-listing analyst. Parse this eBay sold listings HTML and extract ONLY matching sold sales.
+
+TARGET CARD: ${targetDesc}
+TODAY: ${todayStr}
+
+STRICT RULES:
+- Extract title, sold_price (number, USD only), sold_date (YYYY-MM-DD), item_url (full eBay URL), match_confidence (0-100)
+- match_confidence: 95+=exact match, 70-94=near match, below 70=skip
+- EXCLUDE: lots, bundles, wrong player, wrong grade company, wrong grade number, different serial, ungraded if target is graded
+- sold_price must be the HAMMER PRICE (green "Sold" price), not asking price
+- sold_date: extract from text like "Sold Jan 15, 2025" → "2025-01-15"
+- item_url: construct as https://www.ebay.com/itm/ITEMNUMBER if you find the item ID
+- Sort by sold_date descending (newest first), max 8 items
+- If price shows as auction with multiple bids, use the final bid price
+- ONLY return items where sold_price > 0
+
+HTML:
+${html}`,
           response_json_schema: compSchema,
           model: 'gemini_3_flash',
           add_context_from_internet: false,
         });
-        primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70);
+        return (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70);
       }
 
-      // Internet search — primary path when no Apify
+      let primaryItems = [];
+
+      // ── STRATEGY 1: Direct eBay scrape (exact query) ─────────────
+      try {
+        const html = await fetchEbayHtml(exactEncoded);
+        if (html.length > 500) {
+          const targetDesc = `${identity.player} | Year: ${identity.year || 'any'} | Set: ${identity.set || 'any'} | Parallel: ${identity.parallel || 'base'} | Serial: ${identity.serial ? '/' + identity.serial : 'none'} | Grade: ${cardData.grade || 'any'} | Auto: ${cardData.has_autograph ? 'yes' : 'no'}`;
+          primaryItems = await parseHtmlWithLLM(html, targetDesc);
+        }
+      } catch (_) {}
+
+      // ── STRATEGY 2: Direct eBay scrape (broad query) ─────────────
+      if (primaryItems.length === 0 && broadQuery !== exactQuery) {
+        try {
+          const html = await fetchEbayHtml(broadEncoded);
+          if (html.length > 500) {
+            const targetDesc = `${identity.player} | Year: ${identity.year || 'any'} | Set: ${identity.set || 'any'} | Grade: ${cardData.grade || 'any'} (accept nearby grades)`;
+            const items = await parseHtmlWithLLM(html, targetDesc);
+            primaryItems = items.filter(i => i.match_confidence >= 65);
+          }
+        } catch (_) {}
+      }
+
+      // ── STRATEGY 3: Apify (if token configured) ──────────────────
       if (primaryItems.length === 0) {
-        const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: `You are a sports card market expert. Search eBay completed/sold listings and find REAL recent sales for this exact card.
+        const apifyToken = Deno.env.get('APIFY_TOKEN') || '';
+        if (apifyToken.length > 0) {
+          try {
+            const apifyRes = await fetch(
+              'https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: exactQuery, maxResults: 60, includeActiveListings: false, includeSoldListings: true }),
+                signal: AbortSignal.timeout(12000),
+              }
+            );
+            if (apifyRes.ok) {
+              const data = await apifyRes.json();
+              if (data.output?.results?.length > 0) {
+                const targetDesc = `${identity.player} | Year: ${identity.year || 'any'} | Set: ${identity.set || 'any'} | Grade: ${cardData.grade || 'any'}`;
+                primaryItems = await parseHtmlWithLLM(JSON.stringify(data.output.results), targetDesc);
+              }
+            }
+          } catch (_) {}
+        }
+      }
 
-CARD: ${cardDescription}
-Grade: ${cardData.grade || 'any'} | Auto: ${cardData.has_autograph === false ? 'NO' : cardData.has_autograph ? 'YES' : 'unknown'} | Serial: ${identity.serial ? `/${identity.serial}` : 'none'}
+      // ── STRATEGY 4: AI internet search (last resort) ─────────────
+      if (primaryItems.length === 0) {
+        try {
+          const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: `You are a sports card sales expert with access to eBay sold listings data. Find REAL recent completed eBay sales for this exact card.
 
-CRITICAL RULES:
-- Return ONLY actual completed eBay sales (not active listings, not asking prices)
-- Match the EXACT grade, grading company, parallel/variation, serial number
-- Do NOT fabricate prices — only return sales you found via search
-- Include the eBay item URL if found
-- Return up to 5 most recent sales sorted newest first
+CARD: ${exactQuery}
+Grade: ${cardData.grade || 'any'} | Auto: ${cardData.has_autograph === false ? 'NO' : cardData.has_autograph ? 'YES' : 'unknown'} | Serial: ${identity.serial ? '/' + identity.serial : 'none'}
+
+RULES:
+- Search eBay completed/sold listings only (LH_Sold=1)
+- Return ONLY actual completed sales with real hammer prices
+- Match grade company AND grade number exactly if graded
+- Do NOT fabricate — only include sales you can find via search
+- Include eBay item URL when available
+- Up to 6 most recent sales, newest first
 TODAY: ${todayStr}`,
-          response_json_schema: compSchema,
-          model: 'gemini_3_1_pro',
-          add_context_from_internet: true,
-        });
-        primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 60);
+            response_json_schema: compSchema,
+            model: 'gemini_3_1_pro',
+            add_context_from_internet: true,
+          });
+          primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 55);
+        } catch (_) {}
       }
 
       if (primaryItems.length > 0) {
