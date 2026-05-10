@@ -209,46 +209,60 @@ HTML: ${html}`,
     let primaryItems = [];
     let compStrategy = 'none';
 
-    // Strategy 1: Direct scrape — exact query
-    const html1 = await fetchEbayHtml(exactEncoded);
-    if (html1.length > 300) {
-      const targetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${identity.parallel || 'base'} | ${identity.serial ? '/' + identity.serial : 'no serial'} | ${cardData.grade || 'ungraded'} | auto=${identity.auto_flag}`;
-      primaryItems = await parseHtmlWithLLM(html1, targetDesc, 70);
-      if (primaryItems.length > 0) compStrategy = 'ebay_scrape_exact';
+    const apifyToken = (() => { try { return Deno.env.get('APIFY_TOKEN') || ''; } catch (_) { return ''; } })();
+    const exactTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${identity.parallel || 'base'} | ${identity.serial ? '/' + identity.serial : 'no serial'} | ${cardData.grade || 'ungraded'} | auto=${identity.auto_flag}`;
+
+    // Strategy 1: Apify — best quality, bypasses bot detection (runs first if token available)
+    if (apifyToken.length > 0) {
+      try {
+        // Run exact search via Apify eBay scraper actor
+        const apifyRes = await fetch(
+          `https://api.apify.com/v2/acts/dtrungtin~ebay-items-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=55&memory=256`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              search: exactParts.join(' '),
+              maxItems: 60,
+              soldItems: true,
+              activeItems: false,
+            }),
+            signal: AbortSignal.timeout(60000),
+          }
+        );
+        if (apifyRes.ok) {
+          const results = await apifyRes.json();
+          if (Array.isArray(results) && results.length > 0) {
+            // Format results for LLM parsing
+            const formatted = results.map(r => ({
+              title: r.title || r.name || '',
+              price: r.price || r.soldPrice || r.lastSoldPrice || 0,
+              date: r.endedAt || r.soldAt || r.endTime || null,
+              url: r.url || r.itemUrl || null,
+            }));
+            const items = await parseHtmlWithLLM(JSON.stringify(formatted), exactTargetDesc, 70);
+            if (items.length > 0) { primaryItems = items; compStrategy = 'apify'; }
+          }
+        }
+      } catch (_) {}
     }
 
-    // Strategy 2: Direct scrape — broad query
+    // Strategy 2: Direct scrape — exact query
+    if (primaryItems.length === 0) {
+      const html1 = await fetchEbayHtml(exactEncoded);
+      if (html1.length > 300) {
+        primaryItems = await parseHtmlWithLLM(html1, exactTargetDesc, 70);
+        if (primaryItems.length > 0) compStrategy = 'ebay_scrape_exact';
+      }
+    }
+
+    // Strategy 3: Direct scrape — broad query
     if (primaryItems.length === 0) {
       const html2 = await fetchEbayHtml(broadEncoded);
       if (html2.length > 300) {
         const targetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'ungraded'} — accept similar grade`;
         const items = await parseHtmlWithLLM(html2, targetDesc, 65);
         if (items.length > 0) { primaryItems = items; compStrategy = 'ebay_scrape_broad'; }
-      }
-    }
-
-    // Strategy 3: Apify (only if token available — non-blocking check)
-    if (primaryItems.length === 0) {
-      const apifyToken = (() => { try { return Deno.env.get('APIFY_TOKEN') || ''; } catch (_) { return ''; } })();
-      if (apifyToken.length > 0) {
-        try {
-          const apifyRes = await fetch(
-            'https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ keywords: exactParts.join(' '), maxResults: 60, includeActiveListings: false, includeSoldListings: true }),
-              signal: AbortSignal.timeout(10000),
-            }
-          );
-          if (apifyRes.ok) {
-            const data = await apifyRes.json();
-            if (data.output?.results?.length > 0) {
-              const items = await parseHtmlWithLLM(JSON.stringify(data.output.results), `${identity.player} ${cardData.grade || ''}`, 70);
-              if (items.length > 0) { primaryItems = items; compStrategy = 'apify'; }
-            }
-          }
-        } catch (_) {}
       }
     }
 
@@ -291,31 +305,69 @@ Up to 6 most recent sales, newest first. TODAY: ${todayStr}`,
 
     if (needSimilarComp) {
       similarCardCompType = isOneOfOne ? 'one_of_one' : 'stale_over_2yr';
-      // Search for same player, same set/year, closest grade — NO serial filter
-      const similarHtml = await fetchEbayHtml(playerEncoded);
-      if (similarHtml.length > 300) {
-        const targetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'any grade'} — similar card, same player/set/year, any serial/parallel`;
-        const similarItems = await parseHtmlWithLLM(similarHtml, targetDesc, 60);
-        if (similarItems.length > 0) {
-          const sortedSimilar = similarItems.sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)));
-          const best = sortedSimilar[0];
-          similarCardComp = {
-            title:       best.title || `${identity.player} ${identity.year || ''} ${identity.set || ''} (similar)`,
-            sold_price:  best.sold_price,
-            sold_date:   best.sold_date || null,
-            item_url:    best.item_url || null,
-            confidence:  best.match_confidence,
-            all:         sortedSimilar.slice(0, 5).map(c => ({
-              title:      c.title,
-              sold_price: c.sold_price,
-              sold_date:  c.sold_date,
-              item_url:   c.item_url,
-            })),
-          };
+      const similarTargetDesc = `${identity.player} | ${identity.year || ''} | ${identity.set || ''} | ${cardData.grade || 'any grade'} — similar card, same player/set/year, any serial/parallel`;
+
+      // Try Apify first for similar card comp
+      let similarItems = [];
+      if (apifyToken.length > 0) {
+        try {
+          const apifyRes = await fetch(
+            `https://api.apify.com/v2/acts/dtrungtin~ebay-items-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=55&memory=256`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                search: playerParts.join(' '),
+                maxItems: 60,
+                soldItems: true,
+                activeItems: false,
+              }),
+              signal: AbortSignal.timeout(60000),
+            }
+          );
+          if (apifyRes.ok) {
+            const results = await apifyRes.json();
+            if (Array.isArray(results) && results.length > 0) {
+              const formatted = results.map(r => ({
+                title: r.title || r.name || '',
+                price: r.price || r.soldPrice || r.lastSoldPrice || 0,
+                date: r.endedAt || r.soldAt || r.endTime || null,
+                url: r.url || r.itemUrl || null,
+              }));
+              similarItems = await parseHtmlWithLLM(JSON.stringify(formatted), similarTargetDesc, 60);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Fallback: direct scrape for similar cards
+      if (similarItems.length === 0) {
+        const similarHtml = await fetchEbayHtml(playerEncoded);
+        if (similarHtml.length > 300) {
+          similarItems = await parseHtmlWithLLM(similarHtml, similarTargetDesc, 60);
         }
       }
 
-      // If scrape failed, try AI search for similar
+      // Build similarCardComp from scraped items
+      if (similarItems.length > 0) {
+        const sortedSimilar = similarItems.sort((a, b) => (!a.sold_date ? 1 : !b.sold_date ? -1 : new Date(b.sold_date) - new Date(a.sold_date)));
+        const best = sortedSimilar[0];
+        similarCardComp = {
+          title:      best.title || `${identity.player} ${identity.year || ''} ${identity.set || ''} (similar)`,
+          sold_price: best.sold_price,
+          sold_date:  best.sold_date || null,
+          item_url:   best.item_url || null,
+          confidence: best.match_confidence,
+          all:        sortedSimilar.slice(0, 5).map(c => ({
+            title:      c.title,
+            sold_price: c.sold_price,
+            sold_date:  c.sold_date,
+            item_url:   c.item_url,
+          })),
+        };
+      }
+
+      // If all scraping failed, try AI internet search for similar
       if (!similarCardComp) {
         try {
           const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
