@@ -3,9 +3,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
     const cardData = await req.json();
     const {
       player_name, card_year, card_set, variation, serial_number,
@@ -36,49 +33,6 @@ Deno.serve(async (req) => {
       has_autograph: has_autograph ?? null,
     };
 
-    // ── Try Apify first (if token available) ────────────────────────────────────
-    let html = '';
-    const apifyToken = Deno.env.get('APIFY_TOKEN');
-    
-    if (apifyToken) {
-      try {
-        const apifyRes = await fetch('https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            keywords: searchParts.join(' '),
-            maxResults: 60,
-            includeActiveListings: false,
-            includeSoldListings: true,
-          }),
-          signal: AbortSignal.timeout(8000),
-        });
-        if (apifyRes.ok) {
-          const data = await apifyRes.json();
-          if (data.output?.results?.length > 0) {
-            html = JSON.stringify(data.output.results);
-          }
-        }
-      } catch (_) {}
-    }
-    
-    // ── Fallback: check SoldListing database ──────────────────────────────────
-    if (!html) {
-      try {
-        const dbResults = await base44.entities.SoldListing.filter({
-          search_query: player_name
-        }, '-last_sold_date', 10);
-        if (dbResults.length > 0) {
-          html = JSON.stringify(dbResults.map(r => ({
-            title: r.title,
-            soldPrice: r.last_sold_price,
-            soldDate: r.last_sold_date,
-            url: r.validation_link,
-          })));
-        }
-      } catch (_) {}
-    }
-
     const compSchema = {
       type: 'object',
       properties: {
@@ -100,20 +54,34 @@ Deno.serve(async (req) => {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // ── SINGLE MODEL — fast, no cross-check overhead ──────────────────────────
+    // ── Step 1: Try Apify scraper (if token available) ───────────────────────
+    let html = '';
+    const apifyToken = Deno.env.get('APIFY_TOKEN') || '';
+    if (apifyToken.length > 0) {
+      try {
+        const apifyRes = await fetch('https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keywords: searchParts.join(' '), maxResults: 60, includeActiveListings: false, includeSoldListings: true }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (apifyRes.ok) {
+          const data = await apifyRes.json();
+          if (data.output?.results?.length > 0) html = JSON.stringify(data.output.results);
+        }
+      } catch (_) {}
+    }
+
     let primaryItems = [];
+
+    // ── Step 2: Parse Apify HTML with LLM if we got data ─────────────────────
     if (html) {
       const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Sports card sold listing expert. From this eBay HTML, extract and validate sold listings for:
+        prompt: `Sports card sold listing expert. From this eBay data, extract validated sold listings for:
 TARGET: ${JSON.stringify(cardIdentity)}
-
-RULES: Extract title, sold_price (USD, not shipping), sold_date (YYYY-MM-DD), item_url (https://www.ebay.com/itm/ID).
-DISQUALIFY: different player, year, set, grade, grading company, parallel/variation, serial number, auto status, lot/bundle.
-Return only confident exact matches (match_confidence >= 70), sorted by sold_date descending. Max 8 results.
-TODAY: ${todayStr}
-
-HTML:
-${html}`,
+RULES: Extract title, sold_price (USD), sold_date (YYYY-MM-DD), item_url. DISQUALIFY: different player, year, set, grade, grading company, parallel, serial, auto status, lots/bundles.
+Return only confident exact matches (match_confidence >= 70), sorted by sold_date descending. Max 8 results. TODAY: ${todayStr}
+DATA: ${html}`,
         response_json_schema: compSchema,
         model: 'gemini_3_flash',
         add_context_from_internet: false,
@@ -121,13 +89,20 @@ ${html}`,
       primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70);
     }
 
-    // ── Fallback: single web-search if no HTML results ─────────────────────
+    // ── Step 3: Internet search (primary path when no Apify) ─────────────────
     if (primaryItems.length === 0) {
       const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Find the most recent REAL completed eBay sale for this exact sports card.
+        prompt: `You are a sports card market expert. Search eBay completed/sold listings and find REAL recent sales for this exact card.
+
 CARD: ${cardDescription}
 Grade: ${grade || 'any'} | Auto: ${has_autograph === false ? 'NO' : has_autograph ? 'YES' : 'unknown'} | Serial: ${serial_number ? `/${serial_number}` : 'none'}
-Return only real sold prices, no asking prices, no fabrication.
+
+CRITICAL RULES:
+- Return ONLY actual completed eBay sales (not active listings, not asking prices)
+- Match EXACT grade, grading company, parallel/variation, serial number
+- Do NOT fabricate prices — if unsure, leave empty
+- Include the eBay item URL if found
+- Return up to 5 most recent sales sorted newest first
 TODAY: ${todayStr}`,
         response_json_schema: compSchema,
         model: 'gemini_3_1_pro',

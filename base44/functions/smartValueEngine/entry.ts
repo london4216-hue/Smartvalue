@@ -135,42 +135,131 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════
-    // STEP 2 + 3 — EXACT LAST SOLD + COMPS via fetchLiveSoldComps
+    // STEP 2 + 3 — EXACT LAST SOLD + COMPS (inlined)
     // ═══════════════════════════════════════════════════════
     let lastSold = { last_sold_price: null, last_sold_date: null, last_sold_url: null, match_confidence: 0, error: 'No data' };
     let comps = [];
+    let _ebay_search_url = null;
 
     try {
-      const liveRes = await base44.asServiceRole.functions.invoke('fetchLiveSoldComps', cardData);
-      const d = liveRes?.data || {};
+      const searchParts = [
+        identity.player,
+        identity.year || '',
+        identity.set || '',
+        identity.parallel || '',
+        identity.serial ? `/${identity.serial}` : '',
+        cardData.grade || '',
+      ].map(s => String(s).trim()).filter(Boolean);
 
-      if (d.comp_value > 0) {
-        lastSold = {
-          last_sold_price:  d.comp_value,
-          last_sold_date:   d.sale_date  || null,
-          last_sold_url:    d.last_sold_url || null,
-          match_confidence: d.match_confidence ?? 85,
-          error: null,
-        };
+      const cardDescription = searchParts.join(' ');
+      _ebay_search_url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(cardDescription)}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const compSchema = {
+        type: 'object',
+        properties: {
+          validated_items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                sold_price: { type: 'number' },
+                sold_date: { type: ['string', 'null'] },
+                item_url: { type: 'string' },
+                match_confidence: { type: 'number' },
+              }
+            }
+          }
+        }
+      };
+
+      // Try Apify first if token exists (optional)
+      let html = '';
+      const apifyToken = Deno.env.get('APIFY_TOKEN') || '';
+      if (apifyToken.length > 0) {
+        try {
+          const apifyRes = await fetch('https://api.apify.com/v2/actor-tasks/heropuppeteer~ebay-sold-listings-scraper/run-sync?token=' + apifyToken, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keywords: cardDescription, maxResults: 60, includeActiveListings: false, includeSoldListings: true }),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (apifyRes.ok) {
+            const data = await apifyRes.json();
+            if (data.output?.results?.length > 0) html = JSON.stringify(data.output.results);
+          }
+        } catch (_) {}
       }
 
-      comps = (d.similar_comps || [])
-        .filter(c => c.sold_price > 0)
-        .map(c => {
-          const cg = normalizeGrade(c.grade || '');
-          return {
-            price:         c.sold_price,
-            date:          c.sold_date || null,
-            grade_company: cg.company,
-            grade:         cg.grade,
-            parallel:      c.parallel || null,
-            serial:        c.serial   || null,
-            source:        'eBay',
-            _w:            timeDecayWeight(c.sold_date),
-          };
+      let primaryItems = [];
+
+      // Parse Apify HTML if we got data
+      if (html) {
+        const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `Sports card sold listing expert. From this eBay data, extract validated sold listings for:
+TARGET: ${JSON.stringify({ player_name: identity.player, card_year: identity.year, card_set: identity.set, variation: identity.parallel, serial_number: identity.serial, grade: cardData.grade })}
+RULES: Extract title, sold_price (USD), sold_date (YYYY-MM-DD), item_url. DISQUALIFY: different player, year, set, grade, grading company, parallel, serial, auto, lots.
+Return only matches with match_confidence >= 70, sorted by sold_date descending. Max 8. TODAY: ${todayStr}
+DATA: ${html}`,
+          response_json_schema: compSchema,
+          model: 'gemini_3_flash',
+          add_context_from_internet: false,
         });
-    } catch (_) {
-      lastSold.error = 'fetchLiveSoldComps failed';
+        primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 70);
+      }
+
+      // Internet search — primary path when no Apify
+      if (primaryItems.length === 0) {
+        const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: `You are a sports card market expert. Search eBay completed/sold listings and find REAL recent sales for this exact card.
+
+CARD: ${cardDescription}
+Grade: ${cardData.grade || 'any'} | Auto: ${cardData.has_autograph === false ? 'NO' : cardData.has_autograph ? 'YES' : 'unknown'} | Serial: ${identity.serial ? `/${identity.serial}` : 'none'}
+
+CRITICAL RULES:
+- Return ONLY actual completed eBay sales (not active listings, not asking prices)
+- Match the EXACT grade, grading company, parallel/variation, serial number
+- Do NOT fabricate prices — only return sales you found via search
+- Include the eBay item URL if found
+- Return up to 5 most recent sales sorted newest first
+TODAY: ${todayStr}`,
+          response_json_schema: compSchema,
+          model: 'gemini_3_1_pro',
+          add_context_from_internet: true,
+        });
+        primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 60);
+      }
+
+      if (primaryItems.length > 0) {
+        const sorted = primaryItems.sort((a, b) => {
+          if (!a.sold_date) return 1;
+          if (!b.sold_date) return -1;
+          return new Date(b.sold_date) - new Date(a.sold_date);
+        });
+        const best = sorted[0];
+        lastSold = {
+          last_sold_price:  best.sold_price,
+          last_sold_date:   best.sold_date || null,
+          last_sold_url:    best.item_url || null,
+          match_confidence: best.match_confidence ?? 75,
+          error: null,
+        };
+        comps = sorted.slice(1).map(c => ({
+          price:         c.sold_price,
+          date:          c.sold_date || null,
+          grade_company: identity.grade_company,
+          grade:         identity.grade,
+          parallel:      identity.parallel || null,
+          serial:        identity.serial || null,
+          source:        'eBay',
+          title:         c.title || null,
+          item_url:      c.item_url || null,
+          _w:            timeDecayWeight(c.sold_date),
+        }));
+      }
+    } catch (e) {
+      lastSold.error = e.message || 'comp lookup failed';
     }
 
     // ═══════════════════════════════════════════════════════
@@ -320,10 +409,10 @@ Deno.serve(async (req) => {
       similar_comps:    comps.slice(0, 6).map(({ _w, ...c }) => ({
         sold_price: c.price,
         sold_date:  c.date,
-        title:      [c.grade_company, c.grade, c.parallel].filter(Boolean).join(' '),
-        item_url:   null,
+        title:      c.title || [c.grade_company, c.grade, c.parallel].filter(Boolean).join(' '),
+        item_url:   c.item_url || null,
       })),
-      _ebay_search_url: null,
+      _ebay_search_url: _ebay_search_url,
       anchor_source:    baseAnchor,
       confidence_factors: confFactors,
     });
