@@ -266,19 +266,29 @@ export default function ValuateCard() {
       setTimeout(() => reject(new Error('llm_timeout')), 30000)
     );
     let primaryLLM;
+    const invokeLLM = () => base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: schema,
+      add_context_from_internet: false,
+      model: 'gemini_3_flash',
+    });
     try {
-      primaryLLM = await Promise.race([
-        base44.integrations.Core.InvokeLLM({
-          prompt,
-          response_json_schema: schema,
-          add_context_from_internet: false,
-          model: 'gemini_3_flash',
-        }),
-        llmTimeout,
-      ]);
+      primaryLLM = await Promise.race([invokeLLM(), llmTimeout]);
     } catch (llmErr) {
       if (llmErr?.message === 'llm_timeout') throw llmErr;
-      throw new Error('AI valuation failed: ' + (llmErr?.message || 'unknown error'));
+      // Network error — retry once
+      const isNetwork = llmErr?.message?.toLowerCase().includes('network') || llmErr?.message?.toLowerCase().includes('fetch');
+      if (isNetwork) {
+        try {
+          const retryTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('llm_timeout')), 30000));
+          primaryLLM = await Promise.race([invokeLLM(), retryTimeout]);
+        } catch (retryErr) {
+          if (retryErr?.message === 'llm_timeout') throw retryErr;
+          throw new Error('Connection error — please check your internet and try again.');
+        }
+      } else {
+        throw new Error('AI valuation failed — please try again.');
+      }
     }
 
     // Safely extract — LLM may return the object directly or wrapped
