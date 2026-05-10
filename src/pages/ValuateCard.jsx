@@ -181,7 +181,11 @@ export default function ValuateCard() {
       await _runValuation(cardData);
     } catch (err) {
       console.error('Valuation failed:', err);
-      toast({ title: 'Valuation error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
+      const msg = err?.message === 'llm_timeout'
+        ? 'Valuation timed out — the AI took too long. Please try again.'
+        : (err?.message || 'Something went wrong. Please try again.');
+      toast({ title: 'Valuation error', description: msg, variant: 'destructive' });
+      setResult(null);
     } finally {
       setIsLoading(false);
       setLoadingPhase(null);
@@ -255,17 +259,23 @@ export default function ValuateCard() {
     const llmTimeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('llm_timeout')), 30000)
     );
-    const primaryLLM = await Promise.race([
-      base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: schema,
-        add_context_from_internet: false,
-        model: 'gemini_3_flash',
-      }),
-      llmTimeout,
-    ]);
+    let primaryLLM;
+    try {
+      primaryLLM = await Promise.race([
+        base44.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: schema,
+          add_context_from_internet: false,
+          model: 'gemini_3_flash',
+        }),
+        llmTimeout,
+      ]);
+    } catch (llmErr) {
+      if (llmErr?.message === 'llm_timeout') throw llmErr;
+      throw new Error('AI valuation failed: ' + (llmErr?.message || 'unknown error'));
+    }
 
-    let aiResult = primaryLLM || {};
+    let aiResult = (primaryLLM && typeof primaryLLM === 'object') ? primaryLLM : {};
     aiResult = ensureNonZeroAdjustments(aiResult, enrichedCardData);
 
     const signals = aiResult.key_signals || [];
