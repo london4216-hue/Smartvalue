@@ -130,7 +130,7 @@ Grade: ${grade || 'any'} | Auto: ${has_autograph === false ? 'NO' : has_autograp
 Return only real sold prices, no asking prices, no fabrication.
 TODAY: ${todayStr}`,
         response_json_schema: compSchema,
-        model: 'gemini_3_flash',
+        model: 'gemini_3_1_pro',
         add_context_from_internet: true,
       });
       primaryItems = (res?.validated_items || []).filter(i => i.sold_price > 0 && i.match_confidence >= 60);
